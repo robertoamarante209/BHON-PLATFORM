@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ============================================================
@@ -238,12 +237,7 @@ model Treatment {
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
-  responsibleUser User? @relation(
-    "TreatmentResponsible",
-    fields: [responsibleUserId],
-    references: [id],
-    onDelete: SetNull
-  )
+  responsibleUser User? @relation("TreatmentResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
 
   quoteItems QuoteItem[]
 
@@ -292,12 +286,7 @@ model Quote {
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
-  createdBy User? @relation(
-    "QuoteCreator",
-    fields: [createdById],
-    references: [id],
-    onDelete: SetNull
-  )
+  createdBy User? @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   items QuoteItem[]
 
@@ -332,17 +321,9 @@ model QuoteItem {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  quote Quote @relation(
-    fields: [quoteId],
-    references: [id],
-    onDelete: Cascade
-  )
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  treatment Treatment? @relation(
-    fields: [treatmentId],
-    references: [id],
-    onDelete: SetNull
-  )
+  treatment Treatment? @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, quoteId])
@@ -350,8 +331,6 @@ model QuoteItem {
   @@map("quote_items")
 }
 
-// ============================================================
-// OPORTUNIDADE
 // É aqui que entra uma das principais inteligências do BHON:
 //
 // "Quem precisa da minha atenção hoje?"
@@ -389,9 +368,9 @@ model Opportunity {
 
   assignedToId String? @map("assigned_to_id")
 
-  type   OpportunityType
-  status OpportunityStatus @default(NEW)
-  priority Priority         @default(MEDIUM)
+  type     OpportunityType
+  status   OpportunityStatus @default(NEW)
+  priority Priority @default(MEDIUM)
 
   reason String?
 
@@ -408,12 +387,7 @@ model Opportunity {
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
-  assignedTo User? @relation(
-    "OpportunityAssignee",
-    fields: [assignedToId],
-    references: [id],
-    onDelete: SetNull
-  )
+  assignedTo User? @relation("OpportunityAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   tasks Task[]
 
@@ -421,12 +395,10 @@ model Opportunity {
   @@index([tenantId, patientId])
   @@index([tenantId, status])
   @@index([tenantId, priority])
-  @@index([tenantId, type])
-  @@index([tenantId, nextActionAt])
+  @@index([tenantId, assignedToId])
   @@map("opportunities")
 }
 
-// ============================================================
 // TAREFA
 // Ação concreta que alguém precisa executar.
 // ============================================================
@@ -461,24 +433,11 @@ model Task {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  patient Patient? @relation(
-    fields: [patientId],
-    references: [id],
-    onDelete: SetNull
-  )
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
 
-  opportunity Opportunity? @relation(
-    fields: [opportunityId],
-    references: [id],
-    onDelete: SetNull
-  )
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
 
-  assignedTo User? @relation(
-    "TaskAssignee",
-    fields: [assignedToId],
-    references: [id],
-    onDelete: SetNull
-  )
+  assignedTo User? @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -491,11 +450,10 @@ model Task {
 
 // ============================================================
 // TIMELINE
+//
 // Histórico operacional do relacionamento com o paciente.
 //
-// Exemplo:
-// - paciente cadastrado
-// - orçamento enviado
+// Exemplos:
 // - orçamento visualizado
 // - ligação realizada
 // - tarefa concluída
@@ -503,10 +461,10 @@ model Task {
 // ============================================================
 
 model TimelineEvent {
-  id       String @id @default(uuid())
+  id String @id @default(uuid())
+
   tenantId String @map("tenant_id")
   patientId String @map("patient_id")
-
   actorUserId String? @map("actor_user_id")
 
   type        String
@@ -518,18 +476,9 @@ model TimelineEvent {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  patient Patient @relation(
-    fields: [patientId],
-    references: [id],
-    onDelete: Restrict
-  )
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
 
-  actorUser User? @relation(
-    "TimelineActor",
-    fields: [actorUserId],
-    references: [id],
-    onDelete: SetNull
-  )
+  actorUser User? @relation("TimelineActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -551,11 +500,12 @@ model TimelineEvent {
 //
 // Esse registro não é a mesma coisa que Timeline.
 // Timeline é operacional.
-// AuditLog é segurança/auditoria.
+// Auditoria é segurança, rastreabilidade e conformidade.
 // ============================================================
 
 model AuditLog {
-  id       String @id @default(uuid())
+  id String @id @default(uuid())
+
   tenantId String @map("tenant_id")
 
   actorUserId String? @map("actor_user_id")
@@ -566,19 +516,13 @@ model AuditLog {
 
   metadata Json?
 
-  ipAddress String? @map("ip_address")
   userAgent String? @map("user_agent")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  actorUser User? @relation(
-    "AuditActor",
-    fields: [actorUserId],
-    references: [id],
-    onDelete: SetNull
-  )
+  actorUser User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, actorUserId])

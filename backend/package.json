@@ -4,19 +4,31 @@
   "description": "Tecnologias:",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx watch src/server.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.1",
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "deepmerge-ts": "8.0.0",
+    "fastify": "^5.12.1",
+    "pg": "^8.23.0",
     "prisma": "^7.10.0"
   },
   "overrides": {
     "deepmerge-ts": "8.0.0",
     "mysql2": "3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
   }
 }

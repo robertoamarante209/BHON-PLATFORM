@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-navy: #121B2A;
+    --color-teal: #13AA99;
+    --color-bg: #F8FAFB;
+    --color-surface: #FFFFFF;
+    --color-text: #172033;
+    --color-muted: #687386;
+    --color-border: #E4E9EE;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Tipografia de dados operacionais e funcionais */
+.font-mono-data {
+  font-family: 'IBM Plex Mono', monospace;
+  font-feature-settings: "zero", "tnum";
+  letter-spacing: -0.01em;
+}
+
+/* Tabelas operacionais densas */
+.bhon-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.bhon-table th {
+  background-color: #F8FAFB;
+  color: #687386;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.6875rem;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid #E4E9EE;
+  text-align: left;
+}
+
+.bhon-table td {
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid #E4E9EE;
+  color: #172033;
+}
+
+.bhon-table tr:hover td {
+  background-color: #F8FAFB;
+}
+
+/* Barra de rolagem discreta e cirúrgica */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}

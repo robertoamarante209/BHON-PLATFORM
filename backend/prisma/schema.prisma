@@ -14,6 +14,8 @@ datasource db {
 
 enum TenantStatus {
   ACTIVE
+  TEST
+  PAYMENT_PENDING
   SUSPENDED
   CANCELLED
 }
@@ -35,16 +37,26 @@ model Tenant {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  users           User[]
-  patients        Patient[]
-  treatments      Treatment[]
-  quotes          Quote[]
-  quoteItems      QuoteItem[]
-  opportunities   Opportunity[]
-  tasks           Task[]
-  timelineEvents  TimelineEvent[]
-  auditLogs       AuditLog[]
-  sessions        Session[]
+  users                 User[]
+  rooms                 Room[]
+  patients              Patient[]
+  appointments          Appointment[]
+  treatments            Treatment[]
+  treatmentStages       TreatmentStage[]
+  quotes                Quote[]
+  quoteItems            QuoteItem[]
+  opportunities         Opportunity[]
+  tasks                 Task[]
+  followUps             FollowUp[]
+  payments              Payment[]
+  financialTransactions FinancialTransaction[]
+  timelineEvents        TimelineEvent[]
+  auditLogs             AuditLog[]
+  sessions              Session[]
+  subscriptions         Subscription[]
+  platformInvoices      PlatformInvoice[]
+  supportTickets        SupportTicket[]
+  notifications         Notification[]
 
   @@index([status])
   @@index([createdAt])
@@ -53,10 +65,11 @@ model Tenant {
 
 // ============================================================
 // USUÁRIO
-// Pessoas que acessam o BHON dentro de uma clínica.
+// Pessoas que acessam o BHON dentro de uma clínica ou na plataforma.
 // ============================================================
 
 enum UserRole {
+  PLATFORM_OWNER
   OWNER
   ADMIN
   MANAGER
@@ -79,16 +92,18 @@ model User {
   name  String
   email String
 
-  // Email normalizado para evitar problemas de maiúsculas/minúsculas.
-  // Exemplo:
-  // Roberto@Email.com -> roberto@email.com
   emailNormalized String @map("email_normalized")
-
-  // Pode ser nulo futuramente para permitir outros métodos de login.
-  passwordHash String? @map("password_hash")
+  passwordHash    String? @map("password_hash")
 
   role   UserRole   @default(RECEPTIONIST)
   status UserStatus @default(ACTIVE)
+
+  specialty     String?
+  cro           String?
+  phone         String?
+  avatarUrl     String?   @map("avatar_url")
+  workloadHours Decimal?  @map("workload_hours") @db.Decimal(4, 2)
+  currentRoomId String?   @map("current_room_id")
 
   lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(3)
 
@@ -100,10 +115,15 @@ model User {
 
   sessions Session[]
 
-  responsibleTreatments Treatment[] @relation("TreatmentResponsible")
-  createdQuotes         Quote[]     @relation("QuoteCreator")
-  assignedOpportunities Opportunity[] @relation("OpportunityAssignee")
-  assignedTasks         Task[]         @relation("TaskAssignee")
+  responsibleTreatments   Treatment[]     @relation("TreatmentResponsible")
+  createdQuotes           Quote[]         @relation("QuoteCreator")
+  assignedOpportunities   Opportunity[]   @relation("OpportunityAssignee")
+  assignedTasks           Task[]          @relation("TaskAssignee")
+  appointmentsAsDoctor    Appointment[]   @relation("AppointmentProfessional")
+  assignedFollowUps       FollowUp[]      @relation("FollowUpAssignee")
+  openedSupportTickets    SupportTicket[] @relation("SupportTicketAuthor")
+  assignedSupportTickets  SupportTicket[] @relation("SupportTicketAssignee")
+  notifications           Notification[]  @relation("NotificationRecipient")
 
   timelineEvents TimelineEvent[] @relation("TimelineActor")
   auditLogs      AuditLog[]      @relation("AuditActor")
@@ -117,8 +137,7 @@ model User {
 
 // ============================================================
 // SESSÃO
-// Estrutura para autenticação segura.
-// O BHON nunca deve armazenar o token de sessão em texto puro.
+// Autenticação segura por token criptográfico.
 // ============================================================
 
 model Session {
@@ -146,6 +165,31 @@ model Session {
 }
 
 // ============================================================
+// CONSULTÓRIO / SALA (ROOM)
+// Consultório 01, Consultório 02, Consultório 03...
+// ============================================================
+
+model Room {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  name        String
+  orderIndex  Int     @default(1) @map("order_index")
+  isActive    Boolean @default(true) @map("is_active")
+  description String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  appointments Appointment[]
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@map("rooms")
+}
+
+// ============================================================
 // PACIENTE
 // Dados cadastrais e operacionais do paciente.
 // ============================================================
@@ -160,20 +204,18 @@ model Patient {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
 
-  name  String
-  phone String?
-  email String?
+  recordNumber String  @map("record_number") // Ex: #03945
+  name         String
+  cpf          String?
+  phone        String?
+  email        String?
+  birthDate    DateTime? @map("birth_date") @db.Date
 
-  birthDate DateTime? @map("birth_date") @db.Date
-
-  status PatientStatus @default(ACTIVE)
-
-  // Origem do paciente.
-  // Exemplos:
-  // Instagram, indicação, Google, WhatsApp, site etc.
-  source String?
-
-  externalRef String? @map("external_ref")
+  status       PatientStatus @default(ACTIVE)
+  source       String?
+  externalRef  String? @map("external_ref")
+  allergies    String?
+  observations String?
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -181,12 +223,16 @@ model Patient {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  treatments    Treatment[]
-  quotes        Quote[]
-  opportunities Opportunity[]
-  tasks         Task[]
+  appointments   Appointment[]
+  treatments     Treatment[]
+  quotes         Quote[]
+  opportunities  Opportunity[]
+  tasks          Task[]
+  followUps      FollowUp[]
+  payments       Payment[]
   timelineEvents TimelineEvent[]
 
+  @@unique([tenantId, recordNumber])
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, name])
@@ -198,34 +244,37 @@ model Patient {
 
 // ============================================================
 // TRATAMENTO
-// Representa um tratamento/procedimento acompanhado pelo BHON.
+// Plano terapêutico contínuo do paciente.
 // ============================================================
 
 enum TreatmentStatus {
   LEAD
   QUOTED
   PENDING
+  ACTIVE
   SCHEDULED
   IN_PROGRESS
   PAUSED
   COMPLETED
   CANCELLED
   ABANDONED
+  RISK_OF_ABANDONMENT
 }
 
 model Treatment {
-  id       String @id @default(uuid())
-  tenantId String @map("tenant_id")
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
   patientId String @map("patient_id")
 
   responsibleUserId String? @map("responsible_user_id")
 
   name        String
   description String?
+  totalValue  Decimal? @map("total_value") @db.Decimal(12, 2)
 
-  value Decimal? @db.Decimal(12, 2)
-
-  status TreatmentStatus @default(PENDING)
+  status          TreatmentStatus @default(ACTIVE)
+  progressPercent Int             @default(0) @map("progress_percent")
+  nextStageDate   DateTime?       @map("next_stage_date") @db.Timestamptz(3)
 
   startedAt   DateTime? @map("started_at") @db.Timestamptz(3)
   completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
@@ -239,7 +288,10 @@ model Treatment {
 
   responsibleUser User? @relation("TreatmentResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
 
-  quoteItems QuoteItem[]
+  stages       TreatmentStage[]
+  appointments Appointment[]
+  quoteItems   QuoteItem[]
+  payments     Payment[]
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -249,8 +301,99 @@ model Treatment {
 }
 
 // ============================================================
-// ORÇAMENTO
-// Cabeçalho de um orçamento comercial.
+// ETAPAS DO TRATAMENTO (TREATMENT STAGES)
+// Sessão 1/3, 2/3, 3/3, etc.
+// ============================================================
+
+enum StageStatus {
+  PENDING
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model TreatmentStage {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  treatmentId String @map("treatment_id")
+
+  stageNumber Int         @default(1) @map("stage_number")
+  title       String
+  description String?
+  status      StageStatus @default(PENDING)
+
+  plannedDate   DateTime? @map("planned_date") @db.Timestamptz(3)
+  completedDate DateTime? @map("completed_date") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  treatment    Treatment     @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([tenantId])
+  @@index([tenantId, treatmentId])
+  @@map("treatment_stages")
+}
+
+// ============================================================
+// AGENDAMENTO (APPOINTMENT)
+// A consulta na linha do tempo clínica e consultórios.
+// ============================================================
+
+enum AppointmentStatus {
+  CONFIRMADO
+  AGUARDANDO_CONFIRMACAO
+  NA_RECEPCAO
+  EM_ATENDIMENTO
+  CONCLUIDO
+  ATRASADO
+  FALTA
+  CANCELADO
+  ENCAIXE
+}
+
+model Appointment {
+  id               String @id @default(uuid())
+  tenantId         String @map("tenant_id")
+  patientId        String @map("patient_id")
+  professionalId   String @map("professional_id")
+  roomId           String @map("room_id")
+  treatmentId      String? @map("treatment_id")
+  treatmentStageId String? @map("treatment_stage_id")
+
+  scheduledAt     DateTime          @map("scheduled_at") @db.Timestamptz(3)
+  durationMinutes Int               @default(30) @map("duration_minutes")
+  procedureName   String            @map("procedure_name")
+  status          AppointmentStatus @default(CONFIRMADO)
+  delayMinutes    Int               @default(0) @map("delay_minutes")
+  notes           String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  professional   User            @relation("AppointmentProfessional", fields: [professionalId], references: [id], onDelete: Restrict)
+  room           Room            @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  treatment      Treatment?      @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  treatmentStage TreatmentStage? @relation(fields: [treatmentStageId], references: [id], onDelete: SetNull)
+
+  followUps FollowUp[]
+
+  @@index([tenantId])
+  @@index([tenantId, scheduledAt])
+  @@index([tenantId, roomId])
+  @@index([tenantId, professionalId])
+  @@index([tenantId, patientId])
+  @@index([tenantId, status])
+  @@map("appointments")
+}
+
+// ============================================================
+// ORÇAMENTO (QUOTE / BUDGET)
 // ============================================================
 
 enum QuoteStatus {
@@ -265,15 +408,18 @@ enum QuoteStatus {
 }
 
 model Quote {
-  id       String @id @default(uuid())
-  tenantId String @map("tenant_id")
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
   patientId String @map("patient_id")
 
   createdById String? @map("created_by_id")
 
   status QuoteStatus @default(DRAFT)
 
-  totalAmount Decimal @default(0) @map("total_amount") @db.Decimal(12, 2)
+  totalAmount    Decimal   @default(0) @map("total_amount") @db.Decimal(12, 2)
+  discountAmount Decimal   @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  finalAmount    Decimal   @default(0) @map("final_amount") @db.Decimal(12, 2)
+  paymentMethod  String?   @map("payment_method")
 
   sentAt     DateTime? @map("sent_at") @db.Timestamptz(3)
   expiresAt  DateTime? @map("expires_at") @db.Timestamptz(3)
@@ -288,7 +434,8 @@ model Quote {
 
   createdBy User? @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  items QuoteItem[]
+  items    QuoteItem[]
+  payments Payment[]
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -296,11 +443,6 @@ model Quote {
   @@index([tenantId, createdAt])
   @@map("quotes")
 }
-
-// ============================================================
-// ITENS DO ORÇAMENTO
-// Um orçamento pode possuir vários procedimentos.
-// ============================================================
 
 model QuoteItem {
   id       String @id @default(uuid())
@@ -311,10 +453,8 @@ model QuoteItem {
 
   description String
 
-  quantity Decimal @default(1) @db.Decimal(10, 2)
-
-  unitPrice Decimal @default(0) @map("unit_price") @db.Decimal(12, 2)
-
+  quantity   Decimal @default(1) @db.Decimal(10, 2)
+  unitPrice  Decimal @default(0) @map("unit_price") @db.Decimal(12, 2)
   totalPrice Decimal @default(0) @map("total_price") @db.Decimal(12, 2)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -331,9 +471,8 @@ model QuoteItem {
   @@map("quote_items")
 }
 
-// É aqui que entra uma das principais inteligências do BHON:
-//
-// "Quem precisa da minha atenção hoje?"
+// ============================================================
+// OPORTUNIDADES COMERCIAIS
 // ============================================================
 
 enum OpportunityType {
@@ -343,15 +482,18 @@ enum OpportunityType {
   ABANDONED_TREATMENT
   FOLLOW_UP
   REACTIVATION
+  NEW_CONTACT
 }
 
 enum OpportunityStatus {
-  NEW
-  IN_PROGRESS
-  WAITING
-  CONVERTED
-  LOST
-  DISMISSED
+  NEW_CONTACT
+  TRIAGEM
+  AVALIACAO
+  PLANO_APRESENTADO
+  ORCAMENTO
+  NEGOCIACAO
+  CONVERTIDO
+  PERDIDO
 }
 
 enum Priority {
@@ -362,31 +504,28 @@ enum Priority {
 }
 
 model Opportunity {
-  id       String @id @default(uuid())
-  tenantId String @map("tenant_id")
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
   patientId String @map("patient_id")
 
   assignedToId String? @map("assigned_to_id")
 
   type     OpportunityType
-  status   OpportunityStatus @default(NEW)
-  priority Priority @default(MEDIUM)
+  status   OpportunityStatus @default(TRIAGEM)
+  priority Priority          @default(MEDIUM)
 
-  reason String?
-
-  estimatedValue Decimal? @map("estimated_value") @db.Decimal(12, 2)
-
-  nextAction   String?   @map("next_action")
-  nextActionAt DateTime? @map("next_action_at") @db.Timestamptz(3)
+  source         String?
+  potentialValue Decimal?  @map("potential_value") @db.Decimal(12, 2)
+  daysInactive   Int       @default(0) @map("days_inactive")
+  nextStep       String?   @map("next_step")
+  lastContactAt  DateTime? @map("last_contact_at") @db.Timestamptz(3)
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
-
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient  Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
   assignedTo User? @relation("OpportunityAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   tasks Task[]
@@ -399,8 +538,8 @@ model Opportunity {
   @@map("opportunities")
 }
 
-// TAREFA
-// Ação concreta que alguém precisa executar.
+// ============================================================
+// TAREFAS / FILA DE AÇÃO
 // ============================================================
 
 enum TaskStatus {
@@ -421,7 +560,7 @@ model Task {
   title       String
   description String?
 
-  priority Priority  @default(MEDIUM)
+  priority Priority   @default(MEDIUM)
   status   TaskStatus @default(OPEN)
 
   dueAt       DateTime? @map("due_at") @db.Timestamptz(3)
@@ -431,13 +570,10 @@ model Task {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-
-  patient Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
-
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient     Patient?     @relation(fields: [patientId], references: [id], onDelete: SetNull)
   opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-
-  assignedTo User? @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo  User?        @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -449,35 +585,320 @@ model Task {
 }
 
 // ============================================================
-// TIMELINE
-//
-// Histórico operacional do relacionamento com o paciente.
-//
-// Exemplos:
-// - orçamento visualizado
-// - ligação realizada
-// - tarefa concluída
-// - tratamento iniciado
+// ACOMPANHAMENTOS (FOLLOW-UPS)
+// Filas operacionais de retorno, pós-operatório 48h, etc.
+// ============================================================
+
+enum FollowUpCategory {
+  POS_OPERATORIO
+  CONFIRMACAO
+  RETORNO
+  ORCAMENTO
+  TRATAMENTO
+  REATIVACAO
+  PENDENCIA_CLINICA
+}
+
+enum FollowUpStatus {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDO
+  ADIADO
+  CANCELADO
+}
+
+model FollowUp {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  patientId     String @map("patient_id")
+  appointmentId String? @map("appointment_id")
+
+  responsibleUserId String? @map("responsible_user_id")
+
+  category      FollowUpCategory
+  reason        String
+  priority      Priority         @default(MEDIUM)
+  status        FollowUpStatus   @default(PENDENTE)
+
+  deadlineAt    DateTime  @map("deadline_at") @db.Timestamptz(3)
+  lastContactAt DateTime? @map("last_contact_at") @db.Timestamptz(3)
+  nextAction    String?   @map("next_action")
+  notes         String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient         Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  responsibleUser User?        @relation("FollowUpAssignee", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, patientId])
+  @@index([tenantId, category])
+  @@index([tenantId, status])
+  @@index([tenantId, deadlineAt])
+  @@map("follow_ups")
+}
+
+// ============================================================
+// FINANCEIRO CLÍNICO: PAGAMENTOS E TRANSAÇÕES
+// ============================================================
+
+enum PaymentStatus {
+  PAGO
+  PENDENTE
+  ATRASADO
+  PARCIAL
+  CANCELADO
+}
+
+enum TransactionType {
+  RECEITA
+  DESPESA
+}
+
+model Payment {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  patientId   String @map("patient_id")
+  quoteId     String? @map("quote_id")
+  treatmentId String? @map("treatment_id")
+
+  referenceType String  @default("TREATMENT") @map("reference_type")
+  amount        Decimal @db.Decimal(12, 2)
+
+  dueDate       DateTime      @map("due_date") @db.Date
+  paidAt        DateTime?     @map("paid_at") @db.Timestamptz(3)
+  paymentMethod String?       @map("payment_method")
+  status        PaymentStatus @default(PENDENTE)
+  notes         String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  quote     Quote?     @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  treatment Treatment? @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, patientId])
+  @@index([tenantId, status])
+  @@index([tenantId, dueDate])
+  @@map("payments")
+}
+
+model FinancialTransaction {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  type        TransactionType
+  category    String
+  description String
+  amount      Decimal         @db.Decimal(12, 2)
+
+  dueDate   DateTime      @map("due_date") @db.Date
+  paidAt    DateTime?     @map("paid_at") @db.Timestamptz(3)
+  status    PaymentStatus @default(PENDENTE)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([tenantId, type])
+  @@index([tenantId, status])
+  @@index([tenantId, dueDate])
+  @@map("financial_transactions")
+}
+
+// ============================================================
+// FATURAMENTO DA PLATAFORMA BHON (PLATFORM OWNER ENVIRONMENT)
+// Cobrança das assinaturas que a BHON recebe das clínicas.
+// ============================================================
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+model SubscriptionPlan {
+  id               String  @id @default(uuid())
+  name             String
+  code             String  @unique
+  maxProfessionals Int     @default(5) @map("max_professionals")
+  maxRooms         Int     @default(3) @map("max_rooms")
+  monthlyPrice     Decimal @map("monthly_price") @db.Decimal(10, 2)
+  annualPrice      Decimal @map("annual_price") @db.Decimal(10, 2)
+  featuresJson     Json?   @map("features_json")
+  isActive         Boolean @default(true) @map("is_active")
+
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  planId   String @map("plan_id")
+
+  status       SubscriptionStatus @default(ACTIVE)
+  billingCycle BillingCycle       @default(MONTHLY) @map("billing_cycle")
+
+  currentPeriodStart DateTime @map("current_period_start") @db.Timestamptz(3)
+  currentPeriodEnd   DateTime @map("current_period_end") @db.Timestamptz(3)
+  renewalDate        DateTime @map("renewal_date") @db.Timestamptz(3)
+  amount             Decimal  @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices PlatformInvoice[]
+
+  @@index([tenantId])
+  @@index([planId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model PlatformInvoice {
+  id             String @id @default(uuid())
+  tenantId       String @map("tenant_id")
+  subscriptionId String @map("subscription_id")
+
+  invoiceNumber String        @unique @map("invoice_number")
+  amount        Decimal       @db.Decimal(10, 2)
+  dueDate       DateTime      @map("due_date") @db.Date
+  paidAt        DateTime?     @map("paid_at") @db.Timestamptz(3)
+  status        PaymentStatus @default(PENDENTE)
+  paymentMethod String?       @map("payment_method")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  subscription Subscription      @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  payments     PlatformPayment[]
+
+  @@index([tenantId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@map("platform_invoices")
+}
+
+model PlatformPayment {
+  id                String @id @default(uuid())
+  platformInvoiceId String @map("platform_invoice_id")
+
+  amount     Decimal   @db.Decimal(10, 2)
+  paidAt     DateTime  @default(now()) @map("paid_at") @db.Timestamptz(3)
+  status     String    @default("CONFIRMED")
+  gatewayRef String?   @map("gateway_ref")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  invoice PlatformInvoice @relation(fields: [platformInvoiceId], references: [id], onDelete: Cascade)
+
+  @@index([platformInvoiceId])
+  @@map("platform_payments")
+}
+
+// ============================================================
+// SUPORTE TÉCNICO DA PLATAFORMA (SUPPORT TICKETS)
+// ============================================================
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+}
+
+model SupportTicket {
+  id              String @id @default(uuid())
+  tenantId        String @map("tenant_id")
+  openedByUserId  String @map("opened_by_user_id")
+  assignedToUserId String? @map("assigned_to_id")
+
+  title       String
+  description String
+  priority    Priority     @default(MEDIUM)
+  status      TicketStatus @default(OPEN)
+
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  openedByUser   User   @relation("SupportTicketAuthor", fields: [openedByUserId], references: [id], onDelete: Restrict)
+  assignedToUser User?  @relation("SupportTicketAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([priority])
+  @@map("support_tickets")
+}
+
+// ============================================================
+// NOTIFICAÇÕES OPERACIONAIS (NOTIFICATIONS)
+// ============================================================
+
+model Notification {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  userId   String @map("user_id")
+
+  type      String
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  priority  Priority @default(MEDIUM)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User   @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================================
+// TIMELINE OPERACIONAL E AUDITORIA
 // ============================================================
 
 model TimelineEvent {
   id String @id @default(uuid())
 
-  tenantId String @map("tenant_id")
-  patientId String @map("patient_id")
+  tenantId    String @map("tenant_id")
+  patientId   String @map("patient_id")
   actorUserId String? @map("actor_user_id")
 
   type        String
   description String?
-
-  metadata Json?
+  metadata    Json?
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
-
   actorUser User? @relation("TimelineActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
@@ -487,42 +908,22 @@ model TimelineEvent {
   @@map("timeline_events")
 }
 
-// ============================================================
-// AUDITORIA
-//
-// Registro de ações importantes realizadas dentro do sistema.
-//
-// Exemplo:
-// USER_UPDATED
-// PATIENT_CREATED
-// QUOTE_ACCEPTED
-// PERMISSION_CHANGED
-//
-// Esse registro não é a mesma coisa que Timeline.
-// Timeline é operacional.
-// Auditoria é segurança, rastreabilidade e conformidade.
-// ============================================================
-
 model AuditLog {
   id String @id @default(uuid())
 
-  tenantId String @map("tenant_id")
-
+  tenantId    String @map("tenant_id")
   actorUserId String? @map("actor_user_id")
 
   action     String
   resource   String
   resourceId String? @map("resource_id")
-
-  metadata Json?
-
-  userAgent String? @map("user_agent")
+  metadata   Json?
+  userAgent  String? @map("user_agent")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-
-  actorUser User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actorUser User?  @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, actorUserId])

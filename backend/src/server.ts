@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { authRoutes } from "./routes/auth.js";
 import { prisma } from "./lib/prisma.js";
 import { tenantRoutes } from "./routes/tenants.js";
 
@@ -7,6 +8,7 @@ const app = Fastify({
 });
 
 app.register(tenantRoutes);
+app.register(authRoutes);
 
 app.get("/", async () => {
   return {

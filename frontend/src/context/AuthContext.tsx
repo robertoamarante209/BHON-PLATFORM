@@ -12,7 +12,7 @@ interface AuthContextType {
   switchRole: (role: UserRole) => void;
   isPlatformOwner: boolean;
   logout: () => void;
-  login: (email: string, role?: UserRole) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,26 +63,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     }
+    return true;
   };
 
-  const login = (email: string, targetRole?: UserRole): boolean => {
-    const foundUser = targetRole 
-      ? initialUsers.find(u => u.role === targetRole)
-      : initialUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const response = await fetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    if (!response.ok) return false;
+    const data = await response.json();
+    setCurrentUser(data.user);
 
-    if (foundUser) {
-      setCurrentUser(foundUser);
-      if (foundUser.role === 'PLATFORM_OWNER') {
-        // plataforma
-      } else {
-        const userClinic = initialClinics.find(c => c.id === foundUser.tenantId) || initialClinics[0];
-        setCurrentClinic(userClinic);
-      }
-      return true;
-    }
-    return false;
+    return true;
   };
-
   const logout = () => {
     // Para conveniência do operador, redireciona para a tela de login
     window.location.href = '/login';

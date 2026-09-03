@@ -13,7 +13,7 @@ export const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -22,7 +22,7 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    const success = login(email);
+    const success = await login(email, password);
     if (success) {
       if (email.includes('bhon.com.br')) {
         setLocation('/platform/overview');

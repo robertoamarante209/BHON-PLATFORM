@@ -1,0 +1,9 @@
+ALTER TABLE "treatments"
+  ADD COLUMN IF NOT EXISTS "stages_count" INTEGER NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS "completed_stages_count" INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE "quotes"
+  ADD COLUMN IF NOT EXISTS "title" TEXT NOT NULL DEFAULT 'Orçamento Odontológico';
+
+ALTER TABLE "payments"
+  ADD COLUMN IF NOT EXISTS "category" TEXT;

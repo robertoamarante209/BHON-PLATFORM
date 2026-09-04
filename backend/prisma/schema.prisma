@@ -274,8 +274,10 @@ model Treatment {
   description String?
   totalValue  Decimal? @map("total_value") @db.Decimal(12, 2)
 
-  status          TreatmentStatus @default(ACTIVE)
-  progressPercent Int             @default(0) @map("progress_percent")
+  status               TreatmentStatus @default(ACTIVE)
+  stagesCount          Int             @default(1) @map("stages_count")
+  completedStagesCount Int             @default(0) @map("completed_stages_count")
+  progressPercent      Int             @default(0) @map("progress_percent")
   nextStageDate   DateTime?       @map("next_stage_date") @db.Timestamptz(3)
 
   startedAt   DateTime? @map("started_at") @db.Timestamptz(3)
@@ -417,6 +419,7 @@ model Quote {
 
   createdById String? @map("created_by_id")
 
+  title  String      @default("Orçamento Odontológico")
   status QuoteStatus @default(DRAFT)
 
   totalAmount    Decimal   @default(0) @map("total_amount") @db.Decimal(12, 2)
@@ -669,6 +672,7 @@ model Payment {
   treatmentId String? @map("treatment_id")
 
   referenceType String  @default("TREATMENT") @map("reference_type")
+  category      String?
   amount        Decimal @db.Decimal(12, 2)
 
   dueDate       DateTime      @map("due_date") @db.Date

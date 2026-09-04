@@ -1,13 +1,16 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "./prisma.js";
 import { hashSessionToken } from "./auth.js";
-import type { User, Tenant, Session } from "./prisma-types.js";
+import type { Tenant, User, Session } from "./prisma-types.js";
+
+type AuthenticatedUser = Omit<User, "passwordHash" | "emailNormalized">;
+type AuthenticatedSession = Omit<Session, "tokenHash">;
 
 declare module "fastify" {
   interface FastifyRequest {
-    user?: User;
+    user?: AuthenticatedUser;
     tenant?: Tenant;
-    session?: Session;
+    session?: AuthenticatedSession;
     tenantId?: string;
   }
 }
@@ -28,7 +31,37 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
   try {
     const session = await prisma.session.findUnique({
       where: { tokenHash: hashSessionToken(token) },
-      include: { user: true, tenant: true },
+      select: {
+        id: true,
+        tenantId: true,
+        userId: true,
+        expiresAt: true,
+        revokedAt: true,
+        ipAddress: true,
+        userAgent: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            tenantId: true,
+            name: true,
+            email: true,
+            role: true,
+            status: true,
+            specialty: true,
+            cro: true,
+            phone: true,
+            avatarUrl: true,
+            workloadHours: true,
+            currentRoomId: true,
+            lastLoginAt: true,
+            createdAt: true,
+            updatedAt: true,
+            deletedAt: true,
+          },
+        },
+        tenant: true,
+      },
     });
 
     if (!session || session.revokedAt || session.expiresAt <= new Date()) {

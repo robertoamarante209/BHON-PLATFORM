@@ -292,7 +292,29 @@ export async function clinicalRoutes(app: FastifyInstance) {
           orderBy: { createdAt: "desc" }
         },
         appointments: {
-          include: { room: true, professional: true },
+          include: {
+            room: true,
+            professional: {
+              select: {
+                id: true,
+                tenantId: true,
+                name: true,
+                email: true,
+                role: true,
+                status: true,
+                specialty: true,
+                cro: true,
+                phone: true,
+                avatarUrl: true,
+                workloadHours: true,
+                currentRoomId: true,
+                lastLoginAt: true,
+                createdAt: true,
+                updatedAt: true,
+                deletedAt: true,
+              },
+            },
+          },
           orderBy: { scheduledAt: "desc" },
           take: 20
         },
@@ -389,7 +411,26 @@ export async function clinicalRoutes(app: FastifyInstance) {
       include: {
         patient: true,
         room: true,
-        professional: true
+        professional: {
+          select: {
+            id: true,
+            tenantId: true,
+            name: true,
+            email: true,
+            role: true,
+            status: true,
+            specialty: true,
+            cro: true,
+            phone: true,
+            avatarUrl: true,
+            workloadHours: true,
+            currentRoomId: true,
+            lastLoginAt: true,
+            createdAt: true,
+            updatedAt: true,
+            deletedAt: true,
+          },
+        },
       }
     });
 
@@ -427,7 +468,30 @@ export async function clinicalRoutes(app: FastifyInstance) {
 
     const appointment = await prisma.appointment.findFirst({
       where: { id, tenantId },
-      include: { patient: true, professional: true, treatment: true }
+      include: {
+        patient: true,
+        professional: {
+          select: {
+            id: true,
+            tenantId: true,
+            name: true,
+            email: true,
+            role: true,
+            status: true,
+            specialty: true,
+            cro: true,
+            phone: true,
+            avatarUrl: true,
+            workloadHours: true,
+            currentRoomId: true,
+            lastLoginAt: true,
+            createdAt: true,
+            updatedAt: true,
+            deletedAt: true,
+          },
+        },
+        treatment: true,
+      }
     });
 
     if (!appointment) {

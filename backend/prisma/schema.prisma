@@ -32,6 +32,7 @@ model Tenant {
 
   status   TenantStatus @default(ACTIVE)
   planCode String       @default("STARTER") @map("plan_code")
+  patientRecordSequence Int @default(0) @map("patient_record_sequence")
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -230,6 +231,7 @@ model Patient {
   tasks          Task[]
   followUps      FollowUp[]
   payments       Payment[]
+  financialTransactions FinancialTransaction[]
   timelineEvents TimelineEvent[]
 
   @@unique([tenantId, recordNumber])
@@ -292,6 +294,7 @@ model Treatment {
   appointments Appointment[]
   quoteItems   QuoteItem[]
   payments     Payment[]
+  financialTransactions FinancialTransaction[]
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -681,6 +684,7 @@ model Payment {
   patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Restrict)
   quote     Quote?     @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   treatment Treatment? @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  financialTransaction FinancialTransaction?
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -692,6 +696,10 @@ model Payment {
 model FinancialTransaction {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
+
+  paymentId   String? @unique @map("payment_id")
+  patientId   String? @map("patient_id")
+  treatmentId String? @map("treatment_id")
 
   type        TransactionType
   category    String
@@ -705,12 +713,17 @@ model FinancialTransaction {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  payment   Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  patient   Patient?    @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  treatment Treatment?  @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, type])
   @@index([tenantId, status])
   @@index([tenantId, dueDate])
+  @@index([tenantId, patientId])
+  @@index([tenantId, treatmentId])
   @@map("financial_transactions")
 }
 

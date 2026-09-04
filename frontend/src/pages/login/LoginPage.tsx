@@ -1,42 +1,30 @@
 import React, { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Mail, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { UserRole } from '../../types';
+import { Lock, Mail, ArrowRight } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const { login, switchRole } = useAuth();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('roberto@odontoprime.com.br');
-  const [password, setPassword] = useState('••••••••••');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!email) {
-      setError('Por favor, informe seu e-mail institucional.');
+    if (!email || !password) {
+      setError('Informe seu e-mail institucional e sua senha.');
       return;
     }
-
-    const success = await login(email, password);
-    if (success) {
-      if (email.includes('bhon.com.br')) {
-        setLocation('/platform/overview');
-      } else {
-        setLocation('/clinic/overview');
-      }
-    } else {
-      setError('Credenciais inválidas para o domínio da clínica.');
+    const user = await login(email, password, rememberMe);
+    if (!user) {
+      setError('Não foi possível autenticar. Verifique suas credenciais ou contate o administrador.');
+      return;
     }
-  };
-
-  const handleQuickRole = (role: UserRole, targetEmail: string, route: string) => {
-    switchRole(role);
-    setLocation(route);
+    setLocation(user.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview');
   };
 
   return (
@@ -85,16 +73,7 @@ export const LoginPage: React.FC = () => {
                 <label className="font-semibold text-bhon-text uppercase tracking-wider text-[11px]">
                   Senha de Acesso
                 </label>
-                <a
-                  href="#recuperar"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert('Solicitação de redefinição enviada para o administrador da clínica.');
-                  }}
-                  className="text-bhon-teal hover:underline text-[11px]"
-                >
-                  Esqueci minha senha
-                </a>
+                <span className="text-[11px] text-bhon-muted">Recuperação de acesso com o administrador</span>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-bhon-muted absolute left-3 top-2.5" />
@@ -130,55 +109,12 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Perfis de Acesso Rápido para Demonstração e Homologação */}
-          <div className="mt-8 pt-6 border-t border-bhon-border">
-            <p className="text-[11px] font-bold text-bhon-muted uppercase tracking-wider mb-2.5 text-center">
-              Acesso Rápido por Papel (Homologação)
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleQuickRole('OWNER', 'roberto@odontoprime.com.br', '/clinic/overview')}
-                className="p-2 text-left rounded border border-bhon-border bg-slate-50 hover:bg-slate-100 hover:border-bhon-teal transition-colors"
-              >
-                <p className="font-bold text-bhon-text">Dr. Roberto (Dono)</p>
-                <p className="text-[10px] text-bhon-muted">Visão Geral & Finanças</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRole('RECEPTIONIST', 'camila@odontoprime.com.br', '/clinic/agenda')}
-                className="p-2 text-left rounded border border-bhon-border bg-slate-50 hover:bg-slate-100 hover:border-bhon-teal transition-colors"
-              >
-                <p className="font-bold text-bhon-text">Camila (Recepção)</p>
-                <p className="text-[10px] text-bhon-muted">Agenda & Fila do Dia</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRole('DENTIST', 'eduardo@odontoprime.com.br', '/clinic/treatments')}
-                className="p-2 text-left rounded border border-bhon-border bg-slate-50 hover:bg-slate-100 hover:border-bhon-teal transition-colors"
-              >
-                <p className="font-bold text-bhon-text">Dr. Eduardo (Dentista)</p>
-                <p className="text-[10px] text-bhon-muted">Tratamentos & Prontuário</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRole('PLATFORM_OWNER', 'roberto@bhon.com.br', '/platform/overview')}
-                className="p-2 text-left rounded border border-amber-300 bg-amber-50 hover:bg-amber-100 transition-colors"
-              >
-                <p className="font-bold text-amber-900">Mantenedor BHON</p>
-                <p className="text-[10px] text-amber-700 font-mono-data">PLATFORM_OWNER</p>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Rodapé de Segurança e Credibilidade */}
         <div className="text-center mt-6 text-[11px] text-slate-400 font-mono-data">
           <p>BHON Clinical Operating System • Multi-Tenant v2.4</p>
-          <p className="text-[10px] text-slate-500 mt-1">Conexão Segura com Criptografia de Ponta a Ponta</p>
+          <p className="text-[10px] text-slate-500 mt-1">Sessão autenticada com controle de acesso por perfil</p>
         </div>
       </div>
     </div>

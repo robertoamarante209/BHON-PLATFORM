@@ -16,15 +16,26 @@ await app.register(helmet, {
   contentSecurityPolicy: false, // Permite funcionamento sem conflito com SPA
 });
 
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 await app.register(cors, {
-  origin: true,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Origin não permitida pelo CORS"), false);
+  },
   credentials: true,
 });
 
-await app.register(cookie, {
-  secret: process.env.COOKIE_SECRET || "bhon-clinical-os-session-secret-2026",
-  parseOptions: {},
-});
+const cookieSecret = process.env.COOKIE_SECRET;
+if (!cookieSecret) throw new Error("COOKIE_SECRET não está definida.");
+
+await app.register(cookie, { secret: cookieSecret, parseOptions: {} });
 
 // Registra rotas de domínio
 await app.register(authRoutes);
@@ -48,10 +59,10 @@ app.get("/health/db", async () => {
       database: result[0]?.ok === 1 ? "connected" : "unknown",
     };
   } catch (error: any) {
+    app.log.error(error, "Falha no health check do banco de dados");
     return {
       status: "degraded",
       database: "disconnected",
-      message: error?.message || "Erro ao conectar ao banco de dados",
     };
   }
 });

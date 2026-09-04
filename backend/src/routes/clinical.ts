@@ -1,7 +1,45 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "../lib/prisma.js";
-import { requireAuth, requireTenant } from "../lib/middleware.js";
+import { requireAuth, requireTenant, requireRole } from "../lib/middleware.js";
 import { AppointmentStatus, QuoteStatus, TreatmentStatus, OpportunityStatus, FollowUpStatus, PaymentStatus } from "../lib/prisma-types.js";
+
+const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
+const CLINIC_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
+const CLINIC_MANAGEMENT_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
+const CLINIC_FINANCE_ROLES = ["OWNER", "ADMIN", "MANAGER", "FINANCIAL"] as const;
+
+const APPOINTMENT_TRANSITIONS: Record<string, string[]> = {
+  CONFIRMADO: ["NA_RECEPCAO", "CANCELADO", "FALTA", "ENCAIXE"],
+  AGUARDANDO_CONFIRMACAO: ["CONFIRMADO", "NA_RECEPCAO", "CANCELADO", "FALTA"],
+  NA_RECEPCAO: ["EM_ATENDIMENTO", "ATRASADO", "CANCELADO", "FALTA"],
+  EM_ATENDIMENTO: ["CONCLUIDO", "ATRASADO", "CANCELADO"],
+  ATRASADO: ["NA_RECEPCAO", "EM_ATENDIMENTO", "CONCLUIDO", "CANCELADO", "FALTA"],
+  ENCAIXE: ["NA_RECEPCAO", "EM_ATENDIMENTO", "CONCLUIDO", "CANCELADO", "FALTA"],
+  FALTA: ["CONFIRMADO", "CANCELADO"],
+  CANCELADO: ["CONFIRMADO", "ENCAIXE"],
+  CONCLUIDO: [],
+};
+
+async function validateAppointmentRelations(tenantId: string, body: any) {
+  const [patient, professional, room, treatment] = await Promise.all([
+    prisma.patient.findFirst({ where: { id: body.patientId, tenantId, deletedAt: null }, select: { id: true } }),
+    prisma.user.findFirst({ where: { id: body.professionalId, tenantId, deletedAt: null, status: "ACTIVE" }, select: { id: true, role: true } }),
+    prisma.room.findFirst({ where: { id: body.roomId, tenantId, isActive: true }, select: { id: true } }),
+    body.treatmentId ? prisma.treatment.findFirst({ where: { id: body.treatmentId, tenantId, deletedAt: null }, select: { id: true } }) : null,
+  ]);
+  if (!patient) return "Paciente não pertence à clínica.";
+  if (!professional) return "Profissional não pertence à clínica ou está inativo.";
+  if (!room) return "Consultório não pertence à clínica ou está inativo.";
+  if (!treatment && body.treatmentId) return "Tratamento não pertence à clínica.";
+  if (body.treatmentStageId) {
+    const stage = await prisma.treatmentStage.findFirst({
+      where: { id: body.treatmentStageId, tenantId, ...(body.treatmentId ? { treatmentId: body.treatmentId } : {}) },
+      select: { id: true },
+    });
+    if (!stage) return "Etapa do tratamento inválida para esta clínica.";
+  }
+  return null;
+}
 
 export async function clinicalRoutes(app: FastifyInstance) {
   // Todas as rotas clínicas exigem autenticação e contexto de tenant
@@ -11,7 +49,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   // ============================================================
   // 1. VISÃO GERAL (COMMAND SURFACE - EXCEÇÕES E OPERAÇÃO DO DIA)
   // ============================================================
-  app.get("/overview", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/overview", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
 
     const todayStart = new Date();
@@ -136,7 +174,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   // ============================================================
   // 2. PACIENTES (CRUD, BUSCA, PAGINAÇÃO, DOSSIÊ COMPLETO)
   // ============================================================
-  app.get("/patients", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/patients", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const query = request.query as { search?: string; status?: string; page?: string; limit?: string };
     
@@ -208,7 +246,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post("/patients", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post("/patients", { preHandler: requireRole(CLINIC_WRITE_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const user = request.user!;
     const body = request.body as any;
@@ -217,53 +255,32 @@ export async function clinicalRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "Nome do paciente é obrigatório." });
     }
 
-    // Gera número sequencial de prontuário
-    const count = await prisma.patient.count({ where: { tenantId } });
-    const recordNumber = `#${String(count + 1).padStart(5, "0")}`;
+    if (body.birthDate && Number.isNaN(new Date(body.birthDate).getTime())) {
+      return reply.code(400).send({ error: "Data de nascimento inválida." });
+    }
 
-    const patient = await prisma.patient.create({
-      data: {
-        tenantId,
-        recordNumber,
-        name: body.name.trim(),
-        cpf: body.cpf?.trim() || null,
-        phone: body.phone?.trim() || null,
-        email: body.email?.trim().toLowerCase() || null,
-        birthDate: body.birthDate ? new Date(body.birthDate) : null,
-        allergies: body.allergies || null,
-        observations: body.observations || null,
-        source: body.source || "Recepção",
-        status: "ACTIVE"
-      }
+    const patient = await prisma.$transaction(async (tx: any) => {
+      const tenant = await tx.tenant.update({
+        where: { id: tenantId },
+        data: { patientRecordSequence: { increment: 1 } },
+        select: { patientRecordSequence: true },
+      });
+      const recordNumber = `#${String(tenant.patientRecordSequence).padStart(5, "0")}`;
+      const created = await tx.patient.create({
+        data: { tenantId, recordNumber, name: body.name.trim(), cpf: body.cpf?.trim() || null,
+          phone: body.phone?.trim() || null, email: body.email?.trim().toLowerCase() || null,
+          birthDate: body.birthDate ? new Date(body.birthDate) : null, allergies: body.allergies || null,
+          observations: body.observations || null, source: body.source || "Recepção", status: "ACTIVE" },
+      });
+      await tx.timelineEvent.create({ data: { tenantId, patientId: created.id, actorUserId: user.id, type: "PATIENT_CREATED", description: `Prontuário ${recordNumber} aberto por ${user.name}.` } });
+      await tx.auditLog.create({ data: { tenantId, actorUserId: user.id, action: "CREATE", resource: "Patient", resourceId: created.id, metadata: { recordNumber, name: created.name } } });
+      return created;
     });
-
-    // Registra na linha do tempo e auditoria
-    await Promise.all([
-      prisma.timelineEvent.create({
-        data: {
-          tenantId,
-          patientId: patient.id,
-          actorUserId: user.id,
-          type: "PATIENT_CREATED",
-          description: `Prontuário ${recordNumber} aberto por ${user.name}.`
-        }
-      }),
-      prisma.auditLog.create({
-        data: {
-          tenantId,
-          actorUserId: user.id,
-          action: "CREATE",
-          resource: "Patient",
-          resourceId: patient.id,
-          metadata: { recordNumber, name: patient.name }
-        }
-      })
-    ]);
 
     return reply.code(201).send(patient);
   });
 
-  app.get("/patients/:id", async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  app.get<{ Params: { id: string } }>("/patients/:id", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const { id } = request.params;
 
@@ -306,7 +323,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   // ============================================================
   // 3. AGENDA (MATRIZ DE HORÁRIOS + SALAS + WORKFLOWS DE STATUS)
   // ============================================================
-  app.get("/appointments", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/appointments", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const query = request.query as { date?: string; roomId?: string };
 
@@ -339,17 +356,21 @@ export async function clinicalRoutes(app: FastifyInstance) {
     return reply.send(appointments);
   });
 
-  app.post("/appointments", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post("/appointments", { preHandler: requireRole(CLINIC_WRITE_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const user = request.user!;
     const body = request.body as any;
 
     const professionalId = body.professionalId || body.doctorId;
+    body.professionalId = professionalId;
     if (!body.patientId || !professionalId || !body.roomId || !body.scheduledAt) {
       return reply.code(400).send({ error: "Campos obrigatórios ausentes para agendamento." });
     }
 
     const scheduledAt = new Date(body.scheduledAt);
+    if (Number.isNaN(scheduledAt.getTime())) return reply.code(400).send({ error: "Data e hora do agendamento são inválidas." });
+    const relationError = await validateAppointmentRelations(tenantId, body);
+    if (relationError) return reply.code(400).send({ error: relationError });
 
     const appointment = await prisma.appointment.create({
       data: {
@@ -361,6 +382,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
         scheduledAt,
         durationMinutes: Number(body.durationMinutes) || 45,
         procedureName: body.procedureName || "Consulta de Rotina",
+        treatmentStageId: body.treatmentStageId || null,
         status: AppointmentStatus.CONFIRMADO,
         notes: body.notes || null
       },
@@ -397,7 +419,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   // WORKFLOW CRÍTICO CRUZADO DE STATUS DO AGENDAMENTO
-  app.patch("/appointments/:id/status", async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  app.patch<{ Params: { id: string } }>("/appointments/:id/status", { preHandler: requireRole(CLINIC_WRITE_ROLES) }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const user = request.user!;
     const { id } = request.params;
@@ -410,6 +432,12 @@ export async function clinicalRoutes(app: FastifyInstance) {
 
     if (!appointment) {
       return reply.code(404).send({ error: "Agendamento não encontrado." });
+    }
+    if (!Object.values(AppointmentStatus).includes(body.status)) {
+      return reply.code(400).send({ error: "Status de agendamento inválido." });
+    }
+    if (!APPOINTMENT_TRANSITIONS[appointment.status]?.includes(body.status)) {
+      return reply.code(409).send({ error: `Transição de agenda inválida: ${appointment.status} → ${body.status}.`, code: "INVALID_STATUS_TRANSITION" });
     }
 
     const updated = await prisma.appointment.update({
@@ -477,8 +505,8 @@ export async function clinicalRoutes(app: FastifyInstance) {
 
       // Se houver tratamento vinculado, avança as etapas
       if (appointment.treatmentId) {
-        const treatment = await prisma.treatment.findUnique({
-          where: { id: appointment.treatmentId }
+        const treatment = await prisma.treatment.findFirst({
+          where: { id: appointment.treatmentId, tenantId }
         });
         if (treatment) {
           const newCompleted = treatment.completedStagesCount + 1;
@@ -513,7 +541,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   // ============================================================
   // 4. ORÇAMENTOS (CRIAÇÃO, ITENS E APROVAÇÃO TRANSACIONAL)
   // ============================================================
-  app.get("/budgets", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/budgets", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const quotes = await prisma.quote.findMany({
       where: { tenantId },
@@ -527,7 +555,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   // WORKFLOW CRÍTICO: APROVAÇÃO DE ORÇAMENTO EM UMA TRANSAÇÃO ATÔMICA
-  app.post("/budgets/:id/approve", async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  app.post<{ Params: { id: string } }>("/budgets/:id/approve", { preHandler: requireRole(CLINIC_MANAGEMENT_ROLES) }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const user = request.user!;
     const { id } = request.params;
@@ -539,6 +567,13 @@ export async function clinicalRoutes(app: FastifyInstance) {
 
     if (!quote) {
       return reply.code(404).send({ error: "Orçamento não encontrado." });
+    }
+    if (quote.status === QuoteStatus.ACCEPTED) {
+      return reply.code(409).send({ error: "Este orçamento já foi aprovado.", code: "QUOTE_ALREADY_APPROVED" });
+    }
+    const activeTreatment = await prisma.treatment.findFirst({ where: { tenantId, patientId: quote.patientId, status: TreatmentStatus.ACTIVE, deletedAt: null } });
+    if (activeTreatment) {
+      return reply.code(409).send({ error: "O paciente já possui um tratamento ativo. Revise-o antes de aprovar outro orçamento.", code: "ACTIVE_TREATMENT_EXISTS" });
     }
 
     // Executa atomicamente todas as atualizações cruzadas
@@ -552,11 +587,9 @@ export async function clinicalRoutes(app: FastifyInstance) {
         }
       });
 
-      // 2. Converte qualquer oportunidade em aberto para CONVERTIDO
-      await tx.opportunity.updateMany({
-        where: { tenantId, patientId: quote.patientId, status: { not: OpportunityStatus.CONVERTIDO } },
-        data: { status: OpportunityStatus.CONVERTIDO }
-      });
+      // 2. Converte somente a oportunidade aberta mais recente do paciente.
+      const opportunity = await tx.opportunity.findFirst({ where: { tenantId, patientId: quote.patientId, status: { not: OpportunityStatus.CONVERTIDO }, deletedAt: null }, orderBy: { updatedAt: "desc" } });
+      if (opportunity) await tx.opportunity.update({ where: { id: opportunity.id }, data: { status: OpportunityStatus.CONVERTIDO } });
 
       // 3. Cria ou ativa o Tratamento
       const treatment = await tx.treatment.create({
@@ -582,19 +615,14 @@ export async function clinicalRoutes(app: FastifyInstance) {
         }
       });
 
-      // 4. Cria conta a receber no Financeiro da Clínica
+      // 4. Cria o recebível e o lançamento financeiro correspondente.
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 15);
       const payment = await tx.payment.create({
-        data: {
-          tenantId,
-          patientId: quote.patientId,
-          quoteId: quote.id,
-          treatmentId: treatment.id,
-          category: "TRATAMENTO_ODONTOLOGICO",
-          amount: quote.finalAmount,
-          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // Vencimento padrão em 15 dias
-          status: PaymentStatus.PENDENTE,
-          paymentMethod: quote.paymentMethod || "CARTAO_CREDITO"
-        }
+        data: { tenantId, patientId: quote.patientId, quoteId: quote.id, treatmentId: treatment.id, referenceType: "TREATMENT", category: "TRATAMENTO_ODONTOLOGICO", amount: quote.finalAmount, dueDate, status: PaymentStatus.PENDENTE, paymentMethod: quote.paymentMethod || null }
+      });
+      await tx.financialTransaction.create({
+        data: { tenantId, paymentId: payment.id, patientId: quote.patientId, treatmentId: treatment.id, type: "RECEITA", category: "TRATAMENTO_ODONTOLOGICO", description: `Recebível do orçamento ${quote.id}`, amount: quote.finalAmount, dueDate, status: PaymentStatus.PENDENTE }
       });
 
       // 5. Registra na Linha do Tempo do Paciente
@@ -633,7 +661,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   // ============================================================
   // 5. FINANCEIRO DA CLÍNICA (RECEBÍVEIS E LIQUIDAÇÃO)
   // ============================================================
-  app.get("/finance/payments", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/finance/payments", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const payments = await prisma.payment.findMany({
       where: { tenantId },
@@ -645,7 +673,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
     return reply.send(payments);
   });
 
-  app.post("/finance/payments/:id/pay", async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  app.post<{ Params: { id: string } }>("/finance/payments/:id/pay", { preHandler: requireRole(CLINIC_FINANCE_ROLES) }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const user = request.user!;
     const { id } = request.params;
@@ -660,37 +688,18 @@ export async function clinicalRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: "Recebível não encontrado." });
     }
 
-    const updated = await prisma.payment.update({
-      where: { id },
-      data: {
-        status: PaymentStatus.PAGO,
-        paidAt: new Date(),
-        paymentMethod: body.method || payment.paymentMethod || "PIX"
-      }
+    if (payment.status === PaymentStatus.PAGO) return reply.code(409).send({ error: "Este recebível já está pago.", code: "PAYMENT_ALREADY_PAID" });
+    const paidAt = new Date();
+    const method = body.method || payment.paymentMethod || "PIX";
+    const updated = await prisma.$transaction(async (tx: any) => {
+      const updatedPayment = await tx.payment.update({ where: { id }, data: { status: PaymentStatus.PAGO, paidAt, paymentMethod: method } });
+      const transaction = await tx.financialTransaction.findUnique({ where: { paymentId: payment.id } });
+      if (transaction) await tx.financialTransaction.update({ where: { id: transaction.id }, data: { status: PaymentStatus.PAGO, paidAt } });
+      else await tx.financialTransaction.create({ data: { tenantId, paymentId: payment.id, patientId: payment.patientId, treatmentId: payment.treatmentId, type: "RECEITA", category: "TRATAMENTO_ODONTOLOGICO", description: `Recebimento do pagamento ${payment.id}`, amount: payment.amount, dueDate: payment.dueDate, paidAt, status: PaymentStatus.PAGO } });
+      await tx.timelineEvent.create({ data: { tenantId, patientId: payment.patientId, actorUserId: user.id, type: "PAYMENT_RECEIVED", description: `Pagamento de R$ ${Number(payment.amount).toFixed(2)} liquidado (${method}).` } });
+      await tx.auditLog.create({ data: { tenantId, actorUserId: user.id, action: "PAY", resource: "Payment", resourceId: payment.id, metadata: { amount: payment.amount, method } } });
+      return updatedPayment;
     });
-
-    // Registra na Linha do Tempo e Auditoria
-    await Promise.all([
-      prisma.timelineEvent.create({
-        data: {
-          tenantId,
-          patientId: payment.patientId,
-          actorUserId: user.id,
-          type: "PAYMENT_RECEIVED",
-          description: `Pagamento de R$ ${Number(payment.amount).toFixed(2)} liquidado (${payment.paymentMethod || "PIX"}).`
-        }
-      }),
-      prisma.auditLog.create({
-        data: {
-          tenantId,
-          actorUserId: user.id,
-          action: "PAY",
-          resource: "Payment",
-          resourceId: payment.id,
-          metadata: { amount: payment.amount }
-        }
-      })
-    ]);
 
     return reply.send(updated);
   });
@@ -698,7 +707,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   // ============================================================
   // 6. BUSCA GLOBAL (PACIENTES, PRONTUÁRIOS, AGENDAS, TRATAMENTOS)
   // ============================================================
-  app.get("/search", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/search", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const query = request.query as { q?: string };
 
@@ -708,7 +717,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
 
     const term = query.q.trim();
 
-    const [patients, treatments, quotes] = await Promise.all([
+    const [patients, treatments, quotes, appointments, followUps, opportunities] = await Promise.all([
       prisma.patient.findMany({
         where: {
           tenantId,
@@ -729,14 +738,10 @@ export async function clinicalRoutes(app: FastifyInstance) {
         include: { patient: { select: { name: true } } },
         take: 5
       }),
-      prisma.quote.findMany({
-        where: {
-          tenantId,
-          title: { contains: term, mode: "insensitive" }
-        },
-        include: { patient: { select: { name: true } } },
-        take: 5
-      })
+      prisma.quote.findMany({ where: { tenantId, title: { contains: term, mode: "insensitive" } }, include: { patient: { select: { name: true } } }, take: 5 }),
+      prisma.appointment.findMany({ where: { tenantId, OR: [{ procedureName: { contains: term, mode: "insensitive" } }, { patient: { name: { contains: term, mode: "insensitive" } } }] }, include: { patient: { select: { name: true, recordNumber: true } } }, take: 5, orderBy: { scheduledAt: "desc" } }),
+      prisma.followUp.findMany({ where: { tenantId, OR: [{ reason: { contains: term, mode: "insensitive" } }, { patient: { name: { contains: term, mode: "insensitive" } } }] }, include: { patient: { select: { name: true, recordNumber: true } } }, take: 5, orderBy: { deadlineAt: "asc" } }),
+      prisma.opportunity.findMany({ where: { tenantId, OR: [{ nextStep: { contains: term, mode: "insensitive" } }, { patient: { name: { contains: term, mode: "insensitive" } } }] }, include: { patient: { select: { name: true, recordNumber: true } } }, take: 5, orderBy: { updatedAt: "desc" } })
     ]);
 
     const results = [
@@ -756,14 +761,10 @@ export async function clinicalRoutes(app: FastifyInstance) {
         link: `/clinic/treatments`,
         badge: t.status
       })),
-      ...quotes.map((q: any) => ({
-        type: "ORCAMENTO",
-        id: q.id,
-        title: q.title,
-        subtitle: `Paciente: ${q.patient.name} • R$ ${Number(q.finalAmount).toFixed(2)}`,
-        link: `/clinic/budgets`,
-        badge: q.status
-      }))
+      ...quotes.map((q: any) => ({ type: "ORCAMENTO", id: q.id, title: q.title, subtitle: `Paciente: ${q.patient.name} • R$ ${Number(q.finalAmount).toFixed(2)}`, link: `/clinic/budgets`, badge: q.status })),
+      ...appointments.map((a: any) => ({ type: "AGENDA", id: a.id, title: a.patient.name, subtitle: `${a.patient.recordNumber} • ${a.procedureName}`, link: `/clinic/agenda`, badge: a.status })),
+      ...followUps.map((f: any) => ({ type: "AGENDA", id: f.id, title: f.patient.name, subtitle: `${f.patient.recordNumber} • ${f.reason}`, link: `/clinic/follow-ups`, badge: f.status })),
+      ...opportunities.map((o: any) => ({ type: "AGENDA", id: o.id, title: o.patient.name, subtitle: `${o.patient.recordNumber} • ${o.nextStep || "Oportunidade"}`, link: `/clinic/opportunities`, badge: o.status }))
     ];
 
     return reply.send(results);

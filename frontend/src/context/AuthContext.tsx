@@ -1,187 +1,81 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User, Tenant, UserRole } from '../types';
-import { initialUsers, initialClinics } from '../data/initialData';
+import { User, Tenant } from '../types';
 
 interface AuthContextType {
   currentUser: User;
   currentClinic: Tenant;
-  availableClinics: Tenant[];
-  availableUsers: User[];
-  setCurrentUser: (user: User) => void;
-  setCurrentClinic: (clinic: Tenant) => void;
-  switchRole: (role: UserRole) => void;
   isPlatformOwner: boolean;
   isAuthenticated: boolean;
   isLoadingAuth: boolean;
   logout: () => Promise<void>;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<User | null>;
   refreshSession: () => Promise<void>;
 }
 
+const EMPTY_USER: User = { id: '', tenantId: '', name: '', email: '', role: 'VIEWER', status: 'INACTIVE' };
+const EMPTY_CLINIC: Tenant = { id: '', name: '', slug: '', email: '', status: 'ACTIVE', planCode: '', createdAt: '', activeRoomsCount: 0 };
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    const saved = localStorage.getItem('bhon_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // fallback
-      }
-    }
-    return initialUsers[0]; // Fallback inicial seguro
-  });
+  const [currentUser, setCurrentUser] = useState<User>(EMPTY_USER);
+  const [currentClinic, setCurrentClinic] = useState<Tenant>(EMPTY_CLINIC);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  const [currentClinic, setCurrentClinic] = useState<Tenant>(() => {
-    const saved = localStorage.getItem('bhon_clinic');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // fallback
-      }
-    }
-    return initialClinics[0]; // Fallback inicial seguro
-  });
+  const applySession = useCallback((user: User & { tenant?: Tenant }) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    if (user.tenant) setCurrentClinic(user.tenant);
+  }, []);
 
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return !!localStorage.getItem('bhon_authenticated');
-  });
-
-  const [isLoadingAuth, setIsLoadingAuth] = useState<boolean>(true);
-
-  // Validação real de sessão no backend via Cookie HttpOnly
   const refreshSession = useCallback(async () => {
     try {
-      const response = await fetch('/auth/me', {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.user) {
-          setCurrentUser(data.user);
-          setIsAuthenticated(true);
-          localStorage.setItem('bhon_user', JSON.stringify(data.user));
-          localStorage.setItem('bhon_authenticated', 'true');
-
-          if (data.user.tenant) {
-            setCurrentClinic(data.user.tenant);
-            localStorage.setItem('bhon_clinic', JSON.stringify(data.user.tenant));
-          }
-        }
-      } else if (response.status === 401) {
-        // Sessão expirada ou não autenticado
-        setIsAuthenticated(false);
-        localStorage.removeItem('bhon_authenticated');
+      const response = await fetch('/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } });
+      if (!response.ok) {
+        setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); return;
       }
+      const data = await response.json();
+      if (data.user) applySession(data.user);
+      else { setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); }
     } catch {
-      // Offline ou erro de rede: preserva estado local para resiliência operacional
+      setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
     } finally {
       setIsLoadingAuth(false);
     }
-  }, []);
+  }, [applySession]);
 
-  useEffect(() => {
-    refreshSession();
-  }, [refreshSession]);
+  useEffect(() => { void refreshSession(); }, [refreshSession]);
 
-  useEffect(() => {
-    localStorage.setItem('bhon_user', JSON.stringify(currentUser));
-  }, [currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('bhon_clinic', JSON.stringify(currentClinic));
-  }, [currentClinic]);
-
-  // Função mantida com aviso seguro para compatibilidade
-  const switchRole = (role: UserRole) => {
-    const targetUser = initialUsers.find(u => u.role === role);
-    if (targetUser) {
-      setCurrentUser(targetUser);
-      if (role !== 'PLATFORM_OWNER' && currentClinic.id === 'platform-bhon') {
-        setCurrentClinic(initialClinics[0]);
-      }
-    }
-  };
-
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string, rememberMe = true): Promise<User | null> => {
     try {
       const response = await fetch('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password })
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ email, password, rememberMe }),
       });
-
-      if (!response.ok) return false;
-
+      if (!response.ok) return null;
       const data = await response.json();
-      if (data.user) {
-        setCurrentUser(data.user);
-        setIsAuthenticated(true);
-        localStorage.setItem('bhon_user', JSON.stringify(data.user));
-        localStorage.setItem('bhon_authenticated', 'true');
-
-        if (data.user.tenant) {
-          setCurrentClinic(data.user.tenant);
-          localStorage.setItem('bhon_clinic', JSON.stringify(data.user.tenant));
-        }
-      }
-
-      return true;
-    } catch {
-      return false;
-    }
+      if (!data.user) return null;
+      applySession(data.user);
+      return data.user;
+    } catch { return null; }
   };
 
   const logout = async () => {
-    try {
-      await fetch('/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch {
-      // Ignora erro de rede no logout
-    } finally {
-      setIsAuthenticated(false);
-      localStorage.removeItem('bhon_authenticated');
+    try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
+    finally {
+      setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
       window.location.href = '/login';
     }
   };
 
-  const isPlatformOwner = currentUser.role === 'PLATFORM_OWNER';
-
-  return (
-    <AuthContext.Provider
-      value={{
-        currentUser,
-        currentClinic,
-        availableClinics: initialClinics,
-        availableUsers: initialUsers,
-        setCurrentUser,
-        setCurrentClinic,
-        switchRole,
-        isPlatformOwner,
-        isAuthenticated,
-        isLoadingAuth,
-        logout,
-        login,
-        refreshSession
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ currentUser, currentClinic, isPlatformOwner: currentUser.role === 'PLATFORM_OWNER', isAuthenticated, isLoadingAuth, logout, login, refreshSession }}>
+    {children}
+  </AuthContext.Provider>;
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth deve ser utilizado dentro de um AuthProvider');
-  }
+  if (!context) throw new Error('useAuth deve ser utilizado dentro de um AuthProvider');
   return context;
 };

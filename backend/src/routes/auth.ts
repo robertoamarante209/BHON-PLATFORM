@@ -10,9 +10,10 @@ export async function authRoutes(app: FastifyInstance) {
    * Cria registro de sessão e injeta Cookie HttpOnly seguro.
    */
   app.post("/auth/login", async (request, reply) => {
-    const { email, password } = (request.body || {}) as {
+    const { email, password, rememberMe } = (request.body || {}) as {
       email?: string;
       password?: string;
+      rememberMe?: boolean;
     };
 
     if (!email || !password) {
@@ -31,7 +32,9 @@ export async function authRoutes(app: FastifyInstance) {
         deletedAt: null
       },
       include: {
-        tenant: true
+        tenant: {
+          include: { rooms: { where: { isActive: true }, select: { id: true } } }
+        }
       }
     });
 
@@ -60,7 +63,8 @@ export async function authRoutes(app: FastifyInstance) {
     // Gera token de sessão criptográfico (32 bytes em hex)
     const token = generateSessionToken();
     const tokenHash = hashSessionToken(token);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 dias
+    const sessionTtlMs = rememberMe === false ? 8 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+    const expiresAt = new Date(Date.now() + sessionTtlMs);
 
     // Cria registro de sessão seguro no banco de dados
     await prisma.session.create({
@@ -105,9 +109,8 @@ export async function authRoutes(app: FastifyInstance) {
       expires: expiresAt
     });
 
-    // Retorna dados essenciais do usuário e clínica
+    // O token permanece exclusivamente no cookie HttpOnly.
     return reply.send({
-      token, // Fornecido também para clientes que usam Header Bearer
       user: {
         id: user.id,
         name: user.name,
@@ -124,7 +127,9 @@ export async function authRoutes(app: FastifyInstance) {
           tradeName: user.tenant.tradeName,
           slug: user.tenant.slug,
           status: user.tenant.status,
-          planCode: user.tenant.planCode
+          planCode: user.tenant.planCode,
+          createdAt: user.tenant.createdAt,
+          activeRoomsCount: user.tenant.rooms.length
         }
       }
     });
@@ -140,6 +145,7 @@ export async function authRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const user = request.user!;
       const tenant = request.tenant!;
+      const activeRoomsCount = await prisma.room.count({ where: { tenantId: tenant.id, isActive: true } });
 
       return reply.send({
         user: {
@@ -158,7 +164,9 @@ export async function authRoutes(app: FastifyInstance) {
             tradeName: tenant.tradeName,
             slug: tenant.slug,
             status: tenant.status,
-            planCode: tenant.planCode
+            planCode: tenant.planCode,
+            createdAt: tenant.createdAt,
+            activeRoomsCount
           }
         }
       });

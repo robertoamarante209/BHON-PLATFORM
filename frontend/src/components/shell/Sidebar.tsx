@@ -21,7 +21,7 @@ import { useOperationalData } from '../../context/OperationalDataContext';
 
 export const Sidebar: React.FC = () => {
   const [location] = useLocation();
-  const { currentUser, currentClinic, switchRole, logout, availableClinics, setCurrentClinic } = useAuth();
+  const { currentUser, currentClinic, logout } = useAuth();
   const { followUps, budgets } = useOperationalData();
 
   // Badges operacionais de atenção
@@ -150,22 +150,6 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* Seletor rápido de papel (Ferramenta de Auditoria e Teste) */}
-        <div className="pt-2 border-t border-slate-800/60 text-[10px] flex items-center justify-between text-slate-400">
-          <span>Simular papel:</span>
-          <select
-            value={currentUser.role}
-            onChange={(e) => switchRole(e.target.value as any)}
-            className="bg-slate-900 text-slate-300 text-[10px] rounded px-1.5 py-0.5 border border-slate-700 focus:outline-none focus:border-bhon-teal"
-          >
-            <option value="OWNER">Dono (Dr. Roberto)</option>
-            <option value="MANAGER">Gerente (Dra. Mariana)</option>
-            <option value="DENTIST">Dentista (Dr. Eduardo)</option>
-            <option value="RECEPTIONIST">Recepção (Camila)</option>
-            <option value="FINANCIAL">Financeiro (Patrícia)</option>
-            <option value="PLATFORM_OWNER">Mantenedor BHON</option>
-          </select>
-        </div>
       </div>
     </aside>
   );

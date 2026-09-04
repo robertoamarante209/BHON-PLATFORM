@@ -12,6 +12,9 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
-    proxy: { '/auth': 'http://localhost:3000' },
+    proxy: {
+      '/auth': 'http://localhost:3000',
+      '/api': 'http://localhost:3000',
+    },
   },
 });

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Tenant, UserRole } from '../types';
 import { initialUsers, initialClinics } from '../data/initialData';
 
@@ -11,8 +11,11 @@ interface AuthContextType {
   setCurrentClinic: (clinic: Tenant) => void;
   switchRole: (role: UserRole) => void;
   isPlatformOwner: boolean;
-  logout: () => void;
+  isAuthenticated: boolean;
+  isLoadingAuth: boolean;
+  logout: () => Promise<void>;
   login: (email: string, password: string) => Promise<boolean>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // fallback
       }
     }
-    return initialUsers[0]; // Dr. Roberto Carlos Fagundes (OWNER)
+    return initialUsers[0]; // Fallback inicial seguro
   });
 
   const [currentClinic, setCurrentClinic] = useState<Tenant>(() => {
@@ -39,8 +42,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // fallback
       }
     }
-    return initialClinics[0]; // OdontoPrime Especialidades
+    return initialClinics[0]; // Fallback inicial seguro
   });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return !!localStorage.getItem('bhon_authenticated');
+  });
+
+  const [isLoadingAuth, setIsLoadingAuth] = useState<boolean>(true);
+
+  // Validação real de sessão no backend via Cookie HttpOnly
+  const refreshSession = useCallback(async () => {
+    try {
+      const response = await fetch('/auth/me', {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          setCurrentUser(data.user);
+          setIsAuthenticated(true);
+          localStorage.setItem('bhon_user', JSON.stringify(data.user));
+          localStorage.setItem('bhon_authenticated', 'true');
+
+          if (data.user.tenant) {
+            setCurrentClinic(data.user.tenant);
+            localStorage.setItem('bhon_clinic', JSON.stringify(data.user.tenant));
+          }
+        }
+      } else if (response.status === 401) {
+        // Sessão expirada ou não autenticado
+        setIsAuthenticated(false);
+        localStorage.removeItem('bhon_authenticated');
+      }
+    } catch {
+      // Offline ou erro de rede: preserva estado local para resiliência operacional
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
 
   useEffect(() => {
     localStorage.setItem('bhon_user', JSON.stringify(currentUser));
@@ -50,33 +97,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('bhon_clinic', JSON.stringify(currentClinic));
   }, [currentClinic]);
 
+  // Função mantida com aviso seguro para compatibilidade
   const switchRole = (role: UserRole) => {
     const targetUser = initialUsers.find(u => u.role === role);
     if (targetUser) {
       setCurrentUser(targetUser);
-      if (role === 'PLATFORM_OWNER') {
-        // Switch to platform context
-      } else {
-        // Ensure clinic context
-        if (currentClinic.id === 'platform-bhon') {
-          setCurrentClinic(initialClinics[0]);
-        }
+      if (role !== 'PLATFORM_OWNER' && currentClinic.id === 'platform-bhon') {
+        setCurrentClinic(initialClinics[0]);
       }
     }
-    return true;
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    const response = await fetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-    if (!response.ok) return false;
-    const data = await response.json();
-    setCurrentUser(data.user);
+    try {
+      const response = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password })
+      });
 
-    return true;
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      if (data.user) {
+        setCurrentUser(data.user);
+        setIsAuthenticated(true);
+        localStorage.setItem('bhon_user', JSON.stringify(data.user));
+        localStorage.setItem('bhon_authenticated', 'true');
+
+        if (data.user.tenant) {
+          setCurrentClinic(data.user.tenant);
+          localStorage.setItem('bhon_clinic', JSON.stringify(data.user.tenant));
+        }
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
   };
-  const logout = () => {
-    // Para conveniência do operador, redireciona para a tela de login
-    window.location.href = '/login';
+
+  const logout = async () => {
+    try {
+      await fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch {
+      // Ignora erro de rede no logout
+    } finally {
+      setIsAuthenticated(false);
+      localStorage.removeItem('bhon_authenticated');
+      window.location.href = '/login';
+    }
   };
 
   const isPlatformOwner = currentUser.role === 'PLATFORM_OWNER';
@@ -92,8 +166,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentClinic,
         switchRole,
         isPlatformOwner,
+        isAuthenticated,
+        isLoadingAuth,
         logout,
         login,
+        refreshSession
       }}
     >
       {children}

@@ -1,6 +1,6 @@
 # Arquitetura BHON
 
-> Estado real do repositório em 6 de setembro de 2026. Decisões futuras devem ser registradas em `DECISIONS.md` antes de serem apresentadas como implementadas.
+> Estado real do repositório em 7 de setembro de 2026. Decisões futuras devem ser registradas em `DECISIONS.md` antes de serem apresentadas como implementadas.
 
 ## Visão do produto
 
@@ -14,13 +14,13 @@ A BHON é o sistema operacional clínico que converte sinais dispersos em uma fi
 - Wouter para roteamento
 - Tailwind CSS e componentes próprios
 - `AuthContext` para a sessão autenticada
-- Agenda, Pacientes, prontuário e Overview consomem a API; `OperationalDataContext` ainda mantém os demais módulos legados no navegador e não é fonte confiável multiusuário
+- Agenda, Pacientes, prontuário, Overview, Tratamentos, Orçamentos, Oportunidades, Follow-ups e Financeiro consomem a API; `OperationalDataContext` permanece apenas nos módulos legados ainda não migrados
 
 ### Backend
 
 - Node.js, TypeScript e Fastify 5
 - Prisma 7 com adapter PostgreSQL
-- API HTTP organizada hoje em `auth`, `tenants`, `clinical` e `recovery`
+- API HTTP organizada hoje em `auth`, `tenants`, `clinical`, `workflow`, `recovery` e `finance`
 - Sessões opacas persistidas no PostgreSQL
 
 ### Dados
@@ -45,7 +45,8 @@ Navegador React
   └─ /api/* ────────────────┼─> Fastify
                              │    ├─ autenticação/RBAC/tenant
 Cookie HttpOnly bhon_session ┘    ├─ rotas clínicas
-                                  └─ Recovery Engine
+                                  ├─ Recovery Engine
+                                  └─ Financeiro transacional
                                          │
                                          v
                                 Prisma → PostgreSQL
@@ -57,6 +58,7 @@ Cookie HttpOnly bhon_session ┘    ├─ rotas clínicas
 4. RBAC define quem pode ler ou executar cada operação.
 5. O Recovery Engine consulta follow-ups, orçamentos, oportunidades, tratamentos e recebíveis reais, normaliza prioridade e entrega uma fila única.
 6. A execução de um follow-up atualiza o domínio, a timeline e a auditoria na mesma transação.
+7. Uma baixa financeira cria um recibo, atualiza o saldo e sincroniza o lançamento financeiro sob lock transacional.
 
 ## Limites de segurança
 
@@ -85,8 +87,9 @@ docs/                    produto, marca, decisões, auditoria e roadmap
 
 ## Próximas fronteiras arquiteturais
 
-1. Remover `localStorage` de Financeiro e módulos da plataforma; Pacientes, Agenda, Tratamentos, Orçamentos, Oportunidades e Follow-ups já usam APIs como fonte operacional.
+1. Remover `localStorage` dos módulos restantes de Equipe, Notificações e operação da plataforma; o núcleo clínico e financeiro já usa APIs como fonte operacional.
 2. Separar o arquivo clínico monolítico em serviços por domínio.
 3. Adicionar testes de integração com PostgreSQL para isolamento multi-tenant, RBAC e transações.
 4. Extrair workers e filas apenas quando existirem tarefas assíncronas reais e requisitos de escala medidos.
 5. Introduzir observabilidade, backups testados, gestão central de segredos e política formal de retenção/LGPD antes de produção.
+

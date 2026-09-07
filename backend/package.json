@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test test/opportunity.test.mjs test/recovery.test.mjs test/scheduling.test.mjs test/security.test.mjs test/treatment.test.mjs",
+    "test": "node --experimental-strip-types --test test/finance.test.mjs test/opportunity.test.mjs test/recovery.test.mjs test/scheduling.test.mjs test/security.test.mjs test/treatment.test.mjs",
     "dev": "tsx watch src/server.ts"
   },
   "keywords": [],
@@ -47,3 +47,4 @@
     "prisma@7.10.0": true
   }
 }
+

@@ -7,6 +7,7 @@ import { tenantRoutes } from "./routes/tenants.js";
 import { clinicalRoutes } from "./routes/clinical.js";
 import { recoveryRoutes } from "./routes/recovery.js";
 import { workflowRoutes } from "./routes/workflow.js";
+import { financeRoutes } from "./routes/finance.js";
 import { prisma } from "./lib/prisma.js";
 import { isTrustedCookieRequest } from "./domain/security.js";
 
@@ -74,6 +75,7 @@ await app.register(tenantRoutes);
 await app.register(clinicalRoutes, { prefix: "/api" });
 await app.register(recoveryRoutes, { prefix: "/api" });
 await app.register(workflowRoutes, { prefix: "/api" });
+await app.register(financeRoutes, { prefix: "/api" });
 
 app.get("/", async () => {
   return {
@@ -124,3 +126,4 @@ const start = async () => {
 };
 
 start();
+

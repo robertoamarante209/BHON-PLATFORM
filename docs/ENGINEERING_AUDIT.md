@@ -25,7 +25,7 @@ A documentação ainda descreve Next.js, NestJS, Redis, BullMQ, Docker e Azure, 
 
 ## C. Riscos técnicos críticos
 
-- O frontend ainda mantém parte relevante da aplicação no navegador: Oportunidades, Follow-ups, Financeiro, Equipe, Notificações e módulos da plataforma continuam duplicados em `localStorage`. Pacientes, Agenda, Tratamentos e Orçamentos já foram retirados dessa autoridade.
+- O frontend ainda mantém Equipe, Notificações e módulos da plataforma duplicados em `localStorage`. Pacientes, Agenda, Tratamentos, Orçamentos, Oportunidades, Follow-ups e Financeiro já foram retirados dessa autoridade.
 - O backend concentra quase todo o domínio em um único arquivo de rotas, com tipos `any`, validação manual e regras difíceis de testar isoladamente.
 - Não há uma camada comum de cliente HTTP, tratamento de erro, cache/invalidação ou estados de carregamento para migração progressiva do frontend.
 - Algumas reações cruzadas são executadas fora de transação. Uma falha intermediária pode deixar agendamento, acompanhamento, timeline, notificação e auditoria inconsistentes.
@@ -63,7 +63,7 @@ A documentação ainda descreve Next.js, NestJS, Redis, BullMQ, Docker e Azure, 
 
 ## G. Lacunas do Recovery Engine
 
-- A interface calcula exceções sobre dados locais e usa métricas financeiras fixas.
+- As métricas financeiras e a fila de exceções agora são calculadas no backend; ainda faltam observabilidade e indicadores históricos.
 - O endpoint `/api/overview` agrega algumas exceções reais, mas não entrega prioridade, responsável, idade, próxima ação e estado em um contrato único.
 - Não existe registro persistente que conecte sinal, execução, resultado e receita recuperada.
 - Não há regras idempotentes para detectar sinais nem rotina programada de detecção.
@@ -92,7 +92,7 @@ O logo aparece na sidebar clínica, mas é necessário auditar também o shell d
 
 ## J. Lacunas de testes
 
-O backend possui um script de teste que falha por definição e o frontend não possui testes. Não há cobertura automatizada para autenticação, RBAC, tenant isolation, workflows cruzados, contratos HTTP, componentes críticos ou regressão de build.
+O backend possui 20 testes unitários das regras críticas e o build completo valida os contratos TypeScript. Ainda não há testes HTTP/PostgreSQL, de componentes ou ponta a ponta para autenticação, RBAC, isolamento de tenant e workflows cruzados.
 
 ## K. Ordem recomendada
 
@@ -100,7 +100,7 @@ O backend possui um script de teste que falha por definição e o frontend não 
 2. Criar a API real da fila operacional do Recovery Engine e seus comandos transacionais.
 3. Introduzir um cliente HTTP tipado no frontend e ligar a Overview à fila real.
 4. Migrar Agenda e Pacientes para a API; remover a autoridade local desses domínios.
-5. Migrar Oportunidades, Acompanhamentos e Financeiro em fatias verticais; Tratamentos e Orçamentos já possuem núcleo persistente.
+5. Migrar Equipe, Notificações e módulos da plataforma em fatias verticais; o núcleo clínico e financeiro já possui persistência.
 6. Persistir notificações e expor auditoria confiável.
 7. Implementar APIs separadas da BHON Platform com autorização própria.
 8. Remover o restante do banco paralelo em `localStorage`.
@@ -129,6 +129,7 @@ As demais lacunas deste documento continuam abertas e não devem ser considerada
 - Mudanças de status, incluindo falta e conclusão, agora executam todos os efeitos relacionados na mesma transação.
 - Overview passou a usar a agenda real e teve métricas fixas e a segunda fila local removidas.
 - Vite e o plugin React foram atualizados; `npm audit` do frontend e o build de produção passaram.
-- Testes de domínio agora cobrem Recovery Engine, segurança, agenda, tratamentos, etapas, progresso, funil e cálculo de inatividade, totalizando 16 testes.
+- Testes de domínio agora cobrem Recovery Engine, segurança, agenda, tratamentos, etapas, progresso, funil, inatividade e liquidação financeira, totalizando 20 testes.
 
-Ainda permanecem pendentes testes HTTP/banco para isolamento multi-tenant e a migração dos demais módulos listados no roadmap.
+Ainda permanecem pendentes testes HTTP/banco para isolamento multi-tenant, conciliação/estornos e a migração dos demais módulos listados no roadmap.
+

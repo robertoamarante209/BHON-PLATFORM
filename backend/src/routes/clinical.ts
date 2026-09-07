@@ -8,7 +8,6 @@ import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgre
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const CLINIC_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
 const CLINIC_MANAGEMENT_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
-const CLINIC_FINANCE_ROLES = ["OWNER", "ADMIN", "MANAGER", "FINANCIAL"] as const;
 
 type SchedulingClient = Pick<typeof prisma, "appointment">;
 
@@ -1235,53 +1234,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   // ============================================================
-  // 5. FINANCEIRO DA CLÍNICA (RECEBÍVEIS E LIQUIDAÇÃO)
-  // ============================================================
-  app.get("/finance/payments", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const tenantId = request.tenantId!;
-    const payments = await prisma.payment.findMany({
-      where: { tenantId },
-      include: {
-        patient: { select: { id: true, name: true, recordNumber: true } }
-      },
-      orderBy: { dueDate: "asc" }
-    });
-    return reply.send(payments);
-  });
-
-  app.post<{ Params: { id: string } }>("/finance/payments/:id/pay", { preHandler: requireRole(CLINIC_FINANCE_ROLES) }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const tenantId = request.tenantId!;
-    const user = request.user!;
-    const { id } = request.params;
-    const body = (request.body || {}) as { method?: string };
-
-    const payment = await prisma.payment.findFirst({
-      where: { id, tenantId },
-      include: { patient: true }
-    });
-
-    if (!payment) {
-      return reply.code(404).send({ error: "Recebível não encontrado." });
-    }
-
-    if (payment.status === PaymentStatus.PAGO) return reply.code(409).send({ error: "Este recebível já está pago.", code: "PAYMENT_ALREADY_PAID" });
-    const paidAt = new Date();
-    const method = body.method || payment.paymentMethod || "PIX";
-    const updated = await prisma.$transaction(async (tx: any) => {
-      const updatedPayment = await tx.payment.update({ where: { id }, data: { status: PaymentStatus.PAGO, paidAt, paymentMethod: method } });
-      const transaction = await tx.financialTransaction.findUnique({ where: { paymentId: payment.id } });
-      if (transaction) await tx.financialTransaction.update({ where: { id: transaction.id }, data: { status: PaymentStatus.PAGO, paidAt } });
-      else await tx.financialTransaction.create({ data: { tenantId, paymentId: payment.id, patientId: payment.patientId, treatmentId: payment.treatmentId, type: "RECEITA", category: "TRATAMENTO_ODONTOLOGICO", description: `Recebimento do pagamento ${payment.id}`, amount: payment.amount, dueDate: payment.dueDate, paidAt, status: PaymentStatus.PAGO } });
-      await tx.timelineEvent.create({ data: { tenantId, patientId: payment.patientId, actorUserId: user.id, type: "PAYMENT_RECEIVED", description: `Pagamento de R$ ${Number(payment.amount).toFixed(2)} liquidado (${method}).` } });
-      await tx.auditLog.create({ data: { tenantId, actorUserId: user.id, action: "PAY", resource: "Payment", resourceId: payment.id, metadata: { amount: payment.amount, method } } });
-      return updatedPayment;
-    });
-
-    return reply.send(updated);
-  });
-
-  // ============================================================
-  // 6. BUSCA GLOBAL (PACIENTES, PRONTUÁRIOS, AGENDAS, TRATAMENTOS)
+  // 5. BUSCA GLOBAL (PACIENTES, PRONTUÁRIOS, AGENDAS, TRATAMENTOS)
   // ============================================================
   app.get("/search", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
@@ -1346,3 +1299,4 @@ export async function clinicalRoutes(app: FastifyInstance) {
     return reply.send(results);
   });
 }
+

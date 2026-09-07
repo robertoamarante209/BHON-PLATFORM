@@ -114,6 +114,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ''
       colorClasses = 'bg-amber-50 text-amber-800 border-amber-200';
       label = 'PENDENTE';
       break;
+    case 'PARCIAL':
+      colorClasses = 'bg-sky-50 text-sky-800 border-sky-200';
+      label = 'PARCIAL';
+      break;
 
     // Prioridades
     case 'URGENT':
@@ -166,3 +170,4 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ''
     </span>
   );
 };
+

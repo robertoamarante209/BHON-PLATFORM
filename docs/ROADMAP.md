@@ -1,6 +1,6 @@
 # Roadmap verificável da BHON
 
-Atualizado em 6 de setembro de 2026. Um item só recebe **concluído** quando código, persistência e validação correspondente existem no repositório.
+Atualizado em 7 de setembro de 2026. Um item só recebe **concluído** quando código, persistência e validação correspondente existem no repositório.
 
 ## 1. Fundação segura — em andamento
 
@@ -65,7 +65,7 @@ Pendente:
 - testes de integração com PostgreSQL para concorrência, idempotência e rollback;
 - emissão, aceite externo e assinatura digital de propostas.
 
-## 5. Oportunidades e Follow-ups — núcleo conectado; Financeiro em seguida
+## 5. Oportunidades, Follow-ups e Financeiro — núcleo conectado
 
 Concluído:
 
@@ -77,10 +77,14 @@ Concluído:
 - ações concorrentes no mesmo follow-up são serializadas;
 - links com `focus` abrem o acompanhamento correto a partir do Recovery Engine;
 - controles da interface respeitam perfis somente leitura.
+- recebíveis, métricas e filtros financeiros são calculados no backend e paginados;
+- baixas parciais e integrais criam recibos imutáveis, atualizam saldo/status e registram timeline e auditoria na mesma transação;
+- ações financeiras concorrentes são serializadas, bloqueando sobrepagamento;
+- tela financeira responsiva consome somente a API e respeita perfis de leitura e operação.
 
 Pendente:
 
-- migrar a tela Financeira e conciliar pagamentos e lançamentos persistidos;
+- implementar conciliação bancária e estornos auditados;
 - persistir atribuição financeira de receita recuperada por contato;
 - completar criação/edição de oportunidades e follow-ups;
 - testes HTTP/PostgreSQL de concorrência, RBAC e isolamento multi-tenant.
@@ -102,3 +106,4 @@ Pendente:
 - backup/restauração, retenção e controles LGPD;
 - filas/workers apenas para tarefas assíncronas reais;
 - revisão final de segurança, acessibilidade, responsividade e performance.
+

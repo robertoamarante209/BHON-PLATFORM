@@ -50,6 +50,7 @@ model Tenant {
   tasks                 Task[]
   followUps             FollowUp[]
   payments              Payment[]
+  paymentReceipts       PaymentReceipt[]
   financialTransactions FinancialTransaction[]
   timelineEvents        TimelineEvent[]
   auditLogs             AuditLog[]
@@ -125,6 +126,7 @@ model User {
   openedSupportTickets    SupportTicket[] @relation("SupportTicketAuthor")
   assignedSupportTickets  SupportTicket[] @relation("SupportTicketAssignee")
   notifications           Notification[]  @relation("NotificationRecipient")
+  receivedPayments        PaymentReceipt[] @relation("PaymentReceiptReceiver")
 
   timelineEvents TimelineEvent[] @relation("TimelineActor")
   auditLogs      AuditLog[]      @relation("AuditActor")
@@ -679,6 +681,7 @@ model Payment {
   referenceType String  @default("TREATMENT") @map("reference_type")
   category      String?
   amount        Decimal @db.Decimal(12, 2)
+  paidAmount    Decimal @default(0) @map("paid_amount") @db.Decimal(12, 2)
 
   dueDate       DateTime      @map("due_date") @db.Date
   paidAt        DateTime?     @map("paid_at") @db.Timestamptz(3)
@@ -694,6 +697,7 @@ model Payment {
   quote     Quote?     @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   treatment Treatment? @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
   financialTransaction FinancialTransaction?
+  receipts             PaymentReceipt[]
 
   @@index([tenantId])
   @@index([tenantId, patientId])
@@ -701,6 +705,29 @@ model Payment {
   @@index([tenantId, status, dueDate])
   @@index([tenantId, dueDate])
   @@map("payments")
+}
+
+model PaymentReceipt {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  paymentId    String @map("payment_id")
+  receivedById String @map("received_by_id")
+
+  amount Decimal @db.Decimal(12, 2)
+  method String
+  paidAt DateTime @map("paid_at") @db.Timestamptz(3)
+  notes  String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  payment    Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  receivedBy User    @relation("PaymentReceiptReceiver", fields: [receivedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, paidAt])
+  @@index([tenantId, paymentId])
+  @@index([tenantId, receivedById])
+  @@map("payment_receipts")
 }
 
 model FinancialTransaction {

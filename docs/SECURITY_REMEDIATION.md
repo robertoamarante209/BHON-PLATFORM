@@ -41,4 +41,5 @@ This document records the hardening applied after auditing the local Antigravity
 
 ## Intentionally not claimed as complete
 
-The repository still needs the remaining domain APIs and frontend-to-backend integration for all clinical modules, plus the full BHON Platform backend. Those are separate implementation stages and should not be represented as finished merely because authentication and a subset of the clinical API are real.
+O núcleo clínico e financeiro já usa APIs persistidas, mas ainda faltam os módulos de Equipe, Notificações e administração da plataforma, além de testes HTTP/PostgreSQL de isolamento multi-tenant. Essas etapas não devem ser apresentadas como concluídas apenas porque autenticação e fluxos centrais já são reais.
+

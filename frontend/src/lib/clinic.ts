@@ -1,4 +1,4 @@
-import type { Appointment, AppointmentStatus, Budget, FollowUp, FollowUpCategory, FollowUpStatus, Opportunity, OpportunityStatus, Patient, PatientStatus, Payment, QuoteStatus, Room, TimelineEvent, Treatment, TreatmentStatus } from '../types';
+import type { Appointment, AppointmentStatus, Budget, FollowUp, FollowUpCategory, FollowUpStatus, Opportunity, OpportunityStatus, Patient, PatientStatus, Payment, PaymentStatus, QuoteStatus, Room, TimelineEvent, Treatment, TreatmentStatus } from '../types';
 import { apiRequest } from './api';
 
 export const appointmentTransitions: Record<AppointmentStatus, readonly AppointmentStatus[]> = {
@@ -62,7 +62,16 @@ export type BudgetMetrics = {
   conversionRate: number | null;
 };
 
-type ApiPayment = Omit<Payment, 'patientName' | 'patientRecordNumber' | 'referenceDescription' | 'amount'> & { amount: string | number };
+type ApiPayment = Omit<Payment, 'patientName' | 'patientRecordNumber' | 'referenceDescription' | 'amount' | 'paidAmount' | 'outstandingAmount'> & {
+  amount: string | number;
+  paidAmount?: string | number;
+  outstandingAmount?: string | number;
+};
+type ApiPaymentListItem = ApiPayment & {
+  patient: { id: string; name: string; recordNumber: string };
+  referenceDescription: string;
+  lastReceipt?: (Omit<NonNullable<Payment['lastReceipt']>, 'amount'> & { amount: string | number }) | null;
+};
 type ApiFollowUp = Omit<FollowUp, 'patientName' | 'patientPhone' | 'patientRecordNumber' | 'responsibleUserName'> & { responsibleUser?: { id: string; name: string } | null };
 type ApiFollowUpListItem = ApiFollowUp & {
   patient: { id: string; name: string; phone?: string | null; recordNumber: string };
@@ -203,6 +212,8 @@ export async function getPatientDossier(id: string, signal?: AbortSignal): Promi
       referenceDescription: payment.category || payment.referenceType,
       category: payment.category || 'GERAL',
       amount: Number(payment.amount),
+      paidAmount: Number(payment.paidAmount || 0),
+      outstandingAmount: Number(payment.outstandingAmount ?? payment.amount),
     })),
     followUps: value.followUps.map((followUp) => ({
       ...followUp,
@@ -319,6 +330,44 @@ export function approveBudget(id: string) {
   return apiRequest(`/api/budgets/${encodeURIComponent(id)}/approve`, { method: 'POST' });
 }
 
+export type FinanceMetrics = {
+  receivedAmount: number;
+  outstandingAmount: number;
+  overdueAmount: number;
+  projectedRevenue: number;
+  negotiationAmount: number;
+  averageTicket: number | null;
+};
+
+export async function listPayments(input: { search?: string; status?: PaymentStatus; focus?: string; page?: number; limit?: number } = {}, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  if (input.search) query.set('search', input.search);
+  if (input.status) query.set('status', input.status);
+  if (input.focus) query.set('focus', input.focus);
+  query.set('page', String(input.page || 1));
+  query.set('limit', String(input.limit || 20));
+  const response = await apiRequest<{ data: ApiPaymentListItem[]; pagination: Pagination; metrics: FinanceMetrics }>(`/api/finance/payments?${query}`, { signal });
+  return {
+    ...response,
+    data: response.data.map((payment): Payment => ({
+      ...payment,
+      patientName: payment.patient.name,
+      patientRecordNumber: payment.patient.recordNumber,
+      amount: Number(payment.amount),
+      paidAmount: Number(payment.paidAmount || 0),
+      outstandingAmount: Number(payment.outstandingAmount || 0),
+      lastReceipt: payment.lastReceipt ? { ...payment.lastReceipt, amount: Number(payment.lastReceipt.amount), notes: payment.lastReceipt.notes || undefined } : undefined,
+    })),
+  };
+}
+
+export function settlePayment(id: string, input: { amount?: number; method: string; notes?: string; paidAt?: string }) {
+  return apiRequest(`/api/finance/payments/${encodeURIComponent(id)}/pay`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export type OpportunityMetrics = { activePotential: number; counts: Record<OpportunityStatus, number> };
 
 export async function listOpportunities(input: { search?: string; status?: OpportunityStatus; page?: number; limit?: number } = {}, signal?: AbortSignal) {
@@ -383,3 +432,4 @@ export function executeFollowUpAction(id: string, input: FollowUpAction) {
     body: JSON.stringify(input),
   });
 }
+

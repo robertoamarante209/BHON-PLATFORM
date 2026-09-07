@@ -273,10 +273,21 @@ export interface Payment {
   referenceDescription: string;
   category: string;
   amount: number;
+  paidAmount?: number;
+  outstandingAmount?: number;
   dueDate: string;
   paidAt?: string;
   paymentMethod?: string;
   status: PaymentStatus;
+  recordedStatus?: PaymentStatus;
+  lastReceipt?: {
+    id: string;
+    amount: number;
+    method: string;
+    paidAt: string;
+    notes?: string;
+    receivedBy?: { id: string; name: string };
+  };
   notes?: string;
 }
 
@@ -402,3 +413,4 @@ export interface SupportTicket {
   createdAt: string;
   resolvedAt?: string;
 }
+

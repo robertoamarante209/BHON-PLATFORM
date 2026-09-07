@@ -2,6 +2,9 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { verifyPassword, generateSessionToken, hashSessionToken } from "../lib/auth.js";
 import { requireAuth } from "../lib/middleware.js";
+import { SlidingWindowRateLimiter } from "../domain/security.js";
+
+const loginLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
 
 export async function authRoutes(app: FastifyInstance) {
   /**
@@ -9,7 +12,20 @@ export async function authRoutes(app: FastifyInstance) {
    * Realiza login autêntico com e-mail e senha.
    * Cria registro de sessão e injeta Cookie HttpOnly seguro.
    */
-  app.post("/auth/login", async (request, reply) => {
+  app.post("/auth/login", {
+    schema: {
+      body: {
+        type: "object",
+        additionalProperties: false,
+        required: ["email", "password"],
+        properties: {
+          email: { type: "string", minLength: 3, maxLength: 320 },
+          password: { type: "string", minLength: 1, maxLength: 200 },
+          rememberMe: { type: "boolean" },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { email, password, rememberMe } = (request.body || {}) as {
       email?: string;
       password?: string;
@@ -24,6 +40,14 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const normalized = email.trim().toLowerCase();
+    const limiterKey = `${request.ip}:${normalized}`;
+    const limit = loginLimiter.check(limiterKey);
+    if (!limit.allowed) {
+      return reply
+        .header("Retry-After", String(limit.retryAfterSeconds))
+        .code(429)
+        .send({ error: "Muitas tentativas. Aguarde antes de tentar novamente.", code: "LOGIN_RATE_LIMITED" });
+    }
 
     // Busca o usuário ativo no PostgreSQL
     const user = await prisma.user.findFirst({
@@ -39,6 +63,16 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     if (!user || !user.passwordHash) {
+      loginLimiter.recordFailure(limiterKey);
+      return reply.code(401).send({
+        error: "Credenciais inválidas.",
+        code: "INVALID_CREDENTIALS"
+      });
+    }
+
+    const isValid = await verifyPassword(password, user.passwordHash);
+    if (!isValid) {
+      loginLimiter.recordFailure(limiterKey);
       return reply.code(401).send({
         error: "Credenciais inválidas.",
         code: "INVALID_CREDENTIALS"
@@ -46,19 +80,14 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     if (user.status !== "ACTIVE") {
+      loginLimiter.recordFailure(limiterKey);
       return reply.code(403).send({
         error: "Este usuário está inativo ou bloqueado no sistema.",
         code: "USER_INACTIVE_OR_BLOCKED"
       });
     }
 
-    const isValid = await verifyPassword(password, user.passwordHash);
-    if (!isValid) {
-      return reply.code(401).send({
-        error: "Credenciais inválidas.",
-        code: "INVALID_CREDENTIALS"
-      });
-    }
+    loginLimiter.reset(limiterKey);
 
     // Gera token de sessão criptográfico (32 bytes em hex)
     const token = generateSessionToken();
@@ -215,3 +244,4 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 }
+

@@ -5,7 +5,9 @@ import cookie from "@fastify/cookie";
 import { authRoutes } from "./routes/auth.js";
 import { tenantRoutes } from "./routes/tenants.js";
 import { clinicalRoutes } from "./routes/clinical.js";
+import { recoveryRoutes } from "./routes/recovery.js";
 import { prisma } from "./lib/prisma.js";
+import { isTrustedCookieRequest } from "./domain/security.js";
 
 const app = Fastify({
   logger: true,
@@ -37,10 +39,26 @@ if (!cookieSecret) throw new Error("COOKIE_SECRET não está definida.");
 
 await app.register(cookie, { secret: cookieSecret, parseOptions: {} });
 
+app.addHook("onRequest", async (request, reply) => {
+  const trusted = isTrustedCookieRequest(
+    request.method,
+    request.cookies?.bhon_session,
+    request.headers.origin,
+    allowedOrigins,
+  );
+  if (!trusted) {
+    return reply.code(403).send({
+      error: "Origem da operação não autorizada.",
+      code: "UNTRUSTED_ORIGIN",
+    });
+  }
+});
+
 // Registra rotas de domínio
 await app.register(authRoutes);
 await app.register(tenantRoutes);
 await app.register(clinicalRoutes, { prefix: "/api" });
+await app.register(recoveryRoutes, { prefix: "/api" });
 
 app.get("/", async () => {
   return {
@@ -80,3 +98,4 @@ const start = async () => {
 };
 
 start();
+

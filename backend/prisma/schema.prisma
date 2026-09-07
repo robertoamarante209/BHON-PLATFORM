@@ -301,6 +301,7 @@ model Treatment {
   @@index([tenantId])
   @@index([tenantId, patientId])
   @@index([tenantId, status])
+  @@index([tenantId, status, updatedAt])
   @@index([tenantId, responsibleUserId])
   @@map("treatments")
 }
@@ -446,6 +447,7 @@ model Quote {
   @@index([tenantId])
   @@index([tenantId, patientId])
   @@index([tenantId, status])
+  @@index([tenantId, status, updatedAt])
   @@index([tenantId, createdAt])
   @@map("quotes")
 }
@@ -539,6 +541,8 @@ model Opportunity {
   @@index([tenantId])
   @@index([tenantId, patientId])
   @@index([tenantId, status])
+  @@index([tenantId, status, updatedAt])
+  @@index([tenantId, daysInactive])
   @@index([tenantId, priority])
   @@index([tenantId, assignedToId])
   @@map("opportunities")
@@ -643,6 +647,7 @@ model FollowUp {
   @@index([tenantId, patientId])
   @@index([tenantId, category])
   @@index([tenantId, status])
+  @@index([tenantId, status, deadlineAt])
   @@index([tenantId, deadlineAt])
   @@map("follow_ups")
 }
@@ -693,6 +698,7 @@ model Payment {
   @@index([tenantId])
   @@index([tenantId, patientId])
   @@index([tenantId, status])
+  @@index([tenantId, status, dueDate])
   @@index([tenantId, dueDate])
   @@map("payments")
 }
@@ -950,3 +956,4 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@map("audit_logs")
 }
+

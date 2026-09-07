@@ -4,10 +4,10 @@ import { useOperationalData } from '../../context/OperationalDataContext';
 import { MetricCard } from '../../components/common/MetricCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
+import { RecoveryQueue } from '../../components/recovery/RecoveryQueue';
 import {
   AlertCircle,
   Clock,
-  ArrowRight,
   PhoneCall,
   Calendar,
   CheckCircle,
@@ -23,9 +23,6 @@ export const OverviewPage: React.FC = () => {
   const {
     appointments,
     followUps,
-    budgets,
-    treatments,
-    opportunities,
     updateAppointmentStatus,
     rescheduleAppointment,
   } = useOperationalData();
@@ -44,13 +41,6 @@ export const OverviewPage: React.FC = () => {
   const upcomingCount = todayAppointments.filter(
     a => a.status === 'CONFIRMADO' || a.status === 'AGUARDANDO_CONFIRMACAO' || a.status === 'NA_RECEPCAO' || a.status === 'ENCAIXE'
   ).length;
-
-  // Fila de Exceções Reais
-  const missedApts = todayAppointments.filter(a => a.status === 'FALTA');
-  const inactiveBudgets = budgets.filter(b => b.status === 'NEGOTIATING' || b.status === 'NO_RESPONSE');
-  const inactiveBudgetValue = inactiveBudgets.reduce((acc, b) => acc + b.finalAmount, 0);
-  const atRiskTreatments = treatments.filter(t => t.status === 'RISK_OF_ABANDONMENT');
-  const postOpFollowUps = followUps.filter(f => f.category === 'POS_OPERATORIO' && f.status === 'PENDENTE');
 
   const handleStatusChange = (id: string, status: any) => {
     updateAppointmentStatus(id, status);
@@ -91,124 +81,7 @@ export const OverviewPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ============================================================
-          1. FILA DE EXCEÇÕES OPERACIONAIS (SEÇÃO PRIORITÁRIA)
-          ============================================================ */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
-            <h2 className="text-xs font-bold text-bhon-text uppercase tracking-wider">
-              Fila de Exceções Operacionais
-            </h2>
-          </div>
-          <span className="text-[11px] font-mono-data text-bhon-muted">
-            Prioridade máxima • Requer ação imediata
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Card de Exceção 1: Faltas Críticas */}
-          <div className="p-3.5 bg-white border border-rose-200 rounded border-l-4 border-l-rose-600 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <StatusBadge status="CRÍTICO" size="sm" />
-                <span className="font-mono-data text-xs font-bold text-rose-700">
-                  {missedCount} FALTA{missedCount !== 1 ? 'S' : ''}
-                </span>
-              </div>
-              <p className="text-xs font-bold text-bhon-text">
-                {missedCount} {missedCount === 1 ? 'paciente faltou' : 'pacientes faltaram'} hoje sem aviso prévio
-              </p>
-              <p className="text-[11px] text-bhon-muted mt-1 leading-snug">
-                Risco de atraso no plano de tratamento e ociosidade de consultório.
-              </p>
-            </div>
-            <button
-              onClick={() => setLocation('/clinic/follow-ups')}
-              className="mt-3 w-full py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Reagendar e contatar</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Card de Exceção 2: Orçamentos Retidos */}
-          <div className="p-3.5 bg-white border border-amber-200 rounded border-l-4 border-l-amber-500 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <StatusBadge status="ATENÇÃO" size="sm" />
-                <span className="font-mono-data text-[11px] font-bold text-amber-800">
-                  R$ {inactiveBudgetValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <p className="text-xs font-bold text-bhon-text">
-                {inactiveBudgets.length} orçamentos sem resposta há mais de 3 dias
-              </p>
-              <p className="text-[11px] text-bhon-muted mt-1 leading-snug">
-                Receita represada em negociação aguardando contato ativo da recepção.
-              </p>
-            </div>
-            <button
-              onClick={() => setLocation('/clinic/budgets')}
-              className="mt-3 w-full py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Ver {inactiveBudgets.length} orçamentos</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Card de Exceção 3: Tratamentos sem Próxima Etapa */}
-          <div className="p-3.5 bg-white border border-blue-200 rounded border-l-4 border-l-blue-600 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <StatusBadge status="ACOMPANHAMENTO" size="sm" />
-                <span className="font-mono-data text-xs font-bold text-blue-700">
-                  {atRiskTreatments.length} EM RISCO
-                </span>
-              </div>
-              <p className="text-xs font-bold text-bhon-text">
-                Tratamentos ativos sem próxima etapa agendada
-              </p>
-              <p className="text-[11px] text-bhon-muted mt-1 leading-snug">
-                Mais de 15 dias sem retorno com risco imediato de abandono do paciente.
-              </p>
-            </div>
-            <button
-              onClick={() => setLocation('/clinic/treatments')}
-              className="mt-3 w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Revisar tratamentos</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Card de Exceção 4: Protocolo Pós-Op 48h */}
-          <div className="p-3.5 bg-white border border-teal-200 rounded border-l-4 border-l-bhon-teal flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <StatusBadge status="PROTOCOLO" size="sm" />
-                <span className="font-mono-data text-xs font-bold text-bhon-teal-dark">
-                  {postOpFollowUps.length} PENDENTE{postOpFollowUps.length !== 1 ? 'S' : ''}
-                </span>
-              </div>
-              <p className="text-xs font-bold text-bhon-text">
-                Pós-cirúrgicos com checagem 48h pendente
-              </p>
-              <p className="text-[11px] text-bhon-muted mt-1 leading-snug">
-                Protocolo clínico de monitoramento de dor, edema e medicação.
-              </p>
-            </div>
-            <button
-              onClick={() => setLocation('/clinic/follow-ups')}
-              className="mt-3 w-full py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Acompanhar pós-op</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <RecoveryQueue onNavigate={setLocation} />
 
       {/* ============================================================
           2. OPERAÇÃO DE HOJE
@@ -581,3 +454,4 @@ export const OverviewPage: React.FC = () => {
     </div>
   );
 };
+

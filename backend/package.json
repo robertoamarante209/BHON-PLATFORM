@@ -4,7 +4,9 @@
   "description": "Tecnologias:",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test test/recovery.test.mjs test/security.test.mjs",
     "dev": "tsx watch src/server.ts"
   },
   "keywords": [],
@@ -32,5 +34,11 @@
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.0": true
   }
 }
+

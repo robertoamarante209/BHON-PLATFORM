@@ -23,7 +23,13 @@ This document records the hardening applied after auditing the local Antigravity
 - Clinic payments create/update a corresponding `FinancialTransaction` atomically.
 - Global search now includes appointments, follow-ups and opportunities in addition to patients, treatments and budgets.
 - Health endpoint no longer exposes raw database error messages.
+- Cookie-authenticated mutations now reject missing or untrusted origins as an explicit CSRF boundary.
+- Login attempts are rate-limited per IP and normalized e-mail, with a bounded sliding window.
+- Login payload length and unknown fields are rejected before expensive password processing.
+- Bearer authentication is disabled by default and requires explicit `ALLOW_BEARER_AUTH=true` for controlled integrations.
+- Recovery actions validate tenant ownership and update the operational record, patient timeline and audit log atomically.
 
 ## Intentionally not claimed as complete
 
 The repository still needs the remaining domain APIs and frontend-to-backend integration for all clinical modules, plus the full BHON Platform backend. Those are separate implementation stages and should not be represented as finished merely because authentication and a subset of the clinical API are real.
+

@@ -1,322 +1,91 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
 import { useLocation } from 'wouter';
-import { useOperationalData } from '../../context/OperationalDataContext';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { MetricCard } from '../../components/common/MetricCard';
-import { Drawer } from '../../components/common/Drawer';
 import { ConfirmationDialog } from '../../components/common/ConfirmationDialog';
-import {
-  FileCheck,
-  Search,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  ArrowRight,
-  DollarSign,
-  AlertTriangle
-} from 'lucide-react';
-import { Budget } from '../../types';
+import { Drawer } from '../../components/common/Drawer';
+import { MetricCard } from '../../components/common/MetricCard';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { useAuth } from '../../context/AuthContext';
+import { approveBudget, listBudgets, type BudgetMetrics, type Pagination } from '../../lib/clinic';
+import type { Budget, QuoteStatus } from '../../types';
+
+const approvalRoles = ['OWNER', 'ADMIN', 'MANAGER'];
+const quoteStatuses: QuoteStatus[] = ['DRAFT', 'SENT', 'VIEWED', 'NEGOTIATING', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'NO_RESPONSE'];
+const emptyMetrics: BudgetMetrics = { totalInNegotiation: 0, noResponseCount: 0, approvedCount: 0, rejectedCount: 0, conversionRate: null };
 
 export const BudgetsPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const { budgets, approveBudget } = useOperationalData();
-
+  const { currentUser } = useAuth();
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [metrics, setMetrics] = useState<BudgetMetrics>(emptyMetrics);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<QuoteStatus | 'ALL'>('ALL');
+  const [page, setPage] = useState(1);
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
   const [confirmApproveId, setConfirmApproveId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  // Métricas Mandatórias do Master Prompt (Seção 21)
-  const totalInNegotiation = budgets
-    .filter((b) => b.status === 'NEGOTIATING' || b.status === 'SENT' || b.status === 'VIEWED')
-    .reduce((acc, b) => acc + b.finalAmount, 0);
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await listBudgets({ search: searchTerm.trim() || undefined, status: statusFilter === 'ALL' ? undefined : statusFilter, page, limit: 20 }, signal);
+      setBudgets(result.data);
+      setMetrics(result.metrics);
+      setPagination(result.pagination);
+      setSelectedBudget((current) => current ? result.data.find((item) => item.id === current.id) || null : null);
+    } catch (loadError) {
+      if ((loadError as Error).name !== 'AbortError') setError((loadError as Error).message || 'Não foi possível carregar os orçamentos.');
+    } finally {
+      if (!signal?.aborted) setLoading(false);
+    }
+  }, [page, searchTerm, statusFilter]);
 
-  const noResponseCount = budgets.filter((b) => b.status === 'NO_RESPONSE').length;
-  const approvedCount = budgets.filter((b) => b.status === 'ACCEPTED').length;
-  const rejectedCount = budgets.filter((b) => b.status === 'REJECTED').length;
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void load(controller.signal), 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [load]);
 
-  const totalDecided = approvedCount + rejectedCount;
-  const conversionRate = totalDecided > 0 ? Math.round((approvedCount / totalDecided) * 100) : 78;
-
-  const filteredBudgets = budgets.filter((b) => {
-    const matchesSearch =
-      b.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.treatmentTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.patientRecordNumber.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = statusFilter === 'ALL' || b.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const handleApproveConfirm = () => {
-    if (confirmApproveId) {
-      approveBudget(confirmApproveId);
+  const handleApproveConfirm = async () => {
+    if (!confirmApproveId || saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await approveBudget(confirmApproveId);
       setConfirmApproveId(null);
-      if (selectedBudget && selectedBudget.id === confirmApproveId) {
-        setSelectedBudget((prev) => (prev ? { ...prev, status: 'ACCEPTED' } : null));
-      }
+      await load();
+    } catch (approveError) {
+      setConfirmApproveId(null);
+      setError((approveError as Error).message || 'Não foi possível aprovar o orçamento.');
+    } finally {
+      setSaving(false);
     }
   };
 
+  const canApprove = approvalRoles.includes(currentUser.role);
+  const money = (value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
-      {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-bhon-border gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-bhon-text uppercase tracking-wide">
-            Orçamentos Clínicos
-          </h1>
-          <p className="text-xs text-bhon-muted mt-0.5">
-            Negociação de planos de tratamento, detalhamento de procedimentos e conversão financeira.
-          </p>
-        </div>
+    <div className="mx-auto max-w-7xl space-y-4">
+      <div className="flex flex-col justify-between gap-3 border-b border-bhon-border pb-3 sm:flex-row sm:items-center"><div><h1 className="text-lg font-bold uppercase tracking-wide text-bhon-text">Orçamentos Clínicos</h1><p className="mt-0.5 text-xs text-bhon-muted">Negociação persistida de planos terapêuticos e conversão financeira auditável.</p></div><span className="font-mono-data text-xs text-bhon-muted">{pagination.total} propostas encontradas</span></div>
 
-        <span className="font-mono-data text-xs text-bhon-muted self-start sm:self-auto">
-          {budgets.length} propostas registradas
-        </span>
-      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5"><MetricCard label="Total em Negociação" value={money(metrics.totalInNegotiation)} subtext="Volume ativo na esteira" highlight /><MetricCard label="Sem Resposta" value={metrics.noResponseCount} subtext="Propostas sem retorno" /><MetricCard label="Aprovados" value={metrics.approvedCount} subtext="Tratamentos ativados" /><MetricCard label="Recusados" value={metrics.rejectedCount} subtext="Propostas encerradas" /><MetricCard label="Taxa de Conversão" value={metrics.conversionRate == null ? 'Sem base' : `${metrics.conversionRate}%`} subtext="Aprovados entre decisões" /></div>
 
-      {/* Métricas Requeridas pelo Master Prompt (Seção 21) */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <MetricCard
-          label="Total em Negociação"
-          value={`R$ ${totalInNegotiation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          subtext="Volume ativo na esteira"
-          highlight={true}
-        />
-        <MetricCard
-          label="Sem Resposta"
-          value={noResponseCount}
-          subtext="Mais de 3 dias sem retorno"
-          delta={noResponseCount > 0 ? { value: `${noResponseCount} parados`, isPositive: false } : undefined}
-        />
-        <MetricCard
-          label="Aprovados"
-          value={approvedCount}
-          subtext="Tratamentos ativados"
-          delta={{ value: '+4 este mês', isPositive: true }}
-        />
-        <MetricCard
-          label="Recusados"
-          value={rejectedCount}
-          subtext="Motivo de recusa registrado"
-        />
-        <MetricCard
-          label="Taxa de Conversão"
-          value={`${conversionRate}%`}
-          subtext="Meta clínica: 70%"
-          delta={{ value: '+8% vs meta', isPositive: true }}
-        />
-      </div>
+      <div className="flex flex-col gap-3 rounded border border-bhon-border bg-white p-3 sm:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-bhon-muted" /><input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setPage(1); }} placeholder="Buscar por paciente, prontuário ou procedimento…" className="w-full rounded border border-bhon-border py-1.5 pl-9 pr-3 text-xs focus:border-bhon-teal focus:outline-none" /></div><select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as QuoteStatus | 'ALL'); setPage(1); }} className="rounded border border-bhon-border bg-white px-2.5 py-1.5 text-xs"><option value="ALL">Todos os status</option>{quoteStatuses.map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}</select></div>
 
-      {/* Barra de Filtros */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 border border-bhon-border rounded">
-        <div className="relative flex-1 w-full sm:w-auto">
-          <Search className="w-4 h-4 text-bhon-muted absolute left-3 top-2.5" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por paciente, prontuário ou procedimento..."
-            className="w-full pl-9 pr-3 py-1.5 border border-bhon-border rounded text-xs text-bhon-text placeholder:text-bhon-muted focus:outline-none focus:border-bhon-teal"
-          />
-        </div>
+      {error && <div role="alert" className="flex items-center justify-between border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><span>{error}</span><button type="button" onClick={() => void load()} className="font-bold underline">Tentar novamente</button></div>}
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-2.5 py-1.5 border border-bhon-border rounded text-xs text-bhon-text bg-white"
-          >
-            <option value="ALL">Todos os status</option>
-            <option value="NEGOTIATING">Em Negociação</option>
-            <option value="ACCEPTED">Aprovados</option>
-            <option value="SENT">Enviados</option>
-            <option value="NO_RESPONSE">Sem Resposta</option>
-            <option value="REJECTED">Recusados</option>
-          </select>
-        </div>
-      </div>
+      <div className="overflow-hidden rounded border border-bhon-border bg-white shadow-sm">{loading ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-bhon-muted"><Loader2 className="h-4 w-4 animate-spin" /> Carregando orçamentos…</div> : budgets.length === 0 ? <div className="min-h-48 p-10 text-center"><p className="font-semibold text-bhon-text">Nenhum orçamento encontrado</p><p className="mt-1 text-xs text-bhon-muted">Ajuste a busca ou o status selecionado.</p></div> : <div className="overflow-x-auto"><table className="bhon-table"><thead><tr><th>Paciente</th><th>Plano de Tratamento</th><th>Criado Por</th><th>Valor Bruto</th><th>Desconto</th><th>Valor Final</th><th>Condição</th><th>Status</th><th className="text-right">Ação</th></tr></thead><tbody>{budgets.map((budget) => <tr key={budget.id} onClick={() => setSelectedBudget(budget)} className="cursor-pointer transition-colors hover:bg-slate-50"><td className="whitespace-nowrap"><p className="font-bold text-bhon-text">{budget.patientName}</p><span className="font-mono-data text-[10px] text-bhon-muted">{budget.patientRecordNumber}</span></td><td className="max-w-xs truncate font-semibold text-bhon-text">{budget.treatmentTitle}</td><td className="whitespace-nowrap text-xs text-bhon-muted">{budget.createdByName || 'Não informado'}</td><td className="whitespace-nowrap font-mono-data text-xs text-slate-500">{money(budget.totalAmount)}</td><td className="whitespace-nowrap font-mono-data text-xs text-emerald-700">{budget.discountAmount > 0 ? `-${money(budget.discountAmount)}` : '—'}</td><td className="whitespace-nowrap font-mono-data text-xs font-bold">{money(budget.finalAmount)}</td><td className="max-w-xs truncate text-xs text-bhon-muted">{budget.paymentMethod || 'A definir'}</td><td><StatusBadge status={budget.status} /></td><td className="text-right">{canApprove && !['ACCEPTED', 'REJECTED', 'EXPIRED'].includes(budget.status) ? <button type="button" onClick={(event) => { event.stopPropagation(); setConfirmApproveId(budget.id); }} className="rounded bg-emerald-700 px-2.5 py-1 text-[11px] font-bold text-white transition-colors hover:bg-emerald-800">Aprovar</button> : budget.status === 'ACCEPTED' ? <span className="font-mono-data text-[10px] font-bold text-emerald-700">ATIVADO</span> : '—'}</td></tr>)}</tbody></table></div>}</div>
 
-      {/* Tabela de Orçamentos */}
-      <div className="bg-white border border-bhon-border rounded shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="bhon-table">
-            <thead>
-              <tr>
-                <th>Paciente</th>
-                <th>Plano de Tratamento</th>
-                <th>Criado Por</th>
-                <th>Valor Bruto</th>
-                <th>Desconto</th>
-                <th>Valor Final</th>
-                <th>Condição de Pagamento</th>
-                <th>Status</th>
-                <th className="text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredBudgets.map((b) => (
-                <tr
-                  key={b.id}
-                  onClick={() => setSelectedBudget(b)}
-                  className="cursor-pointer hover:bg-slate-50 transition-colors"
-                >
-                  <td className="whitespace-nowrap">
-                    <p className="font-bold text-bhon-text">{b.patientName}</p>
-                    <span className="font-mono-data text-[10px] text-bhon-muted">
-                      {b.patientRecordNumber}
-                    </span>
-                  </td>
-                  <td className="font-semibold text-bhon-text max-w-xs truncate" title={b.treatmentTitle}>
-                    {b.treatmentTitle}
-                  </td>
-                  <td className="text-xs text-bhon-muted whitespace-nowrap">
-                    {b.createdByName || 'Dr. Roberto Carlos Fagundes'}
-                  </td>
-                  <td className="font-mono-data text-xs text-slate-500 line-through whitespace-nowrap">
-                    R$ {b.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="font-mono-data text-xs text-emerald-700 whitespace-nowrap">
-                    {b.discountAmount > 0
-                      ? `-R$ ${b.discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                      : '—'}
-                  </td>
-                  <td className="font-mono-data font-bold text-xs text-bhon-text whitespace-nowrap">
-                    R$ {b.finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="text-xs text-bhon-muted max-w-xs truncate">
-                    {b.paymentMethod || 'A definir'}
-                  </td>
-                  <td className="whitespace-nowrap">
-                    <StatusBadge status={b.status} />
-                  </td>
-                  <td className="text-right whitespace-nowrap">
-                    {b.status !== 'ACCEPTED' ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmApproveId(b.id);
-                        }}
-                        className="px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded transition-colors"
-                      >
-                        Aprovar
-                      </button>
-                    ) : (
-                      <span className="font-mono-data text-[10px] text-emerald-700 font-bold">
-                        ATIVADO
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {pagination.totalPages > 1 && <div className="flex items-center justify-end gap-2 text-xs text-bhon-muted"><button type="button" aria-label="Página anterior" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)} className="rounded border border-bhon-border p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button><span>Página {page} de {pagination.totalPages}</span><button type="button" aria-label="Próxima página" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)} className="rounded border border-bhon-border p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div>}
 
-      {/* Drawer com Detalhes dos Procedimentos do Orçamento */}
-      <Drawer
-        isOpen={!!selectedBudget}
-        onClose={() => setSelectedBudget(null)}
-        title="Dossiê do Orçamento"
-        subtitle={selectedBudget ? `${selectedBudget.patientName} (${selectedBudget.patientRecordNumber})` : ''}
-        width="max-w-lg"
-      >
-        {selectedBudget && (
-          <div className="space-y-4 text-xs">
-            {/* Cabeçalho do Orçamento */}
-            <div className="p-3 bg-slate-50 border border-bhon-border rounded space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Plano Terapêutico:</span>
-                <span className="font-bold text-bhon-text">{selectedBudget.treatmentTitle}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Condição Proposta:</span>
-                <span className="text-bhon-text font-medium">{selectedBudget.paymentMethod || 'A combinar'}</span>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-bhon-border">
-                <span className="text-bhon-muted">Status Atual:</span>
-                <StatusBadge status={selectedBudget.status} />
-              </div>
-            </div>
+      <Drawer isOpen={!!selectedBudget} onClose={() => setSelectedBudget(null)} title="Dossiê do Orçamento" subtitle={selectedBudget ? `${selectedBudget.patientName} (${selectedBudget.patientRecordNumber})` : ''} width="max-w-lg">{selectedBudget && <div className="space-y-4 text-xs"><div className="space-y-1.5 rounded border border-bhon-border bg-slate-50 p-3"><button type="button" onClick={() => setLocation(`/clinic/patients/${selectedBudget.patientId}`)} className="font-bold text-bhon-teal hover:underline">Abrir prontuário de {selectedBudget.patientName} →</button><div className="flex justify-between"><span className="text-bhon-muted">Plano terapêutico</span><span className="font-bold">{selectedBudget.treatmentTitle}</span></div><div className="flex justify-between"><span className="text-bhon-muted">Condição proposta</span><span>{selectedBudget.paymentMethod || 'A combinar'}</span></div></div><div><p className="mb-2 font-bold uppercase tracking-wider">Procedimentos inclusos</p><div className="overflow-hidden rounded border border-bhon-border"><table className="bhon-table"><thead><tr><th>Procedimento</th><th>Qtd</th><th className="text-right">Total</th></tr></thead><tbody>{selectedBudget.items.map((item) => <tr key={item.id}><td>{item.description}</td><td className="font-mono-data">{item.quantity}</td><td className="text-right font-mono-data font-bold">{money(item.totalPrice)}</td></tr>)}</tbody></table></div></div><div className="space-y-1 rounded border border-bhon-border bg-slate-50 p-3 font-mono-data"><div className="flex justify-between text-bhon-muted"><span>Subtotal</span><span>{money(selectedBudget.totalAmount)}</span></div><div className="flex justify-between text-emerald-700"><span>Desconto</span><span>-{money(selectedBudget.discountAmount)}</span></div><div className="flex justify-between border-t border-bhon-border pt-1.5 text-sm font-bold"><span>Valor final</span><span>{money(selectedBudget.finalAmount)}</span></div></div>{canApprove && !['ACCEPTED', 'REJECTED', 'EXPIRED'].includes(selectedBudget.status) && <button type="button" disabled={saving} onClick={() => setConfirmApproveId(selectedBudget.id)} className="flex w-full items-center justify-center gap-1.5 rounded bg-emerald-700 py-2.5 font-bold uppercase tracking-wider text-white transition-colors hover:bg-emerald-800 disabled:opacity-60"><CheckCircle2 className="h-4 w-4" /> Aprovar e ativar tratamento</button>}</div>}</Drawer>
 
-            {/* Procedimentos e Itens */}
-            <div>
-              <p className="font-bold text-bhon-text uppercase tracking-wider text-[11px] mb-2">
-                Procedimentos Inclusos na Proposta
-              </p>
-              <div className="border border-bhon-border rounded overflow-hidden">
-                <table className="bhon-table">
-                  <thead>
-                    <tr>
-                      <th>Procedimento</th>
-                      <th>Qtd</th>
-                      <th className="text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedBudget.items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="font-medium text-bhon-text">{item.description}</td>
-                        <td className="font-mono-data">{item.quantity}</td>
-                        <td className="font-mono-data font-bold text-right">
-                          R$ {item.totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Totalizadores */}
-            <div className="p-3 bg-slate-50 border border-bhon-border rounded space-y-1 font-mono-data">
-              <div className="flex justify-between text-bhon-muted">
-                <span>Subtotal Bruto:</span>
-                <span>R$ {selectedBudget.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-              {selectedBudget.discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-700 font-semibold">
-                  <span>Desconto Aplicado:</span>
-                  <span>-R$ {selectedBudget.discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm font-bold text-bhon-text pt-1.5 border-t border-bhon-border">
-                <span>Valor Final Aprovado:</span>
-                <span>R$ {selectedBudget.finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            </div>
-
-            {/* Botão de Ação de Aprovação (Workflow Cruzado) */}
-            {selectedBudget.status !== 'ACCEPTED' ? (
-              <button
-                type="button"
-                onClick={() => setConfirmApproveId(selectedBudget.id)}
-                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded uppercase tracking-wider text-xs transition-colors flex items-center justify-center gap-1.5"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Aprovar Orçamento e Ativar Tratamento</span>
-              </button>
-            ) : (
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded font-semibold text-center">
-                ✓ Orçamento Aprovado • Tratamento ativado e recebíveis lançados
-              </div>
-            )}
-          </div>
-        )}
-      </Drawer>
-
-      {/* Confirmação de Aprovação com Explicação das Consequências de Sistema */}
-      <ConfirmationDialog
-        isOpen={!!confirmApproveId}
-        onClose={() => setConfirmApproveId(null)}
-        onConfirm={handleApproveConfirm}
-        title="Aprovar Orçamento e Disparar Fluxos"
-        description="Ao aprovar este orçamento: 1) A oportunidade será convertida em venda; 2) O tratamento clínico será ativado com suas sessões; 3) O lançamento de entrada a receber será registrado no financeiro; 4) O evento será registrado na linha do tempo do prontuário e no log de auditoria."
-        confirmText="Aprovar e Ativar"
-        isDestructive={false}
-      />
+      <ConfirmationDialog isOpen={!!confirmApproveId} onClose={() => !saving && setConfirmApproveId(null)} onConfirm={() => void handleApproveConfirm()} title="Aprovar orçamento e disparar fluxos" description="Esta ação converte a oportunidade aberta, ativa o tratamento, gera o recebível e registra timeline e auditoria em uma única transação." confirmText={saving ? 'Processando…' : 'Aprovar e ativar'} isDestructive={false} />
     </div>
   );
 };

@@ -1,35 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useOperationalData } from '../../context/OperationalDataContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
 import { ConfirmationDialog } from '../../components/common/ConfirmationDialog';
 import {
-  Calendar,
-  Clock,
-  User,
+  AlertTriangle,
   Plus,
-  Filter,
-  CheckCircle2,
-  AlertOctagon,
-  UserCheck,
   ChevronLeft,
   ChevronRight,
-  ArrowUpRight
+  ArrowUpRight,
+  RefreshCw,
 } from 'lucide-react';
-import { Appointment, AppointmentStatus } from '../../types';
+import type { Appointment, AppointmentStatus, Patient, Room } from '../../types';
+import { appointmentTransitions, createAppointment, getSchedulingResources, listAppointments, listPatients, updateAppointmentStatus } from '../../lib/clinic';
+import type { ProfessionalOption } from '../../lib/clinic';
+
+function localDateInput(date = new Date()): string {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function moveDate(value: string, days: number): string {
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return localDateInput(date);
+}
 
 export const AgendaPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const {
-    rooms,
-    appointments,
-    updateAppointmentStatus,
-    rescheduleAppointment,
-    createAppointment,
-    patients,
-  } = useOperationalData();
-
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [professionals, setProfessionals] = useState<ProfessionalOption[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedDate, setSelectedDate] = useState(localDateInput());
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [isNewAptOpen, setIsNewAptOpen] = useState(false);
   const [confirmFaltaId, setConfirmFaltaId] = useState<string | null>(null);
@@ -46,45 +53,87 @@ export const AgendaPage: React.FC = () => {
   ];
 
   // Formulário de Nova Consulta
-  const [newPatientId, setNewPatientId] = useState(patients[0]?.id || '');
-  const [newRoomId, setNewRoomId] = useState(rooms[0]?.id || 'room-1');
+  const [newPatientId, setNewPatientId] = useState('');
+  const [newRoomId, setNewRoomId] = useState('');
   const [newTime, setNewTime] = useState('14:30');
   const [newProcedure, setNewProcedure] = useState('');
-  const [newDoctor, setNewDoctor] = useState('Dr. Roberto Carlos Fagundes');
+  const [newProfessionalId, setNewProfessionalId] = useState('');
 
-  const handleCreateAppointment = (e: React.FormEvent) => {
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError('');
+    void Promise.all([
+      listAppointments(selectedDate, controller.signal),
+      getSchedulingResources(controller.signal),
+      listPatients({ status: 'ACTIVE', limit: 50 }, controller.signal),
+    ]).then(([appointmentData, resources, patientData]) => {
+      setAppointments(appointmentData);
+      setRooms(resources.rooms);
+      setProfessionals(resources.professionals);
+      setPatients(patientData.data);
+      setNewPatientId((current) => current || patientData.data[0]?.id || '');
+      setNewRoomId((current) => current || resources.rooms[0]?.id || '');
+      setNewProfessionalId((current) => current || resources.professionals[0]?.id || '');
+    }).catch((requestError) => {
+      if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar a agenda.');
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+    return () => controller.abort();
+  }, [selectedDate, reloadKey]);
+
+  const dateLabel = useMemo(() => new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(`${selectedDate}T12:00:00`)), [selectedDate]);
+  const canTransition = (appointment: Appointment, status: AppointmentStatus) => appointmentTransitions[appointment.status].includes(status);
+
+  const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     const patient = patients.find(p => p.id === newPatientId);
     const room = rooms.find(r => r.id === newRoomId);
-    if (!patient || !room || !newProcedure) return;
-
-    createAppointment({
-      patientId: patient.id,
-      patientName: patient.name,
-      patientRecordNumber: patient.recordNumber,
-      professionalId: 'user-1',
-      professionalName: newDoctor,
-      roomId: room.id,
-      roomName: room.name,
-      time: newTime,
-      scheduledAt: `2026-09-03T${newTime}:00Z`,
-      durationMinutes: 30,
-      procedureName: newProcedure,
-      status: 'CONFIRMADO',
-      delayMinutes: 0,
-    });
-
-    setIsNewAptOpen(false);
-    setNewProcedure('');
+    const professional = professionals.find(value => value.id === newProfessionalId);
+    if (!patient || !room || !professional || !newProcedure.trim() || actionLoading) return;
+    setActionLoading(true);
+    setError('');
+    try {
+      await createAppointment({
+        patientId: patient.id,
+        professionalId: professional.id,
+        roomId: room.id,
+        scheduledAt: new Date(`${selectedDate}T${newTime}:00`).toISOString(),
+        durationMinutes: 30,
+        procedureName: newProcedure.trim(),
+      });
+      setIsNewAptOpen(false);
+      setNewProcedure('');
+      setReloadKey((value) => value + 1);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível criar o agendamento.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleFaltaConfirm = () => {
+  const changeStatus = async (appointment: Appointment, status: AppointmentStatus, delayMinutes?: number) => {
+    if (actionLoading) return;
+    setActionLoading(true);
+    setError('');
+    try {
+      await updateAppointmentStatus(appointment.id, status, delayMinutes);
+      setSelectedApt((current) => current?.id === appointment.id ? { ...current, status, delayMinutes: delayMinutes ?? current.delayMinutes } : current);
+      setReloadKey((value) => value + 1);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível atualizar o atendimento.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleFaltaConfirm = async () => {
     if (confirmFaltaId) {
-      updateAppointmentStatus(confirmFaltaId, 'FALTA');
+      const appointment = appointments.find((value) => value.id === confirmFaltaId);
+      if (appointment) await changeStatus(appointment, 'FALTA');
       setConfirmFaltaId(null);
-      if (selectedApt && selectedApt.id === confirmFaltaId) {
-        setSelectedApt(prev => prev ? { ...prev, status: 'FALTA' } : null);
-      }
     }
   };
 
@@ -97,8 +146,8 @@ export const AgendaPage: React.FC = () => {
             <h1 className="text-lg font-bold text-bhon-text uppercase tracking-wide">
               Agenda da Clínica
             </h1>
-            <span className="font-mono-data text-xs px-2 py-0.5 rounded bg-slate-100 text-bhon-navy border border-bhon-border font-semibold">
-              Hoje • 03 Setembro 2026
+            <span className="font-mono-data text-xs px-2 py-0.5 rounded bg-slate-100 text-bhon-navy border border-bhon-border font-semibold capitalize">
+              {dateLabel}
             </span>
           </div>
           <p className="text-xs text-bhon-muted mt-0.5">
@@ -107,6 +156,9 @@ export const AgendaPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button type="button" aria-label="Dia anterior" onClick={() => setSelectedDate((value) => moveDate(value, -1))} className="border border-bhon-border bg-white p-1.5 text-bhon-text transition-transform duration-150 active:scale-[0.96]"><ChevronLeft className="h-4 w-4" /></button>
+          <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="border border-bhon-border bg-white px-2.5 py-1.5 text-xs text-bhon-text" />
+          <button type="button" aria-label="Próximo dia" onClick={() => setSelectedDate((value) => moveDate(value, 1))} className="border border-bhon-border bg-white p-1.5 text-bhon-text transition-transform duration-150 active:scale-[0.96]"><ChevronRight className="h-4 w-4" /></button>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -129,12 +181,22 @@ export const AgendaPage: React.FC = () => {
         </div>
       </div>
 
+      {error && (
+        <div className="flex items-center gap-3 border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900" role="alert">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="flex items-center gap-1 border border-rose-300 bg-white px-2.5 py-1.5 font-semibold transition-transform duration-150 active:scale-[0.97]"><RefreshCw className="h-3.5 w-3.5" /> Recarregar</button>
+        </div>
+      )}
+
+      {loading && appointments.length === 0 && <div className="border border-bhon-border bg-white px-4 py-8 text-center text-xs text-bhon-muted">Carregando agenda e recursos clínicos…</div>}
+
       {/* ============================================================
           MATRIZ DA AGENDA: EIXO VERTICAL DE HORÁRIOS + COLUNAS DE SALAS
           ============================================================ */}
-      <div className="bg-white border border-bhon-border rounded shadow-sm overflow-hidden">
+      {!loading && <div className="bg-white border border-bhon-border rounded shadow-sm overflow-x-auto">
         {/* Cabeçalho das Colunas de Consultórios */}
-        <div className="grid grid-cols-[80px_repeat(3,1fr)] border-b border-bhon-border bg-slate-50 text-xs font-bold text-bhon-text uppercase tracking-wider sticky top-0 z-10">
+        <div style={{ gridTemplateColumns: `80px repeat(${Math.max(rooms.length, 1)}, minmax(220px, 1fr))` }} className="grid min-w-max border-b border-bhon-border bg-slate-50 text-xs font-bold text-bhon-text uppercase tracking-wider sticky top-0 z-10">
           <div className="p-3 text-center border-r border-bhon-border text-bhon-muted font-mono-data">
             Hora
           </div>
@@ -155,7 +217,7 @@ export const AgendaPage: React.FC = () => {
         <div className="divide-y divide-bhon-border">
           {timeSlots.map((time) => {
             return (
-              <div key={time} className="grid grid-cols-[80px_repeat(3,1fr)] min-h-[72px]">
+              <div key={time} style={{ gridTemplateColumns: `80px repeat(${Math.max(rooms.length, 1)}, minmax(220px, 1fr))` }} className="grid min-w-max min-h-[72px]">
                 {/* Eixo Vertical de Tempo */}
                 <div className="p-2.5 text-center font-mono-data text-xs font-semibold text-bhon-muted bg-slate-50/50 border-r border-bhon-border flex items-center justify-center">
                   {time}
@@ -178,7 +240,7 @@ export const AgendaPage: React.FC = () => {
                       {apt && isVisible && (
                         <div
                           onClick={() => setSelectedApt(apt)}
-                          className={`h-full p-2 rounded border cursor-pointer transition-all text-xs flex flex-col justify-between ${
+                          className={`h-full p-2 rounded border cursor-pointer transition-colors text-xs flex flex-col justify-between ${
                             apt.status === 'EM_ATENDIMENTO'
                               ? 'bg-teal-50/80 border-teal-400 shadow-sm'
                               : apt.status === 'NA_RECEPCAO'
@@ -238,7 +300,7 @@ export const AgendaPage: React.FC = () => {
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {/* ============================================================
           DRAWER DE AÇÕES DA CONSULTA DA AGENDA
@@ -288,8 +350,9 @@ export const AgendaPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => updateAppointmentStatus(selectedApt.id, 'NA_RECEPCAO')}
-                  className="p-2.5 text-left rounded border border-blue-200 bg-blue-50/80 hover:bg-blue-100 transition-colors"
+                  disabled={actionLoading || !canTransition(selectedApt, 'NA_RECEPCAO')}
+                  onClick={() => void changeStatus(selectedApt, 'NA_RECEPCAO')}
+                  className="p-2.5 text-left rounded border border-blue-200 bg-blue-50/80 hover:bg-blue-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-blue-950">Confirmar Presença</p>
                   <p className="text-[10px] text-blue-700">Paciente na recepção</p>
@@ -297,8 +360,9 @@ export const AgendaPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => updateAppointmentStatus(selectedApt.id, 'EM_ATENDIMENTO')}
-                  className="p-2.5 text-left rounded border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors"
+                  disabled={actionLoading || !canTransition(selectedApt, 'EM_ATENDIMENTO')}
+                  onClick={() => void changeStatus(selectedApt, 'EM_ATENDIMENTO')}
+                  className="p-2.5 text-left rounded border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-teal-950">Chamar Paciente</p>
                   <p className="text-[10px] text-teal-700">Iniciar no consultório</p>
@@ -306,8 +370,9 @@ export const AgendaPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => updateAppointmentStatus(selectedApt.id, 'CONCLUIDO')}
-                  className="p-2.5 text-left rounded border border-slate-300 bg-slate-100 hover:bg-slate-200 transition-colors"
+                  disabled={actionLoading || !canTransition(selectedApt, 'CONCLUIDO')}
+                  onClick={() => void changeStatus(selectedApt, 'CONCLUIDO')}
+                  className="p-2.5 text-left rounded border border-slate-300 bg-slate-100 hover:bg-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-slate-800">Concluir Sessão</p>
                   <p className="text-[10px] text-slate-600">Finalizar atendimento</p>
@@ -315,8 +380,9 @@ export const AgendaPage: React.FC = () => {
 
                 <button
                   type="button"
+                  disabled={actionLoading || !canTransition(selectedApt, 'FALTA')}
                   onClick={() => setConfirmFaltaId(selectedApt.id)}
-                  className="p-2.5 text-left rounded border border-rose-300 bg-rose-50 hover:bg-rose-100 transition-colors"
+                  className="p-2.5 text-left rounded border border-rose-300 bg-rose-50 hover:bg-rose-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-rose-950">Registrar Falta</p>
                   <p className="text-[10px] text-rose-700">Gera follow-up imediato</p>
@@ -331,19 +397,22 @@ export const AgendaPage: React.FC = () => {
               </label>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => updateAppointmentStatus(selectedApt.id, 'ATRASADO', 10)}
-                  className="px-2.5 py-1 text-xs border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded font-mono-data"
+                  disabled={actionLoading || !canTransition(selectedApt, 'ATRASADO')}
+                  onClick={() => void changeStatus(selectedApt, 'ATRASADO', 10)}
+                  className="px-2.5 py-1 text-xs border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded font-mono-data disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   +10 min
                 </button>
                 <button
-                  onClick={() => updateAppointmentStatus(selectedApt.id, 'ATRASADO', 15)}
+                  disabled={actionLoading || !canTransition(selectedApt, 'ATRASADO')}
+                  onClick={() => void changeStatus(selectedApt, 'ATRASADO', 15)}
                   className="px-2.5 py-1 text-xs border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded font-mono-data"
                 >
                   +15 min
                 </button>
                 <button
-                  onClick={() => updateAppointmentStatus(selectedApt.id, 'ATRASADO', 30)}
+                  disabled={actionLoading || !canTransition(selectedApt, 'ATRASADO')}
+                  onClick={() => void changeStatus(selectedApt, 'ATRASADO', 30)}
                   className="px-2.5 py-1 text-xs border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded font-mono-data"
                 >
                   +30 min
@@ -438,13 +507,13 @@ export const AgendaPage: React.FC = () => {
           <div>
             <label className="block font-semibold text-bhon-text mb-1">Profissional</label>
             <select
-              value={newDoctor}
-              onChange={(e) => setNewDoctor(e.target.value)}
+              value={newProfessionalId}
+              onChange={(e) => setNewProfessionalId(e.target.value)}
               className="w-full px-2.5 py-2 border border-bhon-border rounded bg-white text-bhon-text"
             >
-              <option value="Dr. Roberto Carlos Fagundes">Dr. Roberto Carlos Fagundes (Cirurgia)</option>
-              <option value="Dra. Mariana Vasconcellos">Dra. Mariana Vasconcellos (Ortodontia)</option>
-              <option value="Dr. Eduardo Prado">Dr. Eduardo Prado (Prótese & Implantes)</option>
+              {professionals.map((professional) => (
+                <option key={professional.id} value={professional.id}>{professional.name}{professional.specialty ? ` (${professional.specialty})` : ''}</option>
+              ))}
             </select>
           </div>
 
@@ -462,9 +531,10 @@ export const AgendaPage: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors"
+            disabled={actionLoading || !newPatientId || !newRoomId || !newProfessionalId}
+            className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
           >
-            Confirmar e Inserir na Agenda
+            {actionLoading ? 'Salvando agendamento…' : 'Confirmar e Inserir na Agenda'}
           </button>
         </form>
       </Drawer>
@@ -482,3 +552,4 @@ export const AgendaPage: React.FC = () => {
     </div>
   );
 };
+

@@ -18,7 +18,7 @@ declare module "fastify" {
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   let token = request.cookies?.bhon_session;
 
-  if (!token && request.headers.authorization) {
+  if (!token && process.env.ALLOW_BEARER_AUTH === "true" && request.headers.authorization) {
     const match = request.headers.authorization.match(/^Bearer\s+(.+)$/i);
     token = match?.[1];
   }
@@ -155,3 +155,4 @@ export async function requireTenant(request: FastifyRequest, reply: FastifyReply
     return;
   }
 }
+

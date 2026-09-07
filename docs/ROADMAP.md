@@ -1,241 +1,104 @@
-# ROADMAP.md
+# Roadmap verificável da BHON
 
-# BHON
+Atualizado em 6 de setembro de 2026. Um item só recebe **concluído** quando código, persistência e validação correspondente existem no repositório.
 
-## A clínica no controle.
+## 1. Fundação segura — em andamento
 
----
+Concluído:
 
-# Objetivo
+- login e logout com sessões opacas no PostgreSQL;
+- cookie HttpOnly, hash de token, expiração e revogação;
+- RBAC e contexto multi-tenant;
+- proteção de origem para mutações por cookie;
+- limitação de tentativas de login;
+- auditoria das operações críticas implementadas.
 
-Definir a evolução da plataforma BHON de forma organizada e previsível.
+Pendente:
 
-Não construir tudo ao mesmo tempo.
+- recuperação de senha, verificação de e-mail e MFA;
+- testes HTTP de sessão, RBAC, IDOR e isolamento multi-tenant;
+- gestão de segredos, observabilidade e resposta a incidentes.
 
-Construir por etapas.
+## 2. Recovery Engine — fundação concluída
 
----
+- fila agregada por tenant com follow-ups, orçamentos, oportunidades, tratamentos e recebíveis;
+- prioridade, idade, responsável, prazo, próxima ação e exposição financeira;
+- registrar contato, concluir, adiar e reatribuir follow-up;
+- timeline, auditoria e notificação na mesma transação;
+- Overview consumindo a fila persistida.
 
-# Fase 1
+Próximo: persistir resultados e receita efetivamente recuperada, além de automatizar a detecção idempotente de sinais.
 
-## Fundação
+## 3. Pacientes e Agenda — núcleo conectado
 
-Objetivo:
+Concluído:
 
-Criar a base segura da plataforma.
+- listagem, busca e cadastro de pacientes pela API;
+- dossiê carregado do PostgreSQL;
+- agenda diária, salas e profissionais carregados da API;
+- criação, status e reagendamento persistidos;
+- conflitos de sala/profissional serializados por tenant;
+- efeitos de falta e conclusão executados transacionalmente.
 
-Entregas:
+Pendente:
 
-- Multi-tenancy
-- Login
-- Logout
-- Recuperação de senha
-- Usuários
-- Permissões
-- Auditoria
-- Dashboard inicial
+- edição cadastral na interface, importação e deduplicação;
+- paginação navegável e busca remota de pacientes na agenda;
+- recorrência, bloqueios de agenda, fusos configuráveis e testes de integração com PostgreSQL.
 
-Status:
+## 4. Tratamentos e Orçamentos — núcleo conectado
 
-PLANEJADO
+Concluído:
 
----
+- telas de listagem, busca, filtros, paginação e dossiê consumindo APIs persistidas;
+- métricas de orçamento calculadas no backend, sem metas ou deltas fictícios;
+- transições explícitas de tratamento e etapas, com atualização transacional do progresso;
+- timeline e auditoria das mudanças clínicas;
+- aprovação serializada de orçamento → oportunidade → tratamento → etapas → recebível;
+- autorização separada para leitura, operação clínica e aprovação gerencial;
+- testes unitários das máquinas de estado e do cálculo de progresso.
 
-# Fase 2
+Pendente:
 
-## Pacientes
+- criação e edição completas de orçamento e tratamento pela interface;
+- reagendamento de datas das etapas e atribuição de responsável;
+- testes de integração com PostgreSQL para concorrência, idempotência e rollback;
+- emissão, aceite externo e assinatura digital de propostas.
 
-Objetivo:
+## 5. Oportunidades e Follow-ups — núcleo conectado; Financeiro em seguida
 
-Centralizar os pacientes.
+Concluído:
 
-Entregas:
+- funil e fila dedicada agora usam registros persistidos, busca remota, filtros e paginação;
+- potencial ativo, contagens por estágio e acompanhamentos vencidos são calculados no servidor;
+- transições de oportunidade seguem máquina de estados e conversão exige aprovação do orçamento;
+- contatos exigem registro objetivo e conclusões exigem desfecho estruturado;
+- concluir, contatar, adiar e reatribuir follow-up atualizam domínio, timeline e auditoria;
+- ações concorrentes no mesmo follow-up são serializadas;
+- links com `focus` abrem o acompanhamento correto a partir do Recovery Engine;
+- controles da interface respeitam perfis somente leitura.
 
-- Cadastro
-- Busca
-- Tags
-- Histórico
-- Importação CSV
-- Importação XLSX
+Pendente:
 
-Status:
+- migrar a tela Financeira e conciliar pagamentos e lançamentos persistidos;
+- persistir atribuição financeira de receita recuperada por contato;
+- completar criação/edição de oportunidades e follow-ups;
+- testes HTTP/PostgreSQL de concorrência, RBAC e isolamento multi-tenant.
 
-PLANEJADO
+## 6. Operação da plataforma BHON
 
----
+- APIs exclusivas para clínicas, assinaturas, faturas e suporte;
+- autorização própria de `PLATFORM_OWNER`;
+- suspensão e reativação auditadas;
+- integração com provedor real de billing.
 
-# Fase 3
+## 7. Produção e escala
 
-## Tratamentos e Orçamentos
-
-Objetivo:
-
-Registrar oportunidades comerciais.
-
-Entregas:
-
-- Tratamentos
-- Orçamentos
-- Status
-- Valores
-- Histórico
-
-Status:
-
-PLANEJADO
-
----
-
-# Fase 4
-
-## Opportunity Engine
-
-Objetivo:
-
-Detectar oportunidades automaticamente.
-
-Entregas:
-
-- Paciente sem retorno
-- Falta
-- Tratamento abandonado
-- Orçamento sem resposta
-
-Status:
-
-PLANEJADO
-
----
-
-# Fase 5
-
-## Tarefas
-
-Objetivo:
-
-Transformar oportunidades em ações.
-
-Entregas:
-
-- Criação de tarefas
-- Responsáveis
-- Prioridades
-- Conclusão
-
-Status:
-
-PLANEJADO
-
----
-
-# Fase 6
-
-## Automações
-
-Objetivo:
-
-Automatizar processos operacionais.
-
-Entregas:
-
-- Regras
-- Gatilhos
-- Ações
-- Logs
-
-Status:
-
-PLANEJADO
-
----
-
-# Fase 7
-
-## Comunicação
-
-Objetivo:
-
-Acompanhar interação com pacientes.
-
-Entregas:
-
-- Histórico
-- WhatsApp
-- E-mail
-- SMS
-
-Status:
-
-PLANEJADO
-
----
-
-# Fase 8
-
-## Analytics
-
-Objetivo:
-
-Transformar dados em decisões.
-
-Entregas:
-
-- Indicadores
-- Conversões
-- Receita recuperada
-- Performance operacional
-
-Status:
-
-PLANEJADO
-
----
-
-# Fase 9
-
-## Billing
-
-Objetivo:
-
-Estruturar os planos da BHON.
-
-Entregas:
-
-- Assinaturas
-- Limites
-- Pagamentos
-- Faturas
-
-Status:
-
-PLANEJADO
-
----
-
-# Fase 10
-
-## Integrações
-
-Objetivo:
-
-Conectar a BHON ao ecossistema das clínicas.
-
-Entregas:
-
-- APIs
-- Integrações
-- Webhooks
-
-Status:
-
-PLANEJADO
-
----
-
-# Missão Final
-
-Construir a principal plataforma operacional para clínicas odontológicas da América Latina.
-
-BHON.
-
-A clínica no 
+- configuração inicial Vercel Services + Supabase e health checks implementados; falta validar o primeiro deployment real;
+- remover o restante do `localStorage` operacional;
+- testes unitários, integração, componentes e fluxos ponta a ponta;
+- CI obrigatório, migrations testadas em banco limpo e upgrade;
+- métricas, logs estruturados, tracing e alertas;
+- backup/restauração, retenção e controles LGPD;
+- filas/workers apenas para tarefas assíncronas reais;
+- revisão final de segurança, acessibilidade, responsividade e performance.

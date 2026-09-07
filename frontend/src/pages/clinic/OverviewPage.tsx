@@ -1,39 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useOperationalData } from '../../context/OperationalDataContext';
 import { MetricCard } from '../../components/common/MetricCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
-import {
-  AlertCircle,
-  Clock,
-  ArrowRight,
-  PhoneCall,
-  Calendar,
-  CheckCircle,
-  FileCheck,
-  UserCheck,
-  AlertTriangle,
-  Play
-} from 'lucide-react';
-import { Appointment } from '../../types';
+import { RecoveryQueue } from '../../components/recovery/RecoveryQueue';
+import { Calendar } from 'lucide-react';
+import type { Appointment, AppointmentStatus, Room } from '../../types';
+import { appointmentTransitions, getSchedulingResources, listAppointments, rescheduleAppointment, updateAppointmentStatus } from '../../lib/clinic';
 
 export const OverviewPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const {
-    appointments,
-    followUps,
-    budgets,
-    treatments,
-    opportunities,
-    updateAppointmentStatus,
-    rescheduleAppointment,
-  } = useOperationalData();
-
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingAgenda, setLoadingAgenda] = useState(true);
+  const [agendaError, setAgendaError] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [agendaReload, setAgendaReload] = useState(0);
   // Estado para Drawer de Ação Rápida em Consulta
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [rescheduleTime, setRescheduleTime] = useState('17:00');
-  const [rescheduleRoom, setRescheduleRoom] = useState('room-1');
+  const [rescheduleRoom, setRescheduleRoom] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const now = new Date();
+    const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+    setLoadingAgenda(true);
+    setAgendaError('');
+    void Promise.all([listAppointments(date, controller.signal), getSchedulingResources(controller.signal)])
+      .then(([appointmentData, resources]) => {
+        setAppointments(appointmentData);
+        setRooms(resources.rooms);
+        setRescheduleRoom((current) => current || resources.rooms[0]?.id || '');
+      })
+      .catch((requestError) => {
+        if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
+        setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar a operação de hoje.');
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoadingAgenda(false); });
+    return () => controller.abort();
+  }, [agendaReload]);
 
   // Cálculos da Operação de Hoje baseados nos dados reais
   const todayAppointments = appointments;
@@ -45,26 +51,37 @@ export const OverviewPage: React.FC = () => {
     a => a.status === 'CONFIRMADO' || a.status === 'AGUARDANDO_CONFIRMACAO' || a.status === 'NA_RECEPCAO' || a.status === 'ENCAIXE'
   ).length;
 
-  // Fila de Exceções Reais
-  const missedApts = todayAppointments.filter(a => a.status === 'FALTA');
-  const inactiveBudgets = budgets.filter(b => b.status === 'NEGOTIATING' || b.status === 'NO_RESPONSE');
-  const inactiveBudgetValue = inactiveBudgets.reduce((acc, b) => acc + b.finalAmount, 0);
-  const atRiskTreatments = treatments.filter(t => t.status === 'RISK_OF_ABANDONMENT');
-  const postOpFollowUps = followUps.filter(f => f.category === 'POS_OPERATORIO' && f.status === 'PENDENTE');
-
-  const handleStatusChange = (id: string, status: any) => {
-    updateAppointmentStatus(id, status);
-    if (selectedAppointment && selectedAppointment.id === id) {
-      setSelectedAppointment(prev => prev ? { ...prev, status } : null);
+  const handleStatusChange = async (appointment: Appointment, status: AppointmentStatus) => {
+    if (actionLoading || !appointmentTransitions[appointment.status].includes(status)) return;
+    setActionLoading(true);
+    setAgendaError('');
+    try {
+      await updateAppointmentStatus(appointment.id, status);
+      setSelectedAppointment((current) => current?.id === appointment.id ? { ...current, status } : current);
+      setAgendaReload((value) => value + 1);
+    } catch (requestError) {
+      setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível atualizar o atendimento.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleRescheduleSubmit = (e: React.FormEvent) => {
+  const handleRescheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAppointment) return;
-    const today = new Date().toISOString().split('T')[0];
-    rescheduleAppointment(selectedAppointment.id, today, rescheduleTime, rescheduleRoom);
-    setSelectedAppointment(null);
+    if (!selectedAppointment || !rescheduleRoom || actionLoading) return;
+    const now = new Date();
+    const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+    setActionLoading(true);
+    setAgendaError('');
+    try {
+      await rescheduleAppointment(selectedAppointment.id, { scheduledAt: new Date(`${date}T${rescheduleTime}:00`).toISOString(), roomId: rescheduleRoom });
+      setSelectedAppointment(null);
+      setAgendaReload((value) => value + 1);
+    } catch (requestError) {
+      setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível reagendar a consulta.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -91,124 +108,9 @@ export const OverviewPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ============================================================
-          1. FILA DE EXCEÇÕES OPERACIONAIS (SEÇÃO PRIORITÁRIA)
-          ============================================================ */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
-            <h2 className="text-xs font-bold text-bhon-text uppercase tracking-wider">
-              Fila de Exceções Operacionais
-            </h2>
-          </div>
-          <span className="text-[11px] font-mono-data text-bhon-muted">
-            Prioridade máxima • Requer ação imediata
-          </span>
-        </div>
+      {agendaError && <div className="border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900" role="alert">{agendaError}</div>}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Card de Exceção 1: Faltas Críticas */}
-          <div className="p-3.5 bg-white border border-rose-200 rounded border-l-4 border-l-rose-600 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <StatusBadge status="CRÍTICO" size="sm" />
-                <span className="font-mono-data text-xs font-bold text-rose-700">
-                  {missedCount} FALTA{missedCount !== 1 ? 'S' : ''}
-                </span>
-              </div>
-              <p className="text-xs font-bold text-bhon-text">
-                {missedCount} {missedCount === 1 ? 'paciente faltou' : 'pacientes faltaram'} hoje sem aviso prévio
-              </p>
-              <p className="text-[11px] text-bhon-muted mt-1 leading-snug">
-                Risco de atraso no plano de tratamento e ociosidade de consultório.
-              </p>
-            </div>
-            <button
-              onClick={() => setLocation('/clinic/follow-ups')}
-              className="mt-3 w-full py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Reagendar e contatar</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Card de Exceção 2: Orçamentos Retidos */}
-          <div className="p-3.5 bg-white border border-amber-200 rounded border-l-4 border-l-amber-500 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <StatusBadge status="ATENÇÃO" size="sm" />
-                <span className="font-mono-data text-[11px] font-bold text-amber-800">
-                  R$ {inactiveBudgetValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <p className="text-xs font-bold text-bhon-text">
-                {inactiveBudgets.length} orçamentos sem resposta há mais de 3 dias
-              </p>
-              <p className="text-[11px] text-bhon-muted mt-1 leading-snug">
-                Receita represada em negociação aguardando contato ativo da recepção.
-              </p>
-            </div>
-            <button
-              onClick={() => setLocation('/clinic/budgets')}
-              className="mt-3 w-full py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Ver {inactiveBudgets.length} orçamentos</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Card de Exceção 3: Tratamentos sem Próxima Etapa */}
-          <div className="p-3.5 bg-white border border-blue-200 rounded border-l-4 border-l-blue-600 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <StatusBadge status="ACOMPANHAMENTO" size="sm" />
-                <span className="font-mono-data text-xs font-bold text-blue-700">
-                  {atRiskTreatments.length} EM RISCO
-                </span>
-              </div>
-              <p className="text-xs font-bold text-bhon-text">
-                Tratamentos ativos sem próxima etapa agendada
-              </p>
-              <p className="text-[11px] text-bhon-muted mt-1 leading-snug">
-                Mais de 15 dias sem retorno com risco imediato de abandono do paciente.
-              </p>
-            </div>
-            <button
-              onClick={() => setLocation('/clinic/treatments')}
-              className="mt-3 w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Revisar tratamentos</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Card de Exceção 4: Protocolo Pós-Op 48h */}
-          <div className="p-3.5 bg-white border border-teal-200 rounded border-l-4 border-l-bhon-teal flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <StatusBadge status="PROTOCOLO" size="sm" />
-                <span className="font-mono-data text-xs font-bold text-bhon-teal-dark">
-                  {postOpFollowUps.length} PENDENTE{postOpFollowUps.length !== 1 ? 'S' : ''}
-                </span>
-              </div>
-              <p className="text-xs font-bold text-bhon-text">
-                Pós-cirúrgicos com checagem 48h pendente
-              </p>
-              <p className="text-[11px] text-bhon-muted mt-1 leading-snug">
-                Protocolo clínico de monitoramento de dor, edema e medicação.
-              </p>
-            </div>
-            <button
-              onClick={() => setLocation('/clinic/follow-ups')}
-              className="mt-3 w-full py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>Acompanhar pós-op</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <RecoveryQueue onNavigate={setLocation} />
 
       {/* ============================================================
           2. OPERAÇÃO DE HOJE
@@ -219,7 +121,7 @@ export const OverviewPage: React.FC = () => {
             Operação de Hoje
           </h2>
           <span className="text-[11px] font-mono-data text-bhon-muted">
-            Status ao vivo dos 3 consultórios
+            {loadingAgenda ? 'Atualizando operação…' : `Status ao vivo de ${rooms.length} consultório${rooms.length === 1 ? '' : 's'}`}
           </span>
         </div>
 
@@ -288,6 +190,8 @@ export const OverviewPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
+              {loadingAgenda && todayAppointments.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Carregando agenda de hoje…</td></tr>}
+              {!loadingAgenda && todayAppointments.length === 0 && !agendaError && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Nenhum atendimento agendado para hoje.</td></tr>}
               {todayAppointments.map((apt) => (
                 <tr
                   key={apt.id}
@@ -339,108 +243,6 @@ export const OverviewPage: React.FC = () => {
       </div>
 
       {/* ============================================================
-          4. FILA OPERACIONAL DE AÇÕES DO DIA
-          ============================================================ */}
-      <div className="bg-white border border-bhon-border rounded">
-        <div className="p-3 border-b border-bhon-border flex items-center justify-between bg-slate-50/70">
-          <div>
-            <h3 className="text-xs font-bold text-bhon-text uppercase tracking-wider">
-              Fila Operacional de Ações
-            </h3>
-            <p className="text-[11px] text-bhon-muted">
-              Tarefas clínicas e de recepção com prazos de execução hoje.
-            </p>
-          </div>
-          <span className="font-mono-data text-xs text-bhon-muted">
-            {followUps.length} ações pendentes
-          </span>
-        </div>
-
-        <div className="divide-y divide-bhon-border">
-          {followUps.map((fol) => (
-            <div
-              key={fol.id}
-              className="p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50 transition-colors text-xs"
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  <StatusBadge status={fol.priority} size="sm" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-bhon-text">{fol.patientName}</span>
-                    <span className="font-mono-data text-[11px] text-bhon-muted">
-                      {fol.patientRecordNumber}
-                    </span>
-                    <span className="font-mono-data text-[10px] px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200 text-slate-700">
-                      {fol.category.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <p className="text-xs text-bhon-text font-medium mt-0.5">
-                    {fol.reason}
-                  </p>
-                  <p className="text-[11px] text-bhon-muted mt-0.5">
-                    Responsável: <span className="font-semibold text-bhon-text">{fol.responsibleUserName}</span> • Próximo passo: {fol.nextAction}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-end md:self-center">
-                <button
-                  onClick={() => setLocation('/clinic/follow-ups')}
-                  className="px-3 py-1 bg-bhon-navy text-white text-[11px] font-semibold rounded hover:bg-bhon-navy-hover transition-colors flex items-center gap-1"
-                >
-                  <PhoneCall className="w-3 h-3" />
-                  <span>Executar Ação</span>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ============================================================
-          5. INDICADORES DE APOIO DO DIA (MASTER PROMPT SEÇÃO 15)
-          ============================================================ */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-bold text-bhon-text uppercase tracking-wider">
-            Indicadores de Apoio do Dia
-          </h2>
-          <span className="text-[11px] font-mono-data text-bhon-muted">
-            Métricas de continuidade e liquidez
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard
-            label="Comparecimento"
-            value="88%"
-            subtext="Meta clínica: 85%"
-            delta={{ value: '+3% vs média', isPositive: true }}
-          />
-          <MetricCard
-            label="Em Negociação"
-            value="14 / R$ 94.200,00"
-            subtext="Orçamentos ativos"
-            delta={{ value: 'R$ 42.800 crítico', isPositive: false }}
-          />
-          <MetricCard
-            label="Tratamentos Ativos"
-            value="68"
-            subtext="Em curso na clínica"
-            delta={{ value: '5 sem retorno', isPositive: false }}
-          />
-          <MetricCard
-            label="Oportunidades"
-            value="09 triagem"
-            subtext="Novos contatos do mês"
-            delta={{ value: '+4 esta semana', isPositive: true }}
-          />
-        </div>
-      </div>
-
-      {/* ============================================================
           DRAWER DE COMANDOS OPERACIONAIS NA CONSULTA
           ============================================================ */}
       <Drawer
@@ -480,8 +282,9 @@ export const OverviewPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => handleStatusChange(selectedAppointment.id, 'NA_RECEPCAO')}
-                  className="p-2 text-left rounded border border-blue-200 bg-blue-50/60 hover:bg-blue-100 transition-colors"
+                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('NA_RECEPCAO')}
+                  onClick={() => void handleStatusChange(selectedAppointment, 'NA_RECEPCAO')}
+                  className="p-2 text-left rounded border border-blue-200 bg-blue-50/60 hover:bg-blue-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-blue-950">Confirmar Presença</p>
                   <p className="text-[10px] text-blue-700">Mover para Recepção</p>
@@ -489,8 +292,9 @@ export const OverviewPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => handleStatusChange(selectedAppointment.id, 'EM_ATENDIMENTO')}
-                  className="p-2 text-left rounded border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors"
+                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('EM_ATENDIMENTO')}
+                  onClick={() => void handleStatusChange(selectedAppointment, 'EM_ATENDIMENTO')}
+                  className="p-2 text-left rounded border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-teal-950">Chamar Paciente</p>
                   <p className="text-[10px] text-teal-700">Iniciar no Consultório</p>
@@ -498,8 +302,9 @@ export const OverviewPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => handleStatusChange(selectedAppointment.id, 'CONCLUIDO')}
-                  className="p-2 text-left rounded border border-slate-300 bg-slate-100 hover:bg-slate-200 transition-colors"
+                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('CONCLUIDO')}
+                  onClick={() => void handleStatusChange(selectedAppointment, 'CONCLUIDO')}
+                  className="p-2 text-left rounded border border-slate-300 bg-slate-100 hover:bg-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-slate-800">Concluir Sessão</p>
                   <p className="text-[10px] text-slate-600">Avançar Tratamento</p>
@@ -507,8 +312,9 @@ export const OverviewPage: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => handleStatusChange(selectedAppointment.id, 'FALTA')}
-                  className="p-2 text-left rounded border border-rose-300 bg-rose-50 hover:bg-rose-100 transition-colors"
+                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('FALTA')}
+                  onClick={() => void handleStatusChange(selectedAppointment, 'FALTA')}
+                  className="p-2 text-left rounded border border-rose-300 bg-rose-50 hover:bg-rose-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-rose-950">Registrar Falta</p>
                   <p className="text-[10px] text-rose-700">Abrir Fila de Exceção</p>
@@ -539,18 +345,17 @@ export const OverviewPage: React.FC = () => {
                     onChange={(e) => setRescheduleRoom(e.target.value)}
                     className="w-full px-2 py-1.5 border border-bhon-border rounded text-xs text-bhon-text bg-white"
                   >
-                    <option value="room-1">Consultório 01</option>
-                    <option value="room-2">Consultório 02</option>
-                    <option value="room-3">Consultório 03</option>
+                    {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
                   </select>
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2 bg-bhon-navy hover:bg-bhon-navy-hover text-white text-xs font-semibold rounded transition-colors"
+                disabled={actionLoading || !rescheduleRoom}
+                className="w-full py-2 bg-bhon-navy hover:bg-bhon-navy-hover text-white text-xs font-semibold rounded transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
               >
-                Salvar Reagendamento
+                {actionLoading ? 'Salvando…' : 'Salvar Reagendamento'}
               </button>
             </form>
 
@@ -581,3 +386,4 @@ export const OverviewPage: React.FC = () => {
     </div>
   );
 };
+

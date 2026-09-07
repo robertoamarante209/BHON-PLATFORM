@@ -1,41 +1,29 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { useOperationalData } from '../../context/OperationalDataContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
 import {
-  User,
   Phone,
   Mail,
   Calendar,
   FileText,
-  DollarSign,
   AlertTriangle,
-  Clock,
   ArrowLeft,
-  CheckCircle2,
-  Plus,
-  ChevronRight,
-  ShieldAlert
 } from 'lucide-react';
+import { createAppointment, getPatientDossier, getSchedulingResources } from '../../lib/clinic';
+import type { PatientDossier, ProfessionalOption } from '../../lib/clinic';
+import type { Room } from '../../types';
 
 export const PatientDetailPage: React.FC = () => {
   const [, params] = useRoute('/clinic/patients/:id');
   const [, setLocation] = useLocation();
-  const {
-    patients,
-    treatments,
-    budgets,
-    payments,
-    followUps,
-    appointments,
-    timelineEvents,
-    createAppointment,
-    rooms,
-  } = useOperationalData();
-
   const patientId = params?.id;
-  const patient = patients.find((p) => p.id === patientId);
+  const [dossier, setDossier] = useState<PatientDossier | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [professionals, setProfessionals] = useState<ProfessionalOption[]>([]);
 
   const [activeTab, setActiveTab] = useState<
     'RESUMO' | 'HISTORICO' | 'TRATAMENTOS' | 'ORCAMENTOS' | 'FINANCEIRO' | 'ACOMPANHAMENTOS' | 'DOCUMENTOS'
@@ -43,15 +31,53 @@ export const PatientDetailPage: React.FC = () => {
 
   // Estado para agendamento rápido direto do prontuário
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [schedDate, setSchedDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  });
   const [schedTime, setSchedTime] = useState('15:00');
-  const [schedRoom, setSchedRoom] = useState('room-1');
+  const [schedRoom, setSchedRoom] = useState('');
+  const [schedProfessional, setSchedProfessional] = useState('');
   const [schedProcedure, setSchedProcedure] = useState('');
+
+  useEffect(() => {
+    if (!patientId) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError('');
+    void getPatientDossier(patientId, controller.signal)
+      .then(setDossier)
+      .catch((requestError) => {
+        if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
+        setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar o prontuário.');
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [patientId]);
+
+  useEffect(() => {
+    if (!isScheduleOpen) return;
+    const controller = new AbortController();
+    void getSchedulingResources(controller.signal).then((resources) => {
+      setRooms(resources.rooms);
+      setProfessionals(resources.professionals);
+      setSchedRoom((current) => current || resources.rooms[0]?.id || '');
+      setSchedProfessional((current) => current || resources.professionals[0]?.id || '');
+    }).catch((requestError) => setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar os recursos da agenda.'));
+    return () => controller.abort();
+  }, [isScheduleOpen]);
+
+  if (loading) {
+    return <div className="border border-bhon-border bg-white p-8 text-center text-xs text-bhon-muted">Carregando prontuário integrado…</div>;
+  }
+
+  const patient = dossier?.patient;
 
   if (!patient) {
     return (
       <div className="p-8 text-center text-xs text-bhon-muted max-w-xl mx-auto">
         <p className="text-sm font-bold text-bhon-text">Paciente não encontrado</p>
-        <p className="mt-1">O prontuário solicitado não existe ou não pertence a esta clínica.</p>
+        <p className="mt-1">{error || 'O prontuário solicitado não existe ou não pertence a esta clínica.'}</p>
         <button
           onClick={() => setLocation('/clinic/patients')}
           className="mt-4 px-3 py-1.5 bg-bhon-navy text-white rounded font-semibold"
@@ -63,12 +89,12 @@ export const PatientDetailPage: React.FC = () => {
   }
 
   // Registros relacionados
-  const patientTreatments = treatments.filter((t) => t.patientId === patient.id);
-  const patientBudgets = budgets.filter((b) => b.patientId === patient.id);
-  const patientPayments = payments.filter((p) => p.patientId === patient.id);
-  const patientFollowUps = followUps.filter((f) => f.patientId === patient.id);
-  const patientAppointments = appointments.filter((a) => a.patientId === patient.id);
-  const patientTimeline = timelineEvents.filter((t) => t.patientId === patient.id);
+  const patientTreatments = dossier.treatments;
+  const patientBudgets = dossier.budgets;
+  const patientPayments = dossier.payments;
+  const patientFollowUps = dossier.followUps;
+  const patientAppointments = dossier.appointments;
+  const patientTimeline = dossier.timelineEvents;
 
   // Cálculos financeiros do paciente
   const totalBudgeted = patientBudgets.reduce((acc, b) => acc + b.finalAmount, 0);
@@ -79,31 +105,33 @@ export const PatientDetailPage: React.FC = () => {
     .filter((p) => p.status === 'PENDENTE' || p.status === 'ATRASADO')
     .reduce((acc, p) => acc + p.amount, 0);
 
-  const handleScheduleSubmit = (e: React.FormEvent) => {
+  const handleScheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schedProcedure) return;
-    const room = rooms.find((r) => r.id === schedRoom);
-    createAppointment({
-      patientId: patient.id,
-      patientName: patient.name,
-      patientRecordNumber: patient.recordNumber,
-      professionalId: 'user-1',
-      professionalName: 'Dr. Roberto Carlos Fagundes',
-      roomId: schedRoom,
-      roomName: room ? room.name : 'Consultório 01',
-      time: schedTime,
-      scheduledAt: `2026-09-03T${schedTime}:00Z`,
-      durationMinutes: 45,
-      procedureName: schedProcedure,
-      status: 'CONFIRMADO',
-      delayMinutes: 0,
-    });
-    setIsScheduleOpen(false);
-    setSchedProcedure('');
+    if (!schedProcedure.trim() || !schedRoom || !schedProfessional || actionLoading) return;
+    setActionLoading(true);
+    setError('');
+    try {
+      await createAppointment({
+        patientId: patient.id,
+        professionalId: schedProfessional,
+        roomId: schedRoom,
+        scheduledAt: new Date(`${schedDate}T${schedTime}:00`).toISOString(),
+        durationMinutes: 45,
+        procedureName: schedProcedure.trim(),
+      });
+      setIsScheduleOpen(false);
+      setSchedProcedure('');
+      setDossier(await getPatientDossier(patient.id));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível agendar a consulta.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
+      {error && <div className="border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900" role="alert">{error}</div>}
       {/* Botão de Retorno e Ações */}
       <div className="flex items-center justify-between">
         <button
@@ -542,6 +570,15 @@ export const PatientDetailPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
+              <label className="block font-semibold text-bhon-text mb-1">Data</label>
+              <input
+                type="date"
+                value={schedDate}
+                onChange={(e) => setSchedDate(e.target.value)}
+                className="w-full px-2.5 py-2 border border-bhon-border rounded font-mono-data text-bhon-text"
+              />
+            </div>
+            <div>
               <label className="block font-semibold text-bhon-text mb-1">Horário</label>
               <input
                 type="time"
@@ -550,6 +587,9 @@ export const PatientDetailPage: React.FC = () => {
                 className="w-full px-2.5 py-2 border border-bhon-border rounded font-mono-data text-bhon-text"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block font-semibold text-bhon-text mb-1">Consultório</label>
               <select
@@ -564,16 +604,28 @@ export const PatientDetailPage: React.FC = () => {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block font-semibold text-bhon-text mb-1">Profissional</label>
+              <select
+                value={schedProfessional}
+                onChange={(e) => setSchedProfessional(e.target.value)}
+                className="w-full px-2 py-2 border border-bhon-border rounded bg-white text-bhon-text"
+              >
+                {professionals.map((professional) => <option key={professional.id} value={professional.id}>{professional.name}</option>)}
+              </select>
+            </div>
           </div>
 
           <button
             type="submit"
-            className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors"
+            disabled={actionLoading || !schedRoom || !schedProfessional}
+            className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
           >
-            Confirmar e Inserir na Agenda
+            {actionLoading ? 'Salvando agendamento…' : 'Confirmar e Inserir na Agenda'}
           </button>
         </form>
       </Drawer>
     </div>
   );
 };
+

@@ -306,6 +306,7 @@ export interface FinancialTransaction {
 export interface TeamMember {
   id: string;
   name: string;
+  email?: string;
   role: UserRole;
   roleLabel: string;
   specialty?: string;
@@ -315,7 +316,8 @@ export interface TeamMember {
   completedAppointmentsCount: number;
   currentRoomName?: string;
   status: 'ATIVO' | 'EM_ATENDIMENTO' | 'DISPONIVEL' | 'PAUSA' | 'INDISPONIVEL';
-  workloadHours: number;
+  workloadHours?: number;
+  lastLoginAt?: string;
 }
 
 export interface Notification {

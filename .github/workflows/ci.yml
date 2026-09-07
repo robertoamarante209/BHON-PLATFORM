@@ -32,6 +32,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npx prisma validate
+      - run: npm run verify:migrations
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

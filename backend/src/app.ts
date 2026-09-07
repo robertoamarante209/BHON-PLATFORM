@@ -9,6 +9,7 @@ import { clinicalRoutes } from "./routes/clinical.js";
 import { financeRoutes } from "./routes/finance.js";
 import { recoveryRoutes } from "./routes/recovery.js";
 import { tenantRoutes } from "./routes/tenants.js";
+import { teamRoutes } from "./routes/team.js";
 import { workflowRoutes } from "./routes/workflow.js";
 
 export type BuildAppOptions = {
@@ -80,6 +81,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(recoveryRoutes, { prefix: "/api" });
   await app.register(workflowRoutes, { prefix: "/api" });
   await app.register(financeRoutes, { prefix: "/api" });
+  await app.register(teamRoutes, { prefix: "/api" });
 
   app.get("/", async () => ({
     status: "ok", product: "BHON Clinical Operating System", brand: "A clínica no controle.", timestamp: new Date().toISOString(),

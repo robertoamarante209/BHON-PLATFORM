@@ -1,8 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, requireTenant, requireRole } from "../lib/middleware.js";
-import { AppointmentStatus, PatientStatus, QuoteStatus, TreatmentStatus, OpportunityStatus, FollowUpStatus, PaymentStatus } from "../lib/prisma-types.js";
+import { AppointmentStatus, PatientStatus, QuoteStatus, TreatmentStatus, OpportunityStatus, FollowUpStatus, PaymentStatus, StageStatus } from "../lib/prisma-types.js";
 import { intervalsOverlap, isAppointmentTransitionAllowed, parseAppointmentDuration } from "../domain/scheduling.js";
+import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgress, type StageState, type TreatmentState } from "../domain/treatment.js";
 
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const CLINIC_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
@@ -878,19 +879,238 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   // ============================================================
-  // 4. ORÇAMENTOS (CRIAÇÃO, ITENS E APROVAÇÃO TRANSACIONAL)
+  // 4. TRATAMENTOS E ETAPAS CLÍNICAS
   // ============================================================
-  app.get("/budgets", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const tenantId = request.tenantId!;
-    const quotes = await prisma.quote.findMany({
-      where: { tenantId },
-      include: {
-        patient: { select: { id: true, name: true, recordNumber: true } },
-        items: true
+  app.get("/treatments", {
+    preHandler: requireRole(CLINIC_READ_ROLES),
+    schema: {
+      querystring: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          search: { type: "string", maxLength: 120 },
+          status: { type: "string", enum: Object.values(TreatmentStatus) },
+          page: { type: "integer", minimum: 1, maximum: 100000, default: 1 },
+          limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+        },
       },
-      orderBy: { createdAt: "desc" }
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const tenantId = request.tenantId!;
+    const query = request.query as { search?: string; status?: TreatmentStatus; page?: number; limit?: number };
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const search = query.search?.trim();
+    const where = {
+      tenantId,
+      deletedAt: null,
+      ...(query.status ? { status: query.status } : {}),
+      ...(search ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" as const } },
+          { patient: { name: { contains: search, mode: "insensitive" as const } } },
+          { patient: { recordNumber: { contains: search, mode: "insensitive" as const } } },
+        ],
+      } : {}),
+    };
+
+    const [data, total] = await Promise.all([
+      prisma.treatment.findMany({
+        where,
+        include: {
+          patient: { select: { id: true, name: true, recordNumber: true } },
+          responsibleUser: { select: { id: true, name: true } },
+          stages: { orderBy: { stageNumber: "asc" } },
+          appointments: { orderBy: { scheduledAt: "desc" }, take: 1, select: { scheduledAt: true } },
+        },
+        orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.treatment.count({ where }),
+    ]);
+
+    return reply.send({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+  });
+
+  app.patch<{ Params: { id: string } }>("/treatments/:id/status", {
+    preHandler: requireRole(CLINIC_MANAGEMENT_ROLES),
+    schema: {
+      body: {
+        type: "object",
+        additionalProperties: false,
+        required: ["status"],
+        properties: {
+          status: { type: "string", enum: Object.values(TreatmentStatus) },
+          reason: { type: "string", minLength: 3, maxLength: 500 },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const user = request.user!;
+    const body = request.body as { status: TreatmentStatus; reason?: string };
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${request.params.id}))`;
+      const treatment = await tx.treatment.findFirst({ where: { id: request.params.id, tenantId, deletedAt: null } });
+      if (!treatment) return { kind: "NOT_FOUND" as const };
+      if (treatment.status === body.status) return { kind: "UNCHANGED" as const, treatment };
+      if (!isTreatmentTransitionAllowed(treatment.status as TreatmentState, body.status as TreatmentState)) {
+        return { kind: "INVALID_TRANSITION" as const, from: treatment.status };
+      }
+      if ((body.status === TreatmentStatus.CANCELLED || body.status === TreatmentStatus.ABANDONED) && !body.reason?.trim()) {
+        return { kind: "REASON_REQUIRED" as const };
+      }
+
+      const treatmentUpdated = await tx.treatment.update({
+        where: { id: treatment.id },
+        data: {
+          status: body.status,
+          ...(body.status === TreatmentStatus.COMPLETED ? { completedAt: new Date(), progressPercent: 100 } : {}),
+          ...(body.status === TreatmentStatus.ACTIVE && treatment.status === TreatmentStatus.ABANDONED ? { completedAt: null } : {}),
+        },
+      });
+      await tx.timelineEvent.create({ data: {
+        tenantId, patientId: treatment.patientId, actorUserId: user.id, type: "TREATMENT_STATUS_CHANGED",
+        description: `Tratamento alterado de ${treatment.status} para ${body.status}.${body.reason ? ` Motivo: ${body.reason.trim()}` : ""}`,
+      } });
+      await tx.auditLog.create({ data: {
+        tenantId, actorUserId: user.id, action: "CHANGE_STATUS", resource: "Treatment", resourceId: treatment.id,
+        metadata: { from: treatment.status, to: body.status, reason: body.reason?.trim() || null },
+      } });
+      return { kind: "UPDATED" as const, treatment: treatmentUpdated };
     });
-    return reply.send(quotes);
+
+    if (result.kind === "NOT_FOUND") return reply.code(404).send({ error: "Tratamento não encontrado.", code: "TREATMENT_NOT_FOUND" });
+    if (result.kind === "INVALID_TRANSITION") return reply.code(409).send({ error: `Transição inválida: ${result.from} → ${body.status}.`, code: "INVALID_STATUS_TRANSITION" });
+    if (result.kind === "REASON_REQUIRED") return reply.code(400).send({ error: "Informe o motivo para encerrar ou abandonar o tratamento.", code: "REASON_REQUIRED" });
+    return reply.send(result.treatment);
+  });
+
+  app.patch<{ Params: { id: string } }>("/treatment-stages/:id/status", {
+    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    schema: {
+      body: {
+        type: "object",
+        additionalProperties: false,
+        required: ["status"],
+        properties: { status: { type: "string", enum: Object.values(StageStatus) } },
+      },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const user = request.user!;
+    const body = request.body as { status: StageStatus };
+    const initial = await prisma.treatmentStage.findFirst({ where: { id: request.params.id, tenantId }, select: { treatmentId: true } });
+    if (!initial) return reply.code(404).send({ error: "Etapa não encontrada.", code: "TREATMENT_STAGE_NOT_FOUND" });
+
+    const result = await prisma.$transaction(async (tx: any) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${initial.treatmentId}))`;
+      const stage = await tx.treatmentStage.findFirst({ where: { id: request.params.id, tenantId }, include: { treatment: true } });
+      if (!stage) return { kind: "NOT_FOUND" as const };
+      if (stage.status !== body.status && !isStageTransitionAllowed(stage.status as StageState, body.status as StageState)) {
+        return { kind: "INVALID_TRANSITION" as const, from: stage.status };
+      }
+      const updatedStage = stage.status === body.status ? stage : await tx.treatmentStage.update({
+        where: { id: stage.id },
+        data: { status: body.status, completedDate: body.status === StageStatus.COMPLETED ? new Date() : null },
+      });
+      const stages = await tx.treatmentStage.findMany({ where: { tenantId, treatmentId: stage.treatmentId }, select: { status: true, plannedDate: true } });
+      const progress = treatmentProgress(stages as Array<{ status: StageState }>);
+      const nextStage = stages
+        .filter((item: any) => ![StageStatus.COMPLETED, StageStatus.CANCELLED].includes(item.status) && item.plannedDate)
+        .sort((a: any, b: any) => a.plannedDate.getTime() - b.plannedDate.getTime())[0];
+      const treatmentStatus = progress.stagesCount > 0 && progress.completedStagesCount === progress.stagesCount
+        ? TreatmentStatus.COMPLETED
+        : body.status === StageStatus.IN_PROGRESS ? TreatmentStatus.IN_PROGRESS : stage.treatment.status;
+      const treatment = await tx.treatment.update({
+        where: { id: stage.treatmentId },
+        data: { ...progress, status: treatmentStatus, nextStageDate: nextStage?.plannedDate || null,
+          ...(treatmentStatus === TreatmentStatus.COMPLETED ? { completedAt: new Date() } : {}) },
+      });
+      await tx.timelineEvent.create({ data: {
+        tenantId, patientId: stage.treatment.patientId, actorUserId: user.id, type: "TREATMENT_STAGE_STATUS_CHANGED",
+        description: `Etapa ${stage.stageNumber} (${stage.title}) alterada de ${stage.status} para ${body.status}.`,
+      } });
+      await tx.auditLog.create({ data: {
+        tenantId, actorUserId: user.id, action: "CHANGE_STAGE_STATUS", resource: "TreatmentStage", resourceId: stage.id,
+        metadata: { treatmentId: stage.treatmentId, from: stage.status, to: body.status, progressPercent: progress.progressPercent },
+      } });
+      return { kind: "UPDATED" as const, stage: updatedStage, treatment };
+    });
+
+    if (result.kind === "NOT_FOUND") return reply.code(404).send({ error: "Etapa não encontrada.", code: "TREATMENT_STAGE_NOT_FOUND" });
+    if (result.kind === "INVALID_TRANSITION") return reply.code(409).send({ error: `Transição de etapa inválida: ${result.from} → ${body.status}.`, code: "INVALID_STAGE_TRANSITION" });
+    return reply.send({ stage: result.stage, treatment: result.treatment });
+  });
+
+  // ============================================================
+  // 5. ORÇAMENTOS (CRIAÇÃO, ITENS E APROVAÇÃO TRANSACIONAL)
+  // ============================================================
+  app.get("/budgets", {
+    preHandler: requireRole(CLINIC_READ_ROLES),
+    schema: {
+      querystring: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          search: { type: "string", maxLength: 120 },
+          status: { type: "string", enum: Object.values(QuoteStatus) },
+          page: { type: "integer", minimum: 1, maximum: 100000, default: 1 },
+          limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+        },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const tenantId = request.tenantId!;
+    const query = request.query as { search?: string; status?: QuoteStatus; page?: number; limit?: number };
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const search = query.search?.trim();
+    const where = {
+      tenantId,
+      deletedAt: null,
+      ...(query.status ? { status: query.status } : {}),
+      ...(search ? {
+        OR: [
+          { title: { contains: search, mode: "insensitive" as const } },
+          { patient: { name: { contains: search, mode: "insensitive" as const } } },
+          { patient: { recordNumber: { contains: search, mode: "insensitive" as const } } },
+        ],
+      } : {}),
+    };
+    const activeStatuses = [QuoteStatus.SENT, QuoteStatus.VIEWED, QuoteStatus.NEGOTIATING];
+    const [data, total, activeAggregate, noResponseCount, approvedCount, rejectedCount] = await Promise.all([
+      prisma.quote.findMany({
+        where,
+        include: {
+          patient: { select: { id: true, name: true, recordNumber: true } },
+          createdBy: { select: { id: true, name: true } },
+          items: { orderBy: { createdAt: "asc" } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.quote.count({ where }),
+      prisma.quote.aggregate({ where: { tenantId, deletedAt: null, status: { in: activeStatuses } }, _sum: { finalAmount: true } }),
+      prisma.quote.count({ where: { tenantId, deletedAt: null, status: QuoteStatus.NO_RESPONSE } }),
+      prisma.quote.count({ where: { tenantId, deletedAt: null, status: QuoteStatus.ACCEPTED } }),
+      prisma.quote.count({ where: { tenantId, deletedAt: null, status: QuoteStatus.REJECTED } }),
+    ]);
+    const decidedCount = approvedCount + rejectedCount;
+    return reply.send({
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      metrics: {
+        totalInNegotiation: Number(activeAggregate._sum.finalAmount || 0),
+        noResponseCount,
+        approvedCount,
+        rejectedCount,
+        conversionRate: decidedCount === 0 ? null : Math.round((approvedCount / decidedCount) * 100),
+      },
+    });
   });
 
   // WORKFLOW CRÍTICO: APROVAÇÃO DE ORÇAMENTO EM UMA TRANSAÇÃO ATÔMICA
@@ -899,24 +1119,28 @@ export async function clinicalRoutes(app: FastifyInstance) {
     const user = request.user!;
     const { id } = request.params;
 
-    const quote = await prisma.quote.findFirst({
-      where: { id, tenantId },
-      include: { patient: true, items: true }
-    });
-
-    if (!quote) {
-      return reply.code(404).send({ error: "Orçamento não encontrado." });
-    }
-    if (quote.status === QuoteStatus.ACCEPTED) {
-      return reply.code(409).send({ error: "Este orçamento já foi aprovado.", code: "QUOTE_ALREADY_APPROVED" });
-    }
-    const activeTreatment = await prisma.treatment.findFirst({ where: { tenantId, patientId: quote.patientId, status: TreatmentStatus.ACTIVE, deletedAt: null } });
-    if (activeTreatment) {
-      return reply.code(409).send({ error: "O paciente já possui um tratamento ativo. Revise-o antes de aprovar outro orçamento.", code: "ACTIVE_TREATMENT_EXISTS" });
-    }
-
-    // Executa atomicamente todas as atualizações cruzadas
+    // O lock e todas as verificações ficam na mesma transação para impedir aprovação dupla.
     const result = await prisma.$transaction(async (tx: any) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))`;
+      const quote = await tx.quote.findFirst({
+        where: { id, tenantId, deletedAt: null },
+        include: { patient: true, items: true },
+      });
+      if (!quote) return { kind: "NOT_FOUND" as const };
+      if (quote.status === QuoteStatus.ACCEPTED) return { kind: "ALREADY_APPROVED" as const };
+      if ([QuoteStatus.REJECTED, QuoteStatus.EXPIRED].includes(quote.status)) {
+        return { kind: "INVALID_STATUS" as const, status: quote.status };
+      }
+      const activeTreatment = await tx.treatment.findFirst({
+        where: {
+          tenantId,
+          patientId: quote.patientId,
+          status: { in: [TreatmentStatus.ACTIVE, TreatmentStatus.SCHEDULED, TreatmentStatus.IN_PROGRESS, TreatmentStatus.PAUSED, TreatmentStatus.RISK_OF_ABANDONMENT] },
+          deletedAt: null,
+        },
+      });
+      if (activeTreatment) return { kind: "ACTIVE_TREATMENT_EXISTS" as const };
+
       // 1. Atualiza o Orçamento para APROVADO (ACCEPTED)
       const updatedQuote = await tx.quote.update({
         where: { id },
@@ -927,7 +1151,15 @@ export async function clinicalRoutes(app: FastifyInstance) {
       });
 
       // 2. Converte somente a oportunidade aberta mais recente do paciente.
-      const opportunity = await tx.opportunity.findFirst({ where: { tenantId, patientId: quote.patientId, status: { not: OpportunityStatus.CONVERTIDO }, deletedAt: null }, orderBy: { updatedAt: "desc" } });
+      const opportunity = await tx.opportunity.findFirst({
+        where: {
+          tenantId,
+          patientId: quote.patientId,
+          status: { in: [OpportunityStatus.NEW_CONTACT, OpportunityStatus.TRIAGEM, OpportunityStatus.AVALIACAO, OpportunityStatus.PLANO_APRESENTADO, OpportunityStatus.ORCAMENTO, OpportunityStatus.NEGOCIACAO] },
+          deletedAt: null,
+        },
+        orderBy: { updatedAt: "desc" },
+      });
       if (opportunity) await tx.opportunity.update({ where: { id: opportunity.id }, data: { status: OpportunityStatus.CONVERTIDO } });
 
       // 3. Cria ou ativa o Tratamento
@@ -987,13 +1219,18 @@ export async function clinicalRoutes(app: FastifyInstance) {
         }
       });
 
-      return { quote: updatedQuote, treatment, payment };
+      return { kind: "APPROVED" as const, quote: updatedQuote, treatment, payment };
     });
+
+    if (result.kind === "NOT_FOUND") return reply.code(404).send({ error: "Orçamento não encontrado.", code: "QUOTE_NOT_FOUND" });
+    if (result.kind === "ALREADY_APPROVED") return reply.code(409).send({ error: "Este orçamento já foi aprovado.", code: "QUOTE_ALREADY_APPROVED" });
+    if (result.kind === "INVALID_STATUS") return reply.code(409).send({ error: `Orçamento ${result.status} não pode ser aprovado.`, code: "INVALID_QUOTE_STATUS" });
+    if (result.kind === "ACTIVE_TREATMENT_EXISTS") return reply.code(409).send({ error: "O paciente já possui um tratamento em andamento. Revise-o antes de aprovar outro orçamento.", code: "ACTIVE_TREATMENT_EXISTS" });
 
     return reply.send({
       success: true,
       message: "Orçamento aprovado e integrado com sucesso à clínica.",
-      data: result
+      data: { quote: result.quote, treatment: result.treatment, payment: result.payment }
     });
   });
 
@@ -1109,4 +1346,3 @@ export async function clinicalRoutes(app: FastifyInstance) {
     return reply.send(results);
   });
 }
-

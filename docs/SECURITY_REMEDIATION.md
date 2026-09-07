@@ -31,9 +31,11 @@ This document records the hardening applied after auditing the local Antigravity
 - Appointment creation and rescheduling serialize conflict checks with a tenant-scoped PostgreSQL advisory lock.
 - Appointment status changes and their follow-up, timeline, notification and treatment effects execute in one transaction.
 - Patient list/create/update and scheduling inputs now have bounded Fastify schemas.
+- Treatment and budget list inputs are bounded, paginated and tenant-scoped.
+- Treatment and stage status changes enforce explicit state machines, role boundaries, timeline and audit writes.
+- Quote approval now locks and revalidates the quote inside its transaction, preventing concurrent double approval.
 - The frontend build toolchain was upgraded and currently reports zero known npm vulnerabilities.
 
 ## Intentionally not claimed as complete
 
 The repository still needs the remaining domain APIs and frontend-to-backend integration for all clinical modules, plus the full BHON Platform backend. Those are separate implementation stages and should not be represented as finished merely because authentication and a subset of the clinical API are real.
-

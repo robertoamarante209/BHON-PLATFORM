@@ -78,9 +78,8 @@ docs/                    produto, marca, decisões, auditoria e roadmap
 
 ## Próximas fronteiras arquiteturais
 
-1. Remover `localStorage` de Tratamentos, Orçamentos, Oportunidades, Follow-ups, Financeiro e módulos da plataforma.
+1. Remover `localStorage` de Oportunidades, Follow-ups, Financeiro e módulos da plataforma; Tratamentos e Orçamentos já usam APIs como fonte operacional.
 2. Separar o arquivo clínico monolítico em serviços por domínio.
 3. Adicionar testes de integração com PostgreSQL para isolamento multi-tenant, RBAC e transações.
 4. Extrair workers e filas apenas quando existirem tarefas assíncronas reais e requisitos de escala medidos.
 5. Introduzir observabilidade, backups testados, gestão central de segredos e política formal de retenção/LGPD antes de produção.
-

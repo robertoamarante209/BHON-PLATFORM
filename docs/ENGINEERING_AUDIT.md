@@ -25,7 +25,7 @@ A documentação ainda descreve Next.js, NestJS, Redis, BullMQ, Docker e Azure, 
 
 ## C. Riscos técnicos críticos
 
-- O frontend mantém uma segunda aplicação completa dentro do navegador: dados, regras de negócio, auditoria, notificações e persistência são duplicados em `localStorage`.
+- O frontend ainda mantém parte relevante da aplicação no navegador: Oportunidades, Follow-ups, Financeiro, Equipe, Notificações e módulos da plataforma continuam duplicados em `localStorage`. Pacientes, Agenda, Tratamentos e Orçamentos já foram retirados dessa autoridade.
 - O backend concentra quase todo o domínio em um único arquivo de rotas, com tipos `any`, validação manual e regras difíceis de testar isoladamente.
 - Não há uma camada comum de cliente HTTP, tratamento de erro, cache/invalidação ou estados de carregamento para migração progressiva do frontend.
 - Algumas reações cruzadas são executadas fora de transação. Uma falha intermediária pode deixar agendamento, acompanhamento, timeline, notificação e auditoria inconsistentes.
@@ -100,7 +100,7 @@ O backend possui um script de teste que falha por definição e o frontend não 
 2. Criar a API real da fila operacional do Recovery Engine e seus comandos transacionais.
 3. Introduzir um cliente HTTP tipado no frontend e ligar a Overview à fila real.
 4. Migrar Agenda e Pacientes para a API; remover a autoridade local desses domínios.
-5. Migrar Tratamentos, Oportunidades, Acompanhamentos, Orçamentos e Financeiro em fatias verticais.
+5. Migrar Oportunidades, Acompanhamentos e Financeiro em fatias verticais; Tratamentos e Orçamentos já possuem núcleo persistente.
 6. Persistir notificações e expor auditoria confiável.
 7. Implementar APIs separadas da BHON Platform com autorização própria.
 8. Remover o restante do banco paralelo em `localStorage`.
@@ -129,7 +129,6 @@ As demais lacunas deste documento continuam abertas e não devem ser considerada
 - Mudanças de status, incluindo falta e conclusão, agora executam todos os efeitos relacionados na mesma transação.
 - Overview passou a usar a agenda real e teve métricas fixas e a segunda fila local removidas.
 - Vite e o plugin React foram atualizados; `npm audit` do frontend e o build de produção passaram.
-- Testes de domínio agora cobrem duração, sobreposição de intervalos e transições de agenda, totalizando 10 testes.
+- Testes de domínio agora cobrem Recovery Engine, segurança, duração, sobreposição, transições de agenda, tratamentos, etapas e progresso, totalizando 13 testes.
 
 Ainda permanecem pendentes testes HTTP/banco para isolamento multi-tenant e a migração dos demais módulos listados no roadmap.
-

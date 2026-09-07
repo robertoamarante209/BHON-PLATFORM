@@ -1,4 +1,4 @@
-import type { Appointment, AppointmentStatus, Budget, FollowUp, Patient, PatientStatus, Payment, Room, TimelineEvent, Treatment } from '../types';
+import type { Appointment, AppointmentStatus, Budget, FollowUp, Patient, PatientStatus, Payment, QuoteStatus, Room, TimelineEvent, Treatment, TreatmentStatus } from '../types';
 import { apiRequest } from './api';
 
 export const appointmentTransitions: Record<AppointmentStatus, readonly AppointmentStatus[]> = {
@@ -36,6 +36,24 @@ type ApiQuote = {
   totalAmount: string | number; discountAmount: string | number; finalAmount: string | number; paymentMethod?: string | null;
   sentAt?: string | null; expiresAt?: string | null; acceptedAt?: string | null; createdAt: string; updatedAt: string;
   items: Array<{ id: string; quoteId: string; description: string; quantity: number; unitPrice: string | number; totalPrice: string | number }>;
+};
+
+type ApiTreatmentListItem = ApiTreatment & {
+  patient: { id: string; name: string; recordNumber: string };
+  appointments: Array<{ scheduledAt: string }>;
+};
+
+type ApiBudgetListItem = ApiQuote & {
+  patient: { id: string; name: string; recordNumber: string };
+  createdBy?: { id: string; name: string } | null;
+};
+
+export type BudgetMetrics = {
+  totalInNegotiation: number;
+  noResponseCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  conversionRate: number | null;
 };
 
 type ApiPayment = Omit<Payment, 'patientName' | 'patientRecordNumber' | 'referenceDescription' | 'amount'> & { amount: string | number };
@@ -213,3 +231,75 @@ export function rescheduleAppointment(id: string, input: { scheduledAt: string; 
   });
 }
 
+export async function listTreatments(input: { search?: string; status?: TreatmentStatus; page?: number; limit?: number } = {}, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  if (input.search) query.set('search', input.search);
+  if (input.status) query.set('status', input.status);
+  query.set('page', String(input.page || 1));
+  query.set('limit', String(input.limit || 20));
+  const response = await apiRequest<{ data: ApiTreatmentListItem[]; pagination: Pagination }>(`/api/treatments?${query}`, { signal });
+  return {
+    ...response,
+    data: response.data.map((treatment): Treatment => ({
+      ...treatment,
+      patientName: treatment.patient.name,
+      patientRecordNumber: treatment.patient.recordNumber,
+      responsibleUserName: treatment.responsibleUser?.name,
+      totalValue: treatment.totalValue == null ? undefined : Number(treatment.totalValue),
+      lastAppointmentAt: treatment.appointments[0]?.scheduledAt,
+      currentStageTitle: treatment.stages.find((stage) => !['COMPLETED', 'CANCELLED'].includes(stage.status))?.title,
+    })),
+  };
+}
+
+export function updateTreatmentStatus(id: string, status: TreatmentStatus, reason?: string) {
+  return apiRequest(`/api/treatments/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, reason }),
+  });
+}
+
+export function updateTreatmentStageStatus(id: string, status: Treatment['stages'][number]['status']) {
+  return apiRequest(`/api/treatment-stages/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+function mapBudget(quote: ApiBudgetListItem): Budget {
+  return {
+    id: quote.id,
+    tenantId: quote.tenantId,
+    patientId: quote.patientId,
+    patientName: quote.patient.name,
+    patientRecordNumber: quote.patient.recordNumber,
+    createdById: quote.createdById || undefined,
+    createdByName: quote.createdBy?.name,
+    treatmentTitle: quote.title,
+    status: quote.status,
+    totalAmount: Number(quote.totalAmount),
+    discountAmount: Number(quote.discountAmount),
+    finalAmount: Number(quote.finalAmount),
+    paymentMethod: quote.paymentMethod || undefined,
+    items: quote.items.map((item) => ({ ...item, quantity: Number(item.quantity), unitPrice: Number(item.unitPrice), totalPrice: Number(item.totalPrice) })),
+    sentAt: quote.sentAt || undefined,
+    expiresAt: quote.expiresAt || undefined,
+    acceptedAt: quote.acceptedAt || undefined,
+    createdAt: quote.createdAt,
+    daysInactive: Math.max(0, Math.floor((Date.now() - new Date(quote.updatedAt).getTime()) / 86_400_000)),
+  };
+}
+
+export async function listBudgets(input: { search?: string; status?: QuoteStatus; page?: number; limit?: number } = {}, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  if (input.search) query.set('search', input.search);
+  if (input.status) query.set('status', input.status);
+  query.set('page', String(input.page || 1));
+  query.set('limit', String(input.limit || 20));
+  const response = await apiRequest<{ data: ApiBudgetListItem[]; pagination: Pagination; metrics: BudgetMetrics }>(`/api/budgets?${query}`, { signal });
+  return { ...response, data: response.data.map(mapBudget) };
+}
+
+export function approveBudget(id: string) {
+  return apiRequest(`/api/budgets/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+}

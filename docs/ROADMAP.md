@@ -46,12 +46,24 @@ Pendente:
 - paginação navegável e busca remota de pacientes na agenda;
 - recorrência, bloqueios de agenda, fusos configuráveis e testes de integração com PostgreSQL.
 
-## 4. Próxima fatia: Tratamentos e Orçamentos
+## 4. Tratamentos e Orçamentos — núcleo conectado
 
-- migrar telas para API e remover sua autoridade no `OperationalDataContext`;
-- completar CRUD, etapas clínicas e transições válidas;
-- ligar aprovação de orçamento → tratamento → recebível → oportunidade;
-- cobrir idempotência e rollback com testes de integração.
+Concluído:
+
+- telas de listagem, busca, filtros, paginação e dossiê consumindo APIs persistidas;
+- métricas de orçamento calculadas no backend, sem metas ou deltas fictícios;
+- transições explícitas de tratamento e etapas, com atualização transacional do progresso;
+- timeline e auditoria das mudanças clínicas;
+- aprovação serializada de orçamento → oportunidade → tratamento → etapas → recebível;
+- autorização separada para leitura, operação clínica e aprovação gerencial;
+- testes unitários das máquinas de estado e do cálculo de progresso.
+
+Pendente:
+
+- criação e edição completas de orçamento e tratamento pela interface;
+- reagendamento de datas das etapas e atribuição de responsável;
+- testes de integração com PostgreSQL para concorrência, idempotência e rollback;
+- emissão, aceite externo e assinatura digital de propostas.
 
 ## 5. Oportunidades, Follow-ups e Financeiro
 
@@ -76,4 +88,3 @@ Pendente:
 - backup/restauração, retenção e controles LGPD;
 - filas/workers apenas para tarefas assíncronas reais;
 - revisão final de segurança, acessibilidade, responsividade e performance.
-

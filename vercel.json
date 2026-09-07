@@ -4,7 +4,7 @@
     "frontend": {
       "root": "frontend/",
       "framework": "vite",
-      "installCommand": "npm ci",
+      "installCommand": "npm ci --include=dev",
       "buildCommand": "npm run build",
       "outputDirectory": "dist",
       "rewrites": [
@@ -29,7 +29,7 @@
       "root": "backend/",
       "framework": "fastify",
       "entrypoint": "src/server.ts",
-      "installCommand": "npm ci",
+      "installCommand": "npm ci --include=dev",
       "buildCommand": "npm run migrate:deploy && npm run build",
       "functions": {
         "src/server.ts": {

@@ -13,15 +13,25 @@ const main = async () => {
     create: { name: "OdontoPrime", tradeName: "OdontoPrime", slug: "odontoprime", email: "contato@odontoprime.com.br" },
   });
 
-  const hash = await hashPassword(seedPassword);
-  await prisma.user.upsert({
-    where: { tenantId_emailNormalized: { tenantId: tenant.id, emailNormalized: "roberto@odontoprime.com.br" } },
-    update: { passwordHash: hash, status: "ACTIVE" },
-    create: {
-      tenantId: tenant.id, name: "Roberto Amarante", email: "roberto@odontoprime.com.br",
-      emailNormalized: "roberto@odontoprime.com.br", passwordHash: hash, role: "OWNER", status: "ACTIVE"
-    },
+  const emailNormalized = "roberto@odontoprime.com.br";
+  const existingUser = await prisma.user.findUnique({
+    where: { tenantId_emailNormalized: { tenantId: tenant.id, emailNormalized } },
+    select: { id: true, passwordHash: true },
   });
+
+  // Bootstrap é idempotente: deploys futuros nunca substituem uma senha já criada.
+  if (!existingUser) {
+    const hash = await hashPassword(seedPassword);
+    await prisma.user.create({
+      data: {
+        tenantId: tenant.id, name: "Roberto Amarante", email: emailNormalized,
+        emailNormalized, passwordHash: hash, role: "OWNER", status: "ACTIVE"
+      },
+    });
+  } else if (!existingUser.passwordHash) {
+    const hash = await hashPassword(seedPassword);
+    await prisma.user.update({ where: { id: existingUser.id }, data: { passwordHash: hash } });
+  }
 
   console.log("Seed OK");
 };

@@ -1,4 +1,4 @@
-import type { Appointment, AppointmentStatus, Budget, FollowUp, FollowUpCategory, FollowUpStatus, Opportunity, OpportunityStatus, Patient, PatientStatus, Payment, PaymentStatus, QuoteStatus, Room, TimelineEvent, Treatment, TreatmentStatus } from '../types';
+import type { Appointment, AppointmentStatus, Budget, FollowUp, FollowUpCategory, FollowUpStatus, Opportunity, OpportunityStatus, Patient, PatientStatus, Payment, PaymentStatus, QuoteStatus, Room, TeamMember, TimelineEvent, Treatment, TreatmentStatus, UserRole, UserStatus } from '../types';
 import { apiRequest } from './api';
 
 export const appointmentTransitions: Record<AppointmentStatus, readonly AppointmentStatus[]> = {
@@ -366,6 +366,18 @@ export function settlePayment(id: string, input: { amount?: number; method: stri
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+export type TeamMetrics = { activeCount: number; inAttendanceCount: number; todayAppointmentsCount: number; averageWorkloadHours: number | null };
+
+export function listTeam(input: { search?: string; role?: UserRole; status?: UserStatus; page?: number; limit?: number } = {}, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  if (input.search) query.set('search', input.search);
+  if (input.role) query.set('role', input.role);
+  if (input.status) query.set('status', input.status);
+  query.set('page', String(input.page || 1));
+  query.set('limit', String(input.limit || 20));
+  return apiRequest<{ data: TeamMember[]; pagination: Pagination; metrics: TeamMetrics }>(`/api/team?${query}`, { signal });
 }
 
 export type OpportunityMetrics = { activePotential: number; counts: Record<OpportunityStatus, number> };

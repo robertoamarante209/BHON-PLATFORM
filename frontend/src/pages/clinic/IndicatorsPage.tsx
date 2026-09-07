@@ -134,7 +134,7 @@ export const IndicatorsPage: React.FC = () => {
                     94.5%
                   </td>
                   <td className="font-mono-data font-bold text-xs text-bhon-text whitespace-nowrap">
-                    R$ {(doc.workloadHours * 8200).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {doc.workloadHours == null ? '—' : `R$ ${(doc.workloadHours * 8200).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                   </td>
                   <td className="whitespace-nowrap font-mono-data text-xs">
                     <span className="px-1.5 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 font-semibold">
@@ -149,3 +149,4 @@ export const IndicatorsPage: React.FC = () => {
     </div>
   );
 };
+

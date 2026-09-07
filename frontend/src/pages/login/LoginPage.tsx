@@ -1,121 +1,137 @@
 import React, { useState } from 'react';
+import { ArrowRight, Lock, Mail } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
-
   const [email, setEmail] = useState('roberto@odontoprime.com.br');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
+
     if (!email || !password) {
       setError('Informe seu e-mail institucional e sua senha.');
       return;
     }
-    const user = await login(email, password, rememberMe);
-    if (!user) {
-      setError('Não foi possível autenticar. Verifique suas credenciais ou contate o administrador.');
-      return;
+
+    setIsSubmitting(true);
+    try {
+      const user = await login(email, password, rememberMe);
+      if (!user) {
+        setError('Não foi possível autenticar. Verifique suas credenciais ou contate o administrador.');
+        return;
+      }
+      setLocation(user.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview');
+    } finally {
+      setIsSubmitting(false);
     }
-    setLocation(user.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview');
   };
 
   return (
-    <div className="min-h-screen bg-bhon-navy flex flex-col items-center justify-center p-6 select-none relative">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-bhon-navy px-4 py-8 sm:p-6">
       <div className="w-full max-w-md">
-        {/* Card do Formulário de Acesso */}
-        <div className="bg-white rounded-md border border-bhon-border shadow-2xl p-8">
-          {/* Cabeçalho de Identidade */}
-          <div className="text-center mb-6">
+        <main className="overflow-hidden rounded-xl border border-white/10 bg-white shadow-2xl shadow-black/30">
+          <header className="border-b border-white/10 bg-bhon-navy px-6 py-7 text-center sm:px-8 sm:py-8">
             <img
               src="/logo.png"
               alt="BHON — A clínica no controle."
-              className="h-12 mx-auto mb-2"
+              className="mx-auto h-auto w-full max-w-[250px]"
             />
-            <p className="text-xs text-bhon-muted font-medium">
+            <p className="mt-3 text-xs font-medium tracking-wide text-slate-300">
               Sistema Operacional Clínico
             </p>
-          </div>
+          </header>
 
-          {error && (
-            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded font-medium">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold text-bhon-text mb-1 uppercase tracking-wider text-[11px]">
-                E-mail Institucional
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-bhon-muted absolute left-3 top-2.5" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu.nome@clinica.com.br"
-                  required
-                  className="w-full pl-9 pr-3 py-2 border border-bhon-border rounded text-xs text-bhon-text focus:outline-none focus:border-bhon-teal focus:ring-1 focus:ring-bhon-teal"
-                />
+          <div className="p-5 sm:p-8">
+            {error && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800"
+              >
+                {error}
               </div>
-            </div>
+            )}
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="font-semibold text-bhon-text uppercase tracking-wider text-[11px]">
-                  Senha de Acesso
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-bhon-text">
+                  E-mail Institucional
                 </label>
-                <span className="text-[11px] text-bhon-muted">Recuperação de acesso com o administrador</span>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-bhon-muted" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="seu.nome@clinica.com.br"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    required
+                    className="w-full rounded border border-bhon-border py-2 pl-9 pr-3 text-xs text-bhon-text focus:border-bhon-teal focus:outline-none focus:ring-1 focus:ring-bhon-teal"
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-bhon-muted absolute left-3 top-2.5" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  required
-                  className="w-full pl-9 pr-3 py-2 border border-bhon-border rounded text-xs text-bhon-text focus:outline-none focus:border-bhon-teal focus:ring-1 focus:ring-bhon-teal font-mono"
-                />
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer text-bhon-muted">
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-[11px] font-semibold uppercase tracking-wider text-bhon-text">
+                    Senha de Acesso
+                  </label>
+                  <span className="ml-4 text-right text-[10px] leading-tight text-bhon-muted sm:text-[11px]">
+                    Recuperação com o administrador
+                  </span>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-bhon-muted" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="••••••••••••"
+                    autoComplete="current-password"
+                    required
+                    className="w-full rounded border border-bhon-border py-2 pl-9 pr-3 font-mono text-xs text-bhon-text focus:border-bhon-teal focus:outline-none focus:ring-1 focus:ring-bhon-teal"
+                  />
+                </div>
+              </div>
+
+              <label className="flex cursor-pointer items-center gap-2 pt-1 text-bhon-muted">
                 <input
                   type="checkbox"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  onChange={(event) => setRememberMe(event.target.checked)}
                   className="rounded border-bhon-border text-bhon-teal focus:ring-bhon-teal"
                 />
                 <span>Lembrar meu acesso</span>
               </label>
-            </div>
 
-            <button
-              type="submit"
-              className="w-full mt-2 py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded transition-colors text-xs uppercase tracking-wider flex items-center justify-center gap-2"
-            >
-              <span>Acessar Operação</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded bg-bhon-teal py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-[background-color,transform] duration-150 ease-out hover:bg-bhon-teal-dark active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+              >
+                <span>{isSubmitting ? 'Autenticando…' : 'Acessar Operação'}</span>
+                {!isSubmitting && <ArrowRight className="h-4 w-4" />}
+              </button>
+            </form>
+          </div>
+        </main>
 
-        </div>
-
-        {/* Rodapé de Segurança e Credibilidade */}
-        <div className="text-center mt-6 text-[11px] text-slate-400 font-mono-data">
+        <footer className="mt-6 text-center font-mono-data text-[11px] text-slate-400">
           <p>BHON Clinical Operating System • Multi-Tenant v2.4</p>
-          <p className="text-[10px] text-slate-500 mt-1">Sessão autenticada com controle de acesso por perfil</p>
-        </div>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Sessão autenticada com controle de acesso por perfil
+          </p>
+        </footer>
       </div>
     </div>
   );

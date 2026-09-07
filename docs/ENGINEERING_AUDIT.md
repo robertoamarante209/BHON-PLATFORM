@@ -92,7 +92,7 @@ O logo aparece na sidebar clínica, mas é necessário auditar também o shell d
 
 ## J. Lacunas de testes
 
-O backend possui 20 testes unitários das regras críticas e o build completo valida os contratos TypeScript. Ainda não há testes HTTP/PostgreSQL, de componentes ou ponta a ponta para autenticação, RBAC, isolamento de tenant e workflows cruzados.
+O backend possui 20 testes unitários das regras críticas e 5 testes HTTP básicos; o CI e os builds validam contratos TypeScript. Ainda não há testes PostgreSQL, de componentes ou ponta a ponta para RBAC autenticado, isolamento de tenant e workflows cruzados.
 
 ## K. Ordem recomendada
 
@@ -129,7 +129,7 @@ As demais lacunas deste documento continuam abertas e não devem ser considerada
 - Mudanças de status, incluindo falta e conclusão, agora executam todos os efeitos relacionados na mesma transação.
 - Overview passou a usar a agenda real e teve métricas fixas e a segunda fila local removidas.
 - Vite e o plugin React foram atualizados; `npm audit` do frontend e o build de produção passaram.
-- Testes de domínio agora cobrem Recovery Engine, segurança, agenda, tratamentos, etapas, progresso, funil, inatividade e liquidação financeira, totalizando 20 testes.
+- A suíte possui 25 testes: regras do Recovery Engine, segurança, agenda, tratamentos, etapas, progresso, funil, inatividade, liquidação financeira e contratos HTTP básicos.
 
 Ainda permanecem pendentes testes HTTP/banco para isolamento multi-tenant, conciliação/estornos e a migração dos demais módulos listados no roadmap.
 

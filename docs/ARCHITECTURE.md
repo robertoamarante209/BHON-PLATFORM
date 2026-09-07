@@ -22,6 +22,7 @@ A BHON é o sistema operacional clínico que converte sinais dispersos em uma fi
 - Prisma 7 com adapter PostgreSQL
 - API HTTP organizada hoje em `auth`, `tenants`, `clinical`, `workflow`, `recovery` e `finance`
 - Sessões opacas persistidas no PostgreSQL
+- composição testável em `buildApp`; o entrypoint inicia apenas o listener HTTP
 
 ### Dados
 
@@ -67,6 +68,8 @@ Cookie HttpOnly bhon_session ┘    ├─ rotas clínicas
 - Login é limitado por janela de tentativas por IP e e-mail.
 - Bearer token está desabilitado por padrão e só pode ser habilitado explicitamente para integrações controladas.
 - Credenciais, chaves e segredos pertencem ao ambiente; nunca ao repositório ou ao frontend.
+- produção falha na inicialização se `COOKIE_SECRET` tiver menos de 32 caracteres ou se `CORS_ORIGINS` estiver ausente.
+- erros de validação e falhas internas retornam envelopes seguros; detalhes permanecem somente nos logs estruturados.
 
 ## Estrutura atual
 

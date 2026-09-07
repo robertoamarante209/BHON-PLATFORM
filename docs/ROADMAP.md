@@ -16,7 +16,7 @@ Concluído:
 Pendente:
 
 - recuperação de senha, verificação de e-mail e MFA;
-- testes HTTP de sessão, RBAC, IDOR e isolamento multi-tenant;
+- testes HTTP de RBAC autenticado, IDOR e isolamento multi-tenant;
 - gestão de segredos, observabilidade e resposta a incidentes.
 
 ## 2. Recovery Engine — fundação concluída
@@ -101,7 +101,7 @@ Pendente:
 - configuração inicial Vercel Services + Supabase e health checks implementados; falta validar o primeiro deployment real;
 - remover o restante do `localStorage` operacional;
 - testes unitários, integração, componentes e fluxos ponta a ponta;
-- CI obrigatório, migrations testadas em banco limpo e upgrade;
+- CI versionado para Prisma, typecheck, testes e builds; falta torná-lo obrigatório via proteção da branch e testar migrations em banco limpo/upgrade;
 - métricas, logs estruturados, tracing e alertas;
 - backup/restauração, retenção e controles LGPD;
 - filas/workers apenas para tarefas assíncronas reais;

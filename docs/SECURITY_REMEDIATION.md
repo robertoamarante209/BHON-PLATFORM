@@ -28,6 +28,10 @@ This document records the hardening applied after auditing the local Antigravity
 - Login payload length and unknown fields are rejected before expensive password processing.
 - Bearer authentication is disabled by default and requires explicit `ALLOW_BEARER_AUTH=true` for controlled integrations.
 - Recovery actions validate tenant ownership and update the operational record, patient timeline and audit log atomically.
+- Appointment creation and rescheduling serialize conflict checks with a tenant-scoped PostgreSQL advisory lock.
+- Appointment status changes and their follow-up, timeline, notification and treatment effects execute in one transaction.
+- Patient list/create/update and scheduling inputs now have bounded Fastify schemas.
+- The frontend build toolchain was upgraded and currently reports zero known npm vulnerabilities.
 
 ## Intentionally not claimed as complete
 

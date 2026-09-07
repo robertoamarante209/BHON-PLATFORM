@@ -14,7 +14,7 @@ A BHON é o sistema operacional clínico que converte sinais dispersos em uma fi
 - Wouter para roteamento
 - Tailwind CSS e componentes próprios
 - `AuthContext` para a sessão autenticada
-- `OperationalDataContext` ainda mantém parte dos módulos legados no navegador; essa persistência é transitória e não é fonte confiável multiusuário
+- Agenda, Pacientes, prontuário e Overview consomem a API; `OperationalDataContext` ainda mantém os demais módulos legados no navegador e não é fonte confiável multiusuário
 
 ### Backend
 
@@ -78,7 +78,7 @@ docs/                    produto, marca, decisões, auditoria e roadmap
 
 ## Próximas fronteiras arquiteturais
 
-1. Remover `localStorage` dos domínios clínicos e conectar cada módulo à API.
+1. Remover `localStorage` de Tratamentos, Orçamentos, Oportunidades, Follow-ups, Financeiro e módulos da plataforma.
 2. Separar o arquivo clínico monolítico em serviços por domínio.
 3. Adicionar testes de integração com PostgreSQL para isolamento multi-tenant, RBAC e transações.
 4. Extrair workers e filas apenas quando existirem tarefas assíncronas reais e requisitos de escala medidos.

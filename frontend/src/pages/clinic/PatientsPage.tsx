@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useOperationalData } from '../../context/OperationalDataContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
-import { Search, Plus, Filter, Phone, Mail, ArrowRight, UserCheck } from 'lucide-react';
-import { Patient, PatientStatus } from '../../types';
+import { AlertTriangle, ArrowRight, Plus, RefreshCw, Search } from 'lucide-react';
+import type { Patient, PatientStatus } from '../../types';
+import { createPatient, listPatients } from '../../lib/clinic';
 
 export const PatientsPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const { patients, addPatient } = useOperationalData();
-
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [totalPatients, setTotalPatients] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<PatientStatus | 'ALL'>('ALL');
   const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
 
   // Form State para Novo Paciente
@@ -22,50 +25,50 @@ export const PatientsPage: React.FC = () => {
   const [birthDate, setBirthDate] = useState('');
   const [allergies, setAllergies] = useState('');
   const [observations, setObservations] = useState('');
-  const [source, setSource] = useState('Indicação');
+  const [source, setSource] = useState('Indicação de Paciente');
 
-  const filteredPatients = patients.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.recordNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.phone && p.phone.includes(searchTerm));
+  const [reloadKey, setReloadKey] = useState(0);
 
-    const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setError('');
+      void listPatients({
+        search: searchTerm.trim() || undefined,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
+        limit: 50,
+      }, controller.signal)
+        .then((response) => {
+          setPatients(response.data);
+          setTotalPatients(response.pagination.total);
+        })
+        .catch((requestError) => {
+          if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
+          setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar os pacientes.');
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [searchTerm, statusFilter, reloadKey]);
 
-  const handleCreatePatient = (e: React.FormEvent) => {
+  const handleCreatePatient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return;
-
-    const nextRecordNumber = `#0${4400 + patients.length}`;
-    const newPat = addPatient({
-      name,
-      recordNumber: nextRecordNumber,
-      cpf,
-      phone,
-      email,
-      birthDate,
-      allergies,
-      observations,
-      source,
-      status: 'ACTIVE',
-      responsibleName: 'Dr. Roberto Carlos Fagundes',
-      nextAction: 'Consulta Inicial de Avaliação',
-    });
-
-    setIsNewPatientOpen(false);
-    // Reset
-    setName('');
-    setCpf('');
-    setPhone('');
-    setEmail('');
-    setBirthDate('');
-    setAllergies('');
-    setObservations('');
-
-    // Navega diretamente para o dossiê criado
-    setLocation(`/clinic/patients/${newPat.id}`);
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const newPatient = await createPatient({ name: name.trim(), cpf, phone, email, birthDate: birthDate || undefined, allergies, observations, source });
+      setIsNewPatientOpen(false);
+      setName(''); setCpf(''); setPhone(''); setEmail(''); setBirthDate(''); setAllergies(''); setObservations('');
+      setLocation(`/clinic/patients/${newPatient.id}`);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível cadastrar o paciente.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -90,6 +93,16 @@ export const PatientsPage: React.FC = () => {
         </button>
       </div>
 
+      {error && (
+        <div className="flex items-center gap-3 border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900" role="alert">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="flex items-center gap-1 border border-rose-300 bg-white px-2.5 py-1.5 font-semibold transition-transform duration-150 active:scale-[0.97]">
+            <RefreshCw className="h-3.5 w-3.5" /> Tentar novamente
+          </button>
+        </div>
+      )}
+
       {/* Barra de Filtro e Busca Rápida */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 border border-bhon-border rounded">
         <div className="relative flex-1 w-full sm:w-auto">
@@ -106,7 +119,7 @@ export const PatientsPage: React.FC = () => {
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => setStatusFilter(e.target.value as PatientStatus | 'ALL')}
             className="px-2.5 py-1.5 border border-bhon-border rounded text-xs text-bhon-text bg-white"
           >
             <option value="ALL">Todos os status</option>
@@ -115,7 +128,7 @@ export const PatientsPage: React.FC = () => {
             <option value="ARCHIVED">Arquivados</option>
           </select>
           <span className="font-mono-data text-xs text-bhon-muted whitespace-nowrap">
-            {filteredPatients.length} pacientes listados
+            {totalPatients} paciente{totalPatients === 1 ? '' : 's'} encontrado{totalPatients === 1 ? '' : 's'}
           </span>
         </div>
       </div>
@@ -138,7 +151,13 @@ export const PatientsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredPatients.map((p) => (
+              {loading && patients.length === 0 && (
+                <tr><td colSpan={9} className="py-10 text-center text-xs text-bhon-muted">Carregando prontuários…</td></tr>
+              )}
+              {!loading && patients.length === 0 && !error && (
+                <tr><td colSpan={9} className="py-10 text-center text-xs text-bhon-muted">Nenhum paciente encontrado para estes filtros.</td></tr>
+              )}
+              {patients.map((p) => (
                 <tr
                   key={p.id}
                   onClick={() => setLocation(`/clinic/patients/${p.id}`)}
@@ -294,12 +313,14 @@ export const PatientsPage: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors"
+            disabled={submitting}
+            className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
           >
-            Salvar e Abrir Prontuário
+            {submitting ? 'Salvando prontuário…' : 'Salvar e Abrir Prontuário'}
           </button>
         </form>
       </Drawer>
     </div>
   );
 };
+

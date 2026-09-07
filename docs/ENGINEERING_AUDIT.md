@@ -121,3 +121,15 @@ O primeiro marco será uma fila operacional real: endpoint agregado por tenant, 
 
 As demais lacunas deste documento continuam abertas e não devem ser consideradas entregues por este marco.
 
+## Estado após o segundo marco
+
+- Pacientes: listagem, busca, cadastro e dossiê passaram a consumir a API; um cadastro novo já abre o prontuário persistido correto.
+- Agenda: data, pacientes, salas, profissionais e atendimentos agora vêm do PostgreSQL; IDs e datas fixas foram removidos.
+- Criação e reagendamento verificam colisão de sala ou profissional sob lock transacional por tenant.
+- Mudanças de status, incluindo falta e conclusão, agora executam todos os efeitos relacionados na mesma transação.
+- Overview passou a usar a agenda real e teve métricas fixas e a segunda fila local removidas.
+- Vite e o plugin React foram atualizados; `npm audit` do frontend e o build de produção passaram.
+- Testes de domínio agora cobrem duração, sobreposição de intervalos e transições de agenda, totalizando 10 testes.
+
+Ainda permanecem pendentes testes HTTP/banco para isolamento multi-tenant e a migração dos demais módulos listados no roadmap.
+

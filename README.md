@@ -11,6 +11,7 @@ Leia antes de desenvolver:
 - [`docs/ENGINEERING_AUDIT.md`](docs/ENGINEERING_AUDIT.md) — diagnóstico A–K e ordem de recuperação
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — arquitetura implementada e fronteiras
 - [`docs/SECURITY_REMEDIATION.md`](docs/SECURITY_REMEDIATION.md) — hardening aplicado e limites
+- [`docs/VERCEL_DEPLOYMENT.md`](docs/VERCEL_DEPLOYMENT.md) — deploy Vercel + Supabase sem expor segredos
 
 ## Desenvolvimento local
 
@@ -30,3 +31,6 @@ frontend: npm run build
 
 Não use os dados mantidos em `OperationalDataContext` como evidência de persistência multiusuário; eles são uma camada legada em remoção progressiva.
 
+## Deploy
+
+O monorepo está preparado como um projeto Vercel Services, com Vite e Fastify no mesmo domínio e Supabase como PostgreSQL. Siga o guia de deploy e nunca envie o `.env` para o repositório ou para o chat.

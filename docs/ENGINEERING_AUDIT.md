@@ -129,6 +129,6 @@ As demais lacunas deste documento continuam abertas e não devem ser considerada
 - Mudanças de status, incluindo falta e conclusão, agora executam todos os efeitos relacionados na mesma transação.
 - Overview passou a usar a agenda real e teve métricas fixas e a segunda fila local removidas.
 - Vite e o plugin React foram atualizados; `npm audit` do frontend e o build de produção passaram.
-- Testes de domínio agora cobrem Recovery Engine, segurança, duração, sobreposição, transições de agenda, tratamentos, etapas e progresso, totalizando 13 testes.
+- Testes de domínio agora cobrem Recovery Engine, segurança, agenda, tratamentos, etapas, progresso, funil e cálculo de inatividade, totalizando 16 testes.
 
 Ainda permanecem pendentes testes HTTP/banco para isolamento multi-tenant e a migração dos demais módulos listados no roadmap.

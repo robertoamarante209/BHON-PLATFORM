@@ -65,12 +65,25 @@ Pendente:
 - testes de integração com PostgreSQL para concorrência, idempotência e rollback;
 - emissão, aceite externo e assinatura digital de propostas.
 
-## 5. Oportunidades, Follow-ups e Financeiro
+## 5. Oportunidades e Follow-ups — núcleo conectado; Financeiro em seguida
 
-- substituir dados locais pelos registros persistidos;
-- registrar resultados operacionais estruturados;
-- conciliar pagamentos e lançamentos financeiros;
-- calcular conversão, continuidade e receita recuperada sem valores fixos.
+Concluído:
+
+- funil e fila dedicada agora usam registros persistidos, busca remota, filtros e paginação;
+- potencial ativo, contagens por estágio e acompanhamentos vencidos são calculados no servidor;
+- transições de oportunidade seguem máquina de estados e conversão exige aprovação do orçamento;
+- contatos exigem registro objetivo e conclusões exigem desfecho estruturado;
+- concluir, contatar, adiar e reatribuir follow-up atualizam domínio, timeline e auditoria;
+- ações concorrentes no mesmo follow-up são serializadas;
+- links com `focus` abrem o acompanhamento correto a partir do Recovery Engine;
+- controles da interface respeitam perfis somente leitura.
+
+Pendente:
+
+- migrar a tela Financeira e conciliar pagamentos e lançamentos persistidos;
+- persistir atribuição financeira de receita recuperada por contato;
+- completar criação/edição de oportunidades e follow-ups;
+- testes HTTP/PostgreSQL de concorrência, RBAC e isolamento multi-tenant.
 
 ## 6. Operação da plataforma BHON
 
@@ -81,6 +94,7 @@ Pendente:
 
 ## 7. Produção e escala
 
+- configuração inicial Vercel Services + Supabase e health checks implementados; falta validar o primeiro deployment real;
 - remover o restante do `localStorage` operacional;
 - testes unitários, integração, componentes e fluxos ponta a ponta;
 - CI obrigatório, migrations testadas em banco limpo e upgrade;

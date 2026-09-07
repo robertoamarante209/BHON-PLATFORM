@@ -13,6 +13,7 @@ This document records the hardening applied after auditing the local Antigravity
 - Clinic sessions are rejected after suspension/cancellation.
 - Removed token from login JSON response; token remains in HttpOnly cookie.
 - CORS is allowlisted instead of `origin: true`.
+- Content Security Policy is enabled with explicit script, connection, framing, object, image, font and form boundaries.
 - `COOKIE_SECRET` must be provided by the environment; no hardcoded fallback.
 - `DATABASE_URL` must be provided; no local database fallback in Prisma config.
 - Patient record numbers use an atomic per-tenant sequence instead of `count + 1`.
@@ -34,6 +35,8 @@ This document records the hardening applied after auditing the local Antigravity
 - Treatment and budget list inputs are bounded, paginated and tenant-scoped.
 - Treatment and stage status changes enforce explicit state machines, role boundaries, timeline and audit writes.
 - Quote approval now locks and revalidates the quote inside its transaction, preventing concurrent double approval.
+- Opportunity transitions are tenant-scoped, role-gated and constrained by an explicit state machine.
+- Follow-up completion requires a structured outcome and contact notes; concurrent actions are serialized before state is revalidated.
 - The frontend build toolchain was upgraded and currently reports zero known npm vulnerabilities.
 
 ## Intentionally not claimed as complete

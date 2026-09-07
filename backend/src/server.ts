@@ -6,6 +6,7 @@ import { authRoutes } from "./routes/auth.js";
 import { tenantRoutes } from "./routes/tenants.js";
 import { clinicalRoutes } from "./routes/clinical.js";
 import { recoveryRoutes } from "./routes/recovery.js";
+import { workflowRoutes } from "./routes/workflow.js";
 import { prisma } from "./lib/prisma.js";
 import { isTrustedCookieRequest } from "./domain/security.js";
 
@@ -13,15 +14,28 @@ const app = Fastify({
   logger: true,
 });
 
-// Registra plugins essenciais de segurança e transporte
-await app.register(helmet, {
-  contentSecurityPolicy: false, // Permite funcionamento sem conflito com SPA
-});
-
 const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+// Política explícita para impedir execução e incorporação de conteúdo não autorizado.
+await app.register(helmet, {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      fontSrc: ["'self'", "https:", "data:"],
+      imgSrc: ["'self'", "https:", "data:", "blob:"],
+      connectSrc: ["'self'", ...allowedOrigins],
+    },
+  },
+});
 
 await app.register(cors, {
   origin: (origin, callback) => {
@@ -59,6 +73,7 @@ await app.register(authRoutes);
 await app.register(tenantRoutes);
 await app.register(clinicalRoutes, { prefix: "/api" });
 await app.register(recoveryRoutes, { prefix: "/api" });
+await app.register(workflowRoutes, { prefix: "/api" });
 
 app.get("/", async () => {
   return {
@@ -69,7 +84,15 @@ app.get("/", async () => {
   };
 });
 
-app.get("/health/db", async () => {
+app.get("/health/live", async () => {
+  return {
+    status: "ok",
+    service: "bhon-api",
+    timestamp: new Date().toISOString(),
+  };
+});
+
+const databaseReadiness = async (_request: unknown, reply: { code: (statusCode: number) => { send: (payload: object) => unknown } }) => {
   try {
     const result = await prisma.$queryRaw<{ ok: number }[]>`SELECT 1 AS ok`;
     return {
@@ -78,12 +101,15 @@ app.get("/health/db", async () => {
     };
   } catch (error: any) {
     app.log.error(error, "Falha no health check do banco de dados");
-    return {
+    return reply.code(503).send({
       status: "degraded",
       database: "disconnected",
-    };
+    });
   }
-});
+};
+
+app.get("/health/ready", databaseReadiness);
+app.get("/health/db", databaseReadiness);
 
 const start = async () => {
   try {
@@ -98,4 +124,3 @@ const start = async () => {
 };
 
 start();
-

@@ -323,6 +323,12 @@ export async function recoveryRoutes(app: FastifyInstance) {
       if (followUp.status === FollowUpStatus.CONCLUIDO || followUp.status === FollowUpStatus.CANCELADO) {
         return reply.code(409).send({ error: "Este acompanhamento já está encerrado.", code: "FOLLOW_UP_CLOSED" });
       }
+      if ((body.action === "COMPLETE" || body.action === "LOG_CONTACT") && (body.notes?.trim().length || 0) < 3) {
+        return reply.code(400).send({ error: "Descreva o contato realizado.", code: "CONTACT_NOTES_REQUIRED" });
+      }
+      if (body.action === "COMPLETE" && !body.outcome) {
+        return reply.code(400).send({ error: "Selecione o desfecho do acompanhamento.", code: "OUTCOME_REQUIRED" });
+      }
 
       let assignee: { id: string; name: string } | null = null;
       if (body.action === "REASSIGN") {
@@ -343,8 +349,17 @@ export async function recoveryRoutes(app: FastifyInstance) {
       }
 
       const result = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))`;
+        const lockedFollowUp = await tx.followUp.findFirst({
+          where: { id, tenantId },
+          include: { patient: { select: { id: true, name: true } } },
+        });
+        if (!lockedFollowUp) return { kind: "NOT_FOUND" as const };
+        if (lockedFollowUp.status === FollowUpStatus.CONCLUIDO || lockedFollowUp.status === FollowUpStatus.CANCELADO) {
+          return { kind: "CLOSED" as const };
+        }
         const now = new Date();
-        const nextNotes = appendNote(followUp.notes, body.notes);
+        const nextNotes = appendNote(lockedFollowUp.notes, body.notes);
         const updated = await tx.followUp.update({
           where: { id },
           data:
@@ -363,7 +378,7 @@ export async function recoveryRoutes(app: FastifyInstance) {
 
         if (body.action === "COMPLETE" || body.action === "LOG_CONTACT") {
           const opportunity = await tx.opportunity.findFirst({
-            where: { tenantId, patientId: followUp.patientId, status: { in: OPEN_OPPORTUNITY_STATUSES }, deletedAt: null },
+            where: { tenantId, patientId: lockedFollowUp.patientId, status: { in: OPEN_OPPORTUNITY_STATUSES }, deletedAt: null },
             orderBy: { updatedAt: "desc" },
             select: { id: true },
           });
@@ -388,7 +403,7 @@ export async function recoveryRoutes(app: FastifyInstance) {
         await tx.timelineEvent.create({
           data: {
             tenantId,
-            patientId: followUp.patientId,
+            patientId: lockedFollowUp.patientId,
             actorUserId: actor.id,
             type: `FOLLOW_UP_${body.action}`,
             description: `${actionLabels[body.action]}. ${body.notes?.trim() || ""}`.trim(),
@@ -403,11 +418,11 @@ export async function recoveryRoutes(app: FastifyInstance) {
             resource: "FollowUp",
             resourceId: id,
             metadata: {
-              previousStatus: followUp.status,
+              previousStatus: lockedFollowUp.status,
               newStatus: updated.status,
-              previousAssigneeId: followUp.responsibleUserId,
+              previousAssigneeId: lockedFollowUp.responsibleUserId,
               newAssigneeId: updated.responsibleUserId,
-              previousDeadline: followUp.deadlineAt,
+              previousDeadline: lockedFollowUp.deadlineAt,
               newDeadline: updated.deadlineAt,
               outcome: body.outcome || null,
             },
@@ -419,18 +434,19 @@ export async function recoveryRoutes(app: FastifyInstance) {
               tenantId,
               userId: assignee.id,
               type: "FOLLOW_UP_ASSIGNED",
-              title: `Novo acompanhamento: ${followUp.patient.name}`,
-              message: followUp.reason,
+              title: `Novo acompanhamento: ${lockedFollowUp.patient.name}`,
+              message: lockedFollowUp.reason,
               link: `/clinic/follow-ups?focus=${id}`,
-              priority: followUp.priority,
+              priority: lockedFollowUp.priority,
             },
           });
         }
-        return updated;
+        return { kind: "UPDATED" as const, data: updated };
       });
 
-      return reply.send({ success: true, data: result });
+      if (result.kind === "NOT_FOUND") return reply.code(404).send({ error: "Acompanhamento não encontrado.", code: "FOLLOW_UP_NOT_FOUND" });
+      if (result.kind === "CLOSED") return reply.code(409).send({ error: "Este acompanhamento já foi encerrado.", code: "FOLLOW_UP_CLOSED" });
+      return reply.send({ success: true, data: result.data });
     },
   );
 }
-

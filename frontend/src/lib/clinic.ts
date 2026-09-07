@@ -1,4 +1,4 @@
-import type { Appointment, AppointmentStatus, Budget, FollowUp, Patient, PatientStatus, Payment, QuoteStatus, Room, TimelineEvent, Treatment, TreatmentStatus } from '../types';
+import type { Appointment, AppointmentStatus, Budget, FollowUp, FollowUpCategory, FollowUpStatus, Opportunity, OpportunityStatus, Patient, PatientStatus, Payment, QuoteStatus, Room, TimelineEvent, Treatment, TreatmentStatus } from '../types';
 import { apiRequest } from './api';
 
 export const appointmentTransitions: Record<AppointmentStatus, readonly AppointmentStatus[]> = {
@@ -11,6 +11,12 @@ export const appointmentTransitions: Record<AppointmentStatus, readonly Appointm
   FALTA: ['CONFIRMADO', 'CANCELADO'],
   CANCELADO: ['CONFIRMADO', 'ENCAIXE'],
   CONCLUIDO: [],
+};
+
+export const opportunityTransitions: Record<OpportunityStatus, readonly OpportunityStatus[]> = {
+  NEW_CONTACT: ['TRIAGEM', 'PERDIDO'], TRIAGEM: ['AVALIACAO', 'PERDIDO'], AVALIACAO: ['PLANO_APRESENTADO', 'PERDIDO'],
+  PLANO_APRESENTADO: ['ORCAMENTO', 'NEGOCIACAO', 'PERDIDO'], ORCAMENTO: ['NEGOCIACAO', 'CONVERTIDO', 'PERDIDO'],
+  NEGOCIACAO: ['ORCAMENTO', 'CONVERTIDO', 'PERDIDO'], CONVERTIDO: [], PERDIDO: ['TRIAGEM'],
 };
 
 export type Pagination = { page: number; limit: number; total: number; totalPages: number };
@@ -58,6 +64,15 @@ export type BudgetMetrics = {
 
 type ApiPayment = Omit<Payment, 'patientName' | 'patientRecordNumber' | 'referenceDescription' | 'amount'> & { amount: string | number };
 type ApiFollowUp = Omit<FollowUp, 'patientName' | 'patientPhone' | 'patientRecordNumber' | 'responsibleUserName'> & { responsibleUser?: { id: string; name: string } | null };
+type ApiFollowUpListItem = ApiFollowUp & {
+  patient: { id: string; name: string; phone?: string | null; recordNumber: string };
+};
+type ApiOpportunityListItem = Omit<Opportunity, 'patientName' | 'patientPhone' | 'assignedToName' | 'potentialValue'> & {
+  potentialValue?: string | number | null;
+  patient: { id: string; name: string; phone?: string | null; recordNumber: string };
+  assignedTo?: { id: string; name: string } | null;
+  treatmentTitle?: string | null;
+};
 type ApiTimeline = Omit<TimelineEvent, 'actorUserName' | 'description'> & { description?: string | null; actorUser?: { id: string; name: string } | null };
 
 type ApiPatientDossier = Patient & {
@@ -302,4 +317,69 @@ export async function listBudgets(input: { search?: string; status?: QuoteStatus
 
 export function approveBudget(id: string) {
   return apiRequest(`/api/budgets/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+}
+
+export type OpportunityMetrics = { activePotential: number; counts: Record<OpportunityStatus, number> };
+
+export async function listOpportunities(input: { search?: string; status?: OpportunityStatus; page?: number; limit?: number } = {}, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  if (input.search) query.set('search', input.search);
+  if (input.status) query.set('status', input.status);
+  query.set('page', String(input.page || 1));
+  query.set('limit', String(input.limit || 20));
+  const response = await apiRequest<{ data: ApiOpportunityListItem[]; pagination: Pagination; metrics: OpportunityMetrics }>(`/api/opportunities?${query}`, { signal });
+  return {
+    ...response,
+    data: response.data.map((opportunity): Opportunity => ({
+      ...opportunity,
+      patientName: opportunity.patient.name,
+      patientPhone: opportunity.patient.phone || undefined,
+      assignedToName: opportunity.assignedTo?.name,
+      potentialValue: opportunity.potentialValue == null ? undefined : Number(opportunity.potentialValue),
+      treatmentTitle: opportunity.treatmentTitle || undefined,
+    })),
+  };
+}
+
+export function updateOpportunityStatus(id: string, status: OpportunityStatus, input: { nextStep?: string; reason?: string } = {}) {
+  return apiRequest(`/api/opportunities/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, ...input }),
+  });
+}
+
+export type FollowUpMetrics = { pendingToday: number; categoryCounts: Record<FollowUpCategory, number> };
+export type FollowUpAssignee = { id: string; name: string; role: string };
+export type FollowUpAction =
+  | { action: 'COMPLETE'; notes: string; outcome: 'CONTACTED' | 'RESCHEDULED' | 'RECOVERED' | 'NO_RESPONSE' | 'NOT_INTERESTED' }
+  | { action: 'POSTPONE'; newDeadline: string; notes?: string }
+  | { action: 'REASSIGN'; assigneeId: string; notes?: string }
+  | { action: 'LOG_CONTACT'; notes: string; outcome?: 'CONTACTED' | 'RESCHEDULED' | 'RECOVERED' | 'NO_RESPONSE' | 'NOT_INTERESTED' };
+
+export async function listFollowUps(input: { search?: string; category?: FollowUpCategory; status?: FollowUpStatus; focus?: string; page?: number; limit?: number } = {}, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  if (input.search) query.set('search', input.search);
+  if (input.category) query.set('category', input.category);
+  if (input.status) query.set('status', input.status);
+  if (input.focus) query.set('focus', input.focus);
+  query.set('page', String(input.page || 1));
+  query.set('limit', String(input.limit || 20));
+  const response = await apiRequest<{ data: ApiFollowUpListItem[]; pagination: Pagination; metrics: FollowUpMetrics; assignees: FollowUpAssignee[] }>(`/api/follow-ups?${query}`, { signal });
+  return {
+    ...response,
+    data: response.data.map((followUp): FollowUp => ({
+      ...followUp,
+      patientName: followUp.patient.name,
+      patientPhone: followUp.patient.phone || undefined,
+      patientRecordNumber: followUp.patient.recordNumber,
+      responsibleUserName: followUp.responsibleUser?.name,
+    })),
+  };
+}
+
+export function executeFollowUpAction(id: string, input: FollowUpAction) {
+  return apiRequest(`/api/recovery/follow-ups/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 }

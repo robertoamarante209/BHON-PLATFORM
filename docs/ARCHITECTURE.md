@@ -30,6 +30,13 @@ A BHON é o sistema operacional clínico que converte sinais dispersos em uma fi
 - Mutações que atravessam módulos usam transações Prisma
 - Redis, BullMQ, Docker, Azure e MFA são capacidades-alvo; não estão implementados neste repositório
 
+### Deploy piloto
+
+- Vercel Services publica Vite e Fastify no mesmo projeto e domínio
+- `/auth/*`, `/api/*` e `/health/*` são roteados para o serviço Fastify; as demais rotas vão para a SPA
+- Supabase usa pooler transacional no runtime serverless e conexão direta/session para migrations
+- Segredos são cadastrados somente no ambiente do backend; o frontend não recebe credenciais
+
 ## Componentes e fluxo
 
 ```text
@@ -78,7 +85,7 @@ docs/                    produto, marca, decisões, auditoria e roadmap
 
 ## Próximas fronteiras arquiteturais
 
-1. Remover `localStorage` de Oportunidades, Follow-ups, Financeiro e módulos da plataforma; Tratamentos e Orçamentos já usam APIs como fonte operacional.
+1. Remover `localStorage` de Financeiro e módulos da plataforma; Pacientes, Agenda, Tratamentos, Orçamentos, Oportunidades e Follow-ups já usam APIs como fonte operacional.
 2. Separar o arquivo clínico monolítico em serviços por domínio.
 3. Adicionar testes de integração com PostgreSQL para isolamento multi-tenant, RBAC e transações.
 4. Extrair workers e filas apenas quando existirem tarefas assíncronas reais e requisitos de escala medidos.

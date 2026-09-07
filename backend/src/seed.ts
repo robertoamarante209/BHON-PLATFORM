@@ -3,6 +3,7 @@ import { hashPassword } from "./lib/auth.js";
 
 const main = async () => {
   const seedPassword = process.env.BHON_SEED_PASSWORD;
+  const shouldResetOwnerPassword = process.env.BHON_RESET_OWNER_PASSWORD === "true";
   if (!seedPassword || seedPassword.length < 12) {
     throw new Error("Defina BHON_SEED_PASSWORD com pelo menos 12 caracteres antes de executar o seed.");
   }
@@ -28,9 +29,16 @@ const main = async () => {
         emailNormalized, passwordHash: hash, role: "OWNER", status: "ACTIVE"
       },
     });
-  } else if (!existingUser.passwordHash) {
+    console.log("Proprietário inicial criado.");
+  } else if (!existingUser.passwordHash || shouldResetOwnerPassword) {
     const hash = await hashPassword(seedPassword);
-    await prisma.user.update({ where: { id: existingUser.id }, data: { passwordHash: hash } });
+    await prisma.user.update({
+      where: { id: existingUser.id },
+      data: { passwordHash: hash, status: "ACTIVE" },
+    });
+    console.log(shouldResetOwnerPassword ? "Senha do proprietário redefinida." : "Senha inicial configurada.");
+  } else {
+    console.log("Proprietário existente preservado.");
   }
 
   console.log("Seed OK");

@@ -77,11 +77,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(authRoutes);
   app.register(tenantRoutes);
-  app.register(clinicalRoutes, { prefix: "/api" });
-  app.register(recoveryRoutes, { prefix: "/api" });
-  app.register(workflowRoutes, { prefix: "/api" });
-  app.register(financeRoutes, { prefix: "/api" });
-  app.register(teamRoutes, { prefix: "/api" });
+  app.register(clinicalRoutes);
+  app.register(recoveryRoutes);
+  app.register(workflowRoutes);
+  app.register(financeRoutes);
+  app.register(teamRoutes);
 
   app.get("/", async () => ({
     status: "ok", product: "BHON Clinical Operating System", brand: "A clínica no controle.", timestamp: new Date().toISOString(),

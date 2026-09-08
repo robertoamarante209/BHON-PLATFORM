@@ -6,11 +6,11 @@
   :root {
     --color-navy: #121B2A;
     --color-teal: #13AA99;
-    --color-bg: #F8FAFB;
-    --color-surface: #FFFFFF;
-    --color-text: #172033;
-    --color-muted: #687386;
-    --color-border: #E4E9EE;
+    --color-bg: #F4F1EA;
+    --color-surface: #FFFEFB;
+    --color-text: #172235;
+    --color-muted: #6E746F;
+    --color-border: #DED9CE;
   }
 
   body {
@@ -18,7 +18,43 @@
     color: var(--color-text);
     font-family: 'Manrope', system-ui, -apple-system, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-tap-highlight-color: rgba(19, 170, 153, 0.16);
+    touch-action: manipulation;
   }
+
+  *:focus-visible {
+    outline: 2px solid #13AA99;
+    outline-offset: 3px;
+  }
+}
+
+.bhon-ambient-bg {
+  background-image:
+    radial-gradient(circle at 88% 8%, rgba(19, 170, 153, 0.08), transparent 24rem),
+    linear-gradient(rgba(18, 27, 42, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 27, 42, 0.018) 1px, transparent 1px);
+  background-size: auto, 28px 28px, 28px 28px;
+  mask-image: linear-gradient(to bottom, black, transparent 72%);
+}
+
+.bhon-panel {
+  border: 1px solid rgba(222, 217, 206, 0.9);
+  background: rgba(255, 254, 251, 0.94);
+  box-shadow: 0 18px 50px rgba(18, 27, 42, 0.055);
+  backdrop-filter: blur(18px);
+}
+
+.bhon-eyebrow {
+  color: #0E8073;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.bhon-long-list > * {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 56px;
 }
 
 /* Tipografia de dados operacionais e funcionais */
@@ -36,25 +72,25 @@
 }
 
 .bhon-table th {
-  background-color: #F8FAFB;
-  color: #687386;
+  background-color: #F7F4EE;
+  color: #6E746F;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 0.6875rem;
   padding: 0.625rem 0.875rem;
-  border-bottom: 1px solid #E4E9EE;
+  border-bottom: 1px solid #DED9CE;
   text-align: left;
 }
 
 .bhon-table td {
   padding: 0.625rem 0.875rem;
-  border-bottom: 1px solid #E4E9EE;
-  color: #172033;
+  border-bottom: 1px solid #E8E3DA;
+  color: #172235;
 }
 
 .bhon-table tr:hover td {
-  background-color: #F8FAFB;
+  background-color: #FAF8F3;
 }
 
 /* Barra de rolagem discreta e cirúrgica */
@@ -74,4 +110,13 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

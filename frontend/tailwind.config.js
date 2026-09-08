@@ -13,11 +13,13 @@ export default {
           teal: '#13AA99',
           'teal-dark': '#0E8073',
           'teal-subtle': '#E6F6F4',
-          bg: '#F8FAFB',
-          surface: '#FFFFFF',
-          text: '#172033',
-          muted: '#687386',
-          border: '#E4E9EE',
+          gold: '#B79A63',
+          ivory: '#F4F1EA',
+          bg: '#F4F1EA',
+          surface: '#FFFEFB',
+          text: '#172235',
+          muted: '#6E746F',
+          border: '#DED9CE',
           'border-strong': '#CBD5E1',
           
           // Status semafóricos operacionais estritos
@@ -33,6 +35,7 @@ export default {
       },
       fontFamily: {
         sans: ['Manrope', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"DM Serif Display"', 'Georgia', 'serif'],
         mono: ['"IBM Plex Mono"', 'monospace'],
       }
     },

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
-import { MetricCard } from '../../components/common/MetricCard';
+import { Link, useLocation } from 'wouter';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
 import { RecoveryQueue } from '../../components/recovery/RecoveryQueue';
-import { Calendar } from 'lucide-react';
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Sparkles, Users } from 'lucide-react';
 import type { Appointment, AppointmentStatus, Room } from '../../types';
 import { appointmentTransitions, getSchedulingResources, listAppointments, rescheduleAppointment, updateAppointmentStatus } from '../../lib/clinic';
 
@@ -50,6 +49,10 @@ export const OverviewPage: React.FC = () => {
   const upcomingCount = todayAppointments.filter(
     a => a.status === 'CONFIRMADO' || a.status === 'AGUARDANDO_CONFIRMACAO' || a.status === 'NA_RECEPCAO' || a.status === 'ENCAIXE'
   ).length;
+  const completionRate = Math.round((completedCount / Math.max(1, totalPatientsToday)) * 100);
+  const nextAppointment = todayAppointments.find((appointment) =>
+    ['CONFIRMADO', 'AGUARDANDO_CONFIRMACAO', 'NA_RECEPCAO', 'ENCAIXE'].includes(appointment.status)
+  );
 
   const handleStatusChange = async (appointment: Appointment, status: AppointmentStatus) => {
     if (actionLoading || !appointmentTransitions[appointment.status].includes(status)) return;
@@ -85,90 +88,67 @@ export const OverviewPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Cabeçalho da Visão Geral (Superfície de Comando) */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between pb-4 border-b border-bhon-border gap-2">
-        <div>
-          <h1 className="text-lg font-bold text-bhon-text uppercase tracking-wide">
-            Visão Geral
-          </h1>
-          <p className="text-xs text-bhon-muted mt-0.5">
-            Controle de fluxo operacional da clínica e fila de exceções prioritárias.
-          </p>
+    <div className="mx-auto max-w-[1480px] space-y-6">
+      <section className="relative overflow-hidden rounded-[28px] bg-bhon-navy px-5 py-6 text-white shadow-[0_28px_80px_rgba(18,27,42,0.18)] sm:px-7 sm:py-8 lg:px-10">
+        <div aria-hidden="true" className="absolute -right-20 -top-28 h-80 w-80 rounded-full bg-bhon-teal/20 blur-3xl" />
+        <div aria-hidden="true" className="absolute bottom-0 right-[28%] h-32 w-32 rounded-full bg-bhon-gold/10 blur-2xl" />
+        <div className="relative grid gap-8 lg:grid-cols-[1.35fr_0.65fr] lg:items-end">
+          <div>
+            <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-bhon-gold"><Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Pulso da clínica</p>
+            <h2 className="max-w-2xl text-balance font-display text-3xl leading-[1.08] sm:text-4xl lg:text-[46px]">
+              O cuidado de hoje,<br /><span className="text-bhon-teal">em perfeita sintonia.</span>
+            </h2>
+            <p className="mt-4 max-w-xl text-pretty text-xs leading-relaxed text-slate-300 sm:text-sm">
+              {loadingAgenda ? 'Preparando a jornada clínica do dia…' : `${totalPatientsToday} pacientes compõem a jornada de hoje em ${rooms.length} ambiente${rooms.length === 1 ? '' : 's'} clínico${rooms.length === 1 ? '' : 's'}.`}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-sm">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-400">Próximo gesto de cuidado</p>
+            {nextAppointment ? (
+              <div className="mt-4">
+                <div className="flex items-baseline justify-between gap-4"><p className="font-display text-2xl">{nextAppointment.patientName}</p><span className="font-mono-data text-sm text-bhon-teal">{nextAppointment.time}</span></div>
+                <p className="mt-1 truncate text-[11px] text-slate-400">{nextAppointment.procedureName} · {nextAppointment.roomName}</p>
+              </div>
+            ) : <p className="mt-4 font-display text-xl text-slate-300">Agenda em ordem.</p>}
+            <Link href="/clinic/agenda">
+              <div className="mt-5 flex cursor-pointer items-center justify-between border-t border-white/10 pt-4 text-[11px] font-semibold text-white transition-colors hover:text-bhon-teal">
+                Abrir agenda clínica <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </div>
+            </Link>
+          </div>
         </div>
+      </section>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setLocation('/clinic/agenda')}
-            className="px-3.5 py-1.5 bg-bhon-navy hover:bg-bhon-navy-hover text-white text-xs font-semibold rounded flex items-center gap-1.5 transition-colors"
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Abrir Agenda de Hoje</span>
-          </button>
+      {agendaError ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-900" role="alert" aria-live="polite">{agendaError}</div> : null}
+
+      <section aria-labelledby="operation-title" className="bhon-panel overflow-hidden rounded-2xl">
+        <div className="flex flex-col justify-between gap-2 border-b border-bhon-border px-5 py-4 sm:flex-row sm:items-center sm:px-6">
+          <div><p className="bhon-eyebrow">Agora na clínica</p><h2 id="operation-title" className="mt-1 font-display text-xl text-bhon-navy">Ritmo da operação</h2></div>
+          <span className="font-mono-data text-[10px] text-bhon-muted">{loadingAgenda ? 'Atualizando…' : `${completionRate}% da jornada concluída`}</span>
         </div>
-      </div>
-
-      {agendaError && <div className="border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900" role="alert">{agendaError}</div>}
-
-      <RecoveryQueue onNavigate={setLocation} />
-
-      {/* ============================================================
-          2. OPERAÇÃO DE HOJE
-          ============================================================ */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-bold text-bhon-text uppercase tracking-wider">
-            Operação de Hoje
-          </h2>
-          <span className="text-[11px] font-mono-data text-bhon-muted">
-            {loadingAgenda ? 'Atualizando operação…' : `Status ao vivo de ${rooms.length} consultório${rooms.length === 1 ? '' : 's'}`}
-          </span>
+        <div className="grid grid-cols-2 divide-x divide-y divide-bhon-border sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
+          {[
+            { label: 'Pacientes hoje', value: totalPatientsToday, detail: 'jornada prevista', icon: Users, tone: 'text-bhon-navy' },
+            { label: 'Concluídos', value: completedCount, detail: `${completionRate}% do dia`, icon: CheckCircle2, tone: 'text-emerald-700' },
+            { label: 'Em atendimento', value: inProgressCount, detail: 'cuidado em curso', icon: Sparkles, tone: 'text-bhon-teal-dark' },
+            { label: 'Próximos', value: upcomingCount, detail: 'recepção & agenda', icon: Clock3, tone: 'text-blue-700' },
+            { label: 'Atenções', value: missedCount, detail: 'faltas registradas', icon: CalendarDays, tone: missedCount > 0 ? 'text-rose-700' : 'text-bhon-muted' },
+          ].map((metric) => {
+            const Icon = metric.icon;
+            return <div key={metric.label} className="min-w-0 p-4 sm:p-5"><div className="flex items-start justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-bhon-muted">{metric.label}</p><Icon aria-hidden="true" className={`h-4 w-4 ${metric.tone}`} /></div><p className={`mt-4 font-display text-3xl ${metric.tone}`}>{metric.value}</p><p className="mt-1 text-[10px] text-bhon-muted">{metric.detail}</p></div>;
+          })}
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <MetricCard
-            label="Total Pacientes Hoje"
-            value={totalPatientsToday}
-            subtext="Fluxo previsto do dia"
-          />
-          <MetricCard
-            label="Concluídos"
-            value={completedCount}
-            subtext="Procedimentos finalizados"
-            delta={{ value: `${Math.round((completedCount / Math.max(1, totalPatientsToday)) * 100)}%`, isPositive: true }}
-          />
-          <MetricCard
-            label="Em Atendimento"
-            value={inProgressCount}
-            subtext="Cadeira ocupada agora"
-            highlight={true}
-          />
-          <MetricCard
-            label="Próximos / Na Recepção"
-            value={upcomingCount}
-            subtext="Aguardando atendimento"
-          />
-          <MetricCard
-            label="Faltas Registradas"
-            value={missedCount}
-            subtext="Contatos pendentes"
-            delta={missedCount > 0 ? { value: `${missedCount} exceções`, isPositive: false } : undefined}
-          />
-        </div>
-      </div>
+      </section>
 
       {/* ============================================================
           3. TABELA OPERACIONAL DE ATENDIMENTOS DE HOJE
           ============================================================ */}
-      <div className="bg-white border border-bhon-border rounded">
-        <div className="p-3 border-b border-bhon-border flex items-center justify-between bg-slate-50/70">
+      <section className="bhon-panel overflow-hidden rounded-2xl">
+        <div className="flex items-center justify-between border-b border-bhon-border px-5 py-4 sm:px-6">
           <div>
-            <h3 className="text-xs font-bold text-bhon-text uppercase tracking-wider">
-              Fluxo da Agenda do Dia
-            </h3>
-            <p className="text-[11px] text-bhon-muted">
-              Clique em qualquer atendimento para acionar comandos operacionais imediatos.
-            </p>
+            <p className="bhon-eyebrow">Linha de cuidado</p>
+            <h3 className="mt-1 font-display text-xl text-bhon-navy">Agenda do dia</h3>
           </div>
           <span className="font-mono-data text-xs text-bhon-muted">
             {todayAppointments.length} consultas registradas
@@ -189,7 +169,7 @@ export const OverviewPage: React.FC = () => {
                 <th className="text-right">Ação Imediata</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bhon-long-list">
               {loadingAgenda && todayAppointments.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Carregando agenda de hoje…</td></tr>}
               {!loadingAgenda && todayAppointments.length === 0 && !agendaError && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Nenhum atendimento agendado para hoje.</td></tr>}
               {todayAppointments.map((apt) => (
@@ -200,11 +180,11 @@ export const OverviewPage: React.FC = () => {
                 >
                   <td className="font-mono-data font-bold text-bhon-text whitespace-nowrap">
                     {apt.time}
-                    {apt.delayMinutes > 0 && (
+                    {apt.delayMinutes > 0 ? (
                       <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded font-mono-data">
                         +{apt.delayMinutes}m
                       </span>
-                    )}
+                    ) : null}
                   </td>
                   <td className="font-semibold text-bhon-text whitespace-nowrap">
                     {apt.patientName}
@@ -240,7 +220,9 @@ export const OverviewPage: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
+
+      <RecoveryQueue onNavigate={setLocation} />
 
       {/* ============================================================
           DRAWER DE COMANDOS OPERACIONAIS NA CONSULTA

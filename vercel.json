@@ -22,13 +22,12 @@
     "backend": {
       "root": "backend/",
       "framework": "fastify",
-      "entrypoint": "src/server.mts",
+      "entrypoint": "src/server.ts",
       "installCommand": "npm ci --include=dev",
       "buildCommand": "set -e; if [ \"$VERCEL_ENV\" = \"production\" ]; then npm run migrate:deploy; if [ -n \"$BHON_SEED_PASSWORD\" ]; then npm run seed; fi; fi; npm run build",
       "functions": {
-        "src/server.mts": {
-          "maxDuration": 60,
-          "includeFiles": "package.json"
+        "src/server.ts": {
+          "maxDuration": 60
         }
       }
     }

@@ -12,7 +12,7 @@ test("o artefato do backend pode ser carregado pelo runtime CommonJS da Vercel",
     process.execPath,
     [
       "-e",
-      "const app = require('./dist/server.js').default; app.ready().then(() => app.inject({ method: 'GET', url: '/patients' })).then((response) => { if (response.statusCode !== 401) throw new Error('unexpected status ' + response.statusCode); process.stdout.write('ok'); return app.close(); }).catch((error) => { console.error(error); process.exit(1); })",
+      "const app = require('./dist/server.js').default; app.ready().then(() => app.inject({ method: 'GET', url: '/api/patients' })).then((response) => { if (response.statusCode !== 401) throw new Error('unexpected status ' + response.statusCode); process.stdout.write('ok'); return app.close(); }).catch((error) => { console.error(error); process.exit(1); })",
     ],
     {
       cwd: process.cwd(),

@@ -1,6 +1,6 @@
 import { buildApp } from "./app.js";
 
-const app = buildApp({ apiPrefix: process.env.VERCEL ? "" : "/api" });
+const app = buildApp();
 
 if (!process.env.VERCEL) {
   const port = Number(process.env.PORT) || 3000;

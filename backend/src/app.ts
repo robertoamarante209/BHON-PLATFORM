@@ -16,7 +16,6 @@ export type BuildAppOptions = {
   logger?: boolean;
   allowedOrigins?: string[];
   cookieSecret?: string;
-  apiPrefix?: string;
 };
 
 function configuredOrigins() {
@@ -32,7 +31,6 @@ function configuredOrigins() {
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? true });
   const allowedOrigins = options.allowedOrigins ?? configuredOrigins();
-  const apiPrefix = options.apiPrefix ?? "/api";
   const cookieSecret = options.cookieSecret ?? process.env.COOKIE_SECRET;
   if (!cookieSecret) throw new Error("COOKIE_SECRET não está definida.");
   if (cookieSecret.length < 32) throw new Error("COOKIE_SECRET deve possuir pelo menos 32 caracteres.");
@@ -79,11 +77,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(authRoutes);
   app.register(tenantRoutes);
-  app.register(clinicalRoutes, { prefix: apiPrefix });
-  app.register(recoveryRoutes, { prefix: apiPrefix });
-  app.register(workflowRoutes, { prefix: apiPrefix });
-  app.register(financeRoutes, { prefix: apiPrefix });
-  app.register(teamRoutes, { prefix: apiPrefix });
+  app.register(clinicalRoutes, { prefix: "/api" });
+  app.register(recoveryRoutes, { prefix: "/api" });
+  app.register(workflowRoutes, { prefix: "/api" });
+  app.register(financeRoutes, { prefix: "/api" });
+  app.register(teamRoutes, { prefix: "/api" });
 
   app.get("/", async () => ({
     status: "ok", product: "BHON Clinical Operating System", brand: "A clínica no controle.", timestamp: new Date().toISOString(),

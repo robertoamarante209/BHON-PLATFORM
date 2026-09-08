@@ -27,7 +27,8 @@
       "buildCommand": "set -e; if [ \"$VERCEL_ENV\" = \"production\" ]; then npm run migrate:deploy; if [ -n \"$BHON_SEED_PASSWORD\" ]; then npm run seed; fi; fi; npm run build",
       "functions": {
         "src/server.mts": {
-          "maxDuration": 60
+          "maxDuration": 60,
+          "includeFiles": ["package.json"]
         }
       }
     }

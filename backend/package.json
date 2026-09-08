@@ -6,13 +6,13 @@
   "scripts": {
     "build": "tsc",
     "postinstall": "prisma generate",
-    "start": "node dist/server.js",
+    "start": "node dist/server.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/finance.test.mjs test/http.test.mjs test/opportunity.test.mjs test/recovery.test.mjs test/scheduling.test.mjs test/security.test.mjs test/time.test.mjs test/treatment.test.mjs",
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx src/seed.ts",
     "verify:migrations": "node scripts/verify-migrations.mjs",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.mts"
   },
   "keywords": [],
   "author": "",

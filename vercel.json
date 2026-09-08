@@ -28,7 +28,7 @@
       "functions": {
         "src/server.mts": {
           "maxDuration": 60,
-          "includeFiles": ["package.json"]
+          "includeFiles": "package.json"
         }
       }
     }

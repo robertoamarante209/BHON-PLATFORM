@@ -2,6 +2,14 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import test from "node:test";
 
+test("o servidor escuta apenas quando o runtime administra uma porta", async () => {
+  const { shouldListen } = await import("../src/domain/runtime.ts");
+
+  assert.equal(shouldListen({}), true);
+  assert.equal(shouldListen({ VERCEL: "1" }), false);
+  assert.equal(shouldListen({ VERCEL: "1", BHON_CONTAINER: "1" }), true);
+});
+
 test("o artefato do backend pode ser carregado pelo runtime CommonJS da Vercel", () => {
   execFileSync(process.execPath, ["./node_modules/typescript/bin/tsc"], {
     cwd: process.cwd(),

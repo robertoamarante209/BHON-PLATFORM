@@ -1,8 +1,9 @@
 import { buildApp } from "./app.js";
+import { shouldListen } from "./domain/runtime.js";
 
 const app = buildApp();
 
-if (!process.env.VERCEL) {
+if (shouldListen()) {
   const port = Number(process.env.PORT) || 3000;
   const host = process.env.HOST || "0.0.0.0";
 

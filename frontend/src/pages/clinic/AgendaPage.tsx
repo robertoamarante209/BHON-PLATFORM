@@ -5,6 +5,7 @@ import { Drawer } from '../../components/common/Drawer';
 import { ConfirmationDialog } from '../../components/common/ConfirmationDialog';
 import {
   AlertTriangle,
+  Building2,
   Plus,
   ChevronLeft,
   ChevronRight,
@@ -164,7 +165,7 @@ export const AgendaPage: React.FC = () => {
             <option value="FALTA">Faltas</option>
           </select>
 
-          <button type="button" onClick={() => setIsNewAptOpen(true)} className="flex h-11 items-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(18,27,42,0.2)] transition-[background-color,transform] hover:bg-bhon-navy-hover active:scale-[0.98]">
+          <button type="button" onClick={() => setIsNewAptOpen(true)} disabled={loading || rooms.length === 0 || professionals.length === 0 || patients.length === 0} className="flex h-11 items-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(18,27,42,0.2)] transition-[background-color,transform,opacity] hover:bg-bhon-navy-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45">
             <Plus aria-hidden="true" className="h-4 w-4 text-bhon-teal" />
             <span>Novo agendamento</span>
           </button>
@@ -191,7 +192,18 @@ export const AgendaPage: React.FC = () => {
       {/* ============================================================
           MATRIZ DA AGENDA: EIXO VERTICAL DE HORÁRIOS + COLUNAS DE SALAS
           ============================================================ */}
-      {!loading ? <div className="bhon-panel overflow-x-auto rounded-2xl">
+      {!loading && rooms.length === 0 ? (
+        <section className="bhon-panel rounded-[22px] px-6 py-14 text-center sm:px-10" aria-labelledby="empty-rooms-title">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-bhon-border bg-[#F8F5EF] text-bhon-teal">
+            <Building2 aria-hidden="true" className="h-5 w-5" />
+          </span>
+          <h2 id="empty-rooms-title" className="mt-5 font-display text-2xl text-bhon-navy">Prepare os ambientes da clínica</h2>
+          <p className="mx-auto mt-2 max-w-lg text-pretty text-xs leading-relaxed text-bhon-muted">A agenda está conectada e pronta para uso. Cadastre ao menos um consultório ou sala clínica para liberar os horários e novos agendamentos.</p>
+          <p className="mt-5 font-mono-data text-[10px] uppercase tracking-[0.14em] text-bhon-muted">Nenhum dado demonstrativo foi inserido</p>
+        </section>
+      ) : null}
+
+      {!loading && rooms.length > 0 ? <div className="bhon-panel overflow-x-auto rounded-2xl">
         {/* Cabeçalho das Colunas de Consultórios */}
         <div style={{ gridTemplateColumns: `86px repeat(${Math.max(rooms.length, 1)}, minmax(240px, 1fr))` }} className="sticky top-0 z-10 grid min-w-max border-b border-bhon-border bg-[#F8F5EF] text-[10px] font-bold uppercase tracking-[0.15em] text-bhon-text">
           <div className="border-r border-bhon-border p-4 text-center font-mono-data text-bhon-muted">

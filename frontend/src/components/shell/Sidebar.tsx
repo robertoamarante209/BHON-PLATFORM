@@ -6,14 +6,10 @@ import {
   Stethoscope, Target, UserCheck, Users,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useOperationalData } from '../../context/OperationalDataContext';
 
 export const Sidebar: React.FC = () => {
   const [location] = useLocation();
   const { currentUser, currentClinic, logout } = useAuth();
-  const { followUps, budgets } = useOperationalData();
-  const pendingFollowUps = followUps.filter((item) => item.status === 'PENDENTE').length;
-  const negotiatingBudgets = budgets.filter((item) => item.status === 'NEGOTIATING' || item.status === 'SENT').length;
 
   const sections = [
     { label: 'Cuidado', items: [
@@ -24,8 +20,8 @@ export const Sidebar: React.FC = () => {
     ] },
     { label: 'Relacionamento', items: [
       { label: 'Oportunidades', path: '/clinic/opportunities', icon: Target },
-      { label: 'Acompanhamentos', path: '/clinic/follow-ups', icon: Clock3, badge: pendingFollowUps || undefined },
-      { label: 'Orçamentos', path: '/clinic/budgets', icon: ClipboardCheck, badge: negotiatingBudgets || undefined },
+      { label: 'Acompanhamentos', path: '/clinic/follow-ups', icon: Clock3 },
+      { label: 'Orçamentos', path: '/clinic/budgets', icon: ClipboardCheck },
     ] },
     { label: 'Gestão', items: [
       { label: 'Financeiro', path: '/clinic/finance', icon: CircleDollarSign },
@@ -61,15 +57,12 @@ export const Sidebar: React.FC = () => {
                 const Icon = item.icon;
                 const active = location === item.path || (item.path !== '/clinic/overview' && location.startsWith(item.path));
                 return (
-                  <Link key={item.path} href={item.path}>
-                    <div title={item.label} className={`group relative flex min-h-11 cursor-pointer items-center justify-center rounded-xl px-3 transition-[color,background-color,box-shadow] duration-200 xl:justify-between ${active ? 'bg-white text-bhon-navy shadow-[0_8px_24px_rgba(0,0,0,0.18)]' : 'text-slate-400 hover:bg-white/[0.07] hover:text-white'}`}>
+                  <Link key={item.path} href={item.path} title={item.label} aria-current={active ? 'page' : undefined} className={`group relative flex min-h-11 items-center justify-center rounded-xl px-3 transition-[color,background-color,box-shadow] duration-200 xl:justify-start ${active ? 'bg-white text-bhon-navy shadow-[0_8px_24px_rgba(0,0,0,0.18)]' : 'text-slate-400 hover:bg-white/[0.07] hover:text-white'}`}>
                       {active ? <span aria-hidden="true" className="absolute -left-2 h-5 w-1 rounded-r-full bg-bhon-teal xl:-left-4" /> : null}
                       <div className="flex items-center gap-3">
                         <Icon aria-hidden="true" className={`h-[18px] w-[18px] ${active ? 'text-bhon-teal-dark' : 'text-slate-500 group-hover:text-bhon-teal'}`} />
                         <span className="hidden text-[12px] font-semibold xl:block">{item.label}</span>
                       </div>
-                      {item.badge !== undefined ? <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-bhon-gold px-1 font-mono-data text-[8px] font-bold text-bhon-navy xl:static xl:h-5 xl:min-w-5 xl:text-[9px]">{item.badge}</span> : null}
-                    </div>
                   </Link>
                 );
               })}
@@ -78,11 +71,9 @@ export const Sidebar: React.FC = () => {
         ))}
 
         {currentUser.role === 'PLATFORM_OWNER' ? (
-          <Link href="/platform/overview">
-            <div className="mt-4 flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-bhon-gold/30 bg-bhon-gold/10 px-3 text-bhon-gold xl:justify-start xl:gap-3">
+          <Link href="/platform/overview" className="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-bhon-gold/30 bg-bhon-gold/10 px-3 text-bhon-gold xl:justify-start xl:gap-3">
               <ShieldAlert aria-hidden="true" className="h-[18px] w-[18px]" />
               <span className="hidden text-[11px] font-semibold xl:block">Ambiente da plataforma</span>
-            </div>
           </Link>
         ) : null}
       </nav>
@@ -94,7 +85,7 @@ export const Sidebar: React.FC = () => {
             <p className="truncate text-xs font-semibold text-white">{currentUser.name}</p>
             <p className="mt-0.5 flex items-center gap-1 text-[9px] uppercase tracking-[0.12em] text-slate-500"><Sparkles aria-hidden="true" className="h-2.5 w-2.5" /> Operação clínica</p>
           </div>
-          <button type="button" onClick={logout} aria-label="Sair do sistema" title="Sair do sistema" className="hidden rounded-lg p-2 text-slate-500 transition-colors hover:bg-white/10 hover:text-white xl:block">
+          <button type="button" onClick={logout} aria-label="Sair do sistema" title="Sair do sistema" className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-white/10 hover:text-white">
             <LogOut aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>

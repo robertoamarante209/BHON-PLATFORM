@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshSession = useCallback(async () => {
     try {
-      const response = await fetch('/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } });
+      const response = await fetch('/api/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } });
       if (!response.ok) {
         setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); return;
       }
@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string, rememberMe = true): Promise<User | null> => {
     try {
-      const response = await fetch('/auth/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ email, password, rememberMe }),
@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
+    try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); }
     finally {
       setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
       window.location.href = '/login';

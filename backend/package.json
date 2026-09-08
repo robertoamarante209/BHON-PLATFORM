@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test test/finance.test.mjs test/http.test.mjs test/opportunity.test.mjs test/recovery.test.mjs test/scheduling.test.mjs test/security.test.mjs test/time.test.mjs test/treatment.test.mjs",
+    "test": "tsx --test test/finance.test.mjs test/http.test.mjs test/opportunity.test.mjs test/recovery.test.mjs test/scheduling.test.mjs test/security.test.mjs test/time.test.mjs test/treatment.test.mjs test/vercel-runtime.test.mjs",
     "migrate:deploy": "prisma migrate deploy",
     "seed": "tsx src/seed.ts",
     "verify:migrations": "node scripts/verify-migrations.mjs",
@@ -17,7 +17,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
+  "type": "commonjs",
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",

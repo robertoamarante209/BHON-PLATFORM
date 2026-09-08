@@ -13,6 +13,10 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
+      '/api/auth': {
+        target: 'http://localhost:3000',
+        rewrite: (requestPath) => requestPath.replace(/^\/api/, ''),
+      },
       '/auth': 'http://localhost:3000',
       '/api': 'http://localhost:3000',
     },

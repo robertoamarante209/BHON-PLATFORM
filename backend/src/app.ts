@@ -16,6 +16,7 @@ export type BuildAppOptions = {
   logger?: boolean;
   allowedOrigins?: string[];
   cookieSecret?: string;
+  apiPrefix?: string;
 };
 
 function configuredOrigins() {
@@ -28,9 +29,10 @@ function configuredOrigins() {
     .filter(Boolean);
 }
 
-export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
+export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? true });
   const allowedOrigins = options.allowedOrigins ?? configuredOrigins();
+  const apiPrefix = options.apiPrefix ?? "/api";
   const cookieSecret = options.cookieSecret ?? process.env.COOKIE_SECRET;
   if (!cookieSecret) throw new Error("COOKIE_SECRET não está definida.");
   if (cookieSecret.length < 32) throw new Error("COOKIE_SECRET deve possuir pelo menos 32 caracteres.");
@@ -48,7 +50,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     return reply.code(500).send({ error: "Não foi possível concluir a operação.", code: "INTERNAL_ERROR" });
   });
 
-  await app.register(helmet, {
+  app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"], baseUri: ["'self'"], formAction: ["'self'"], frameAncestors: ["'none'"],
@@ -59,7 +61,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     },
   });
 
-  await app.register(cors, {
+  app.register(cors, {
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
       const error = Object.assign(new Error("Origin não permitida pelo CORS"), { code: "ORIGIN_NOT_ALLOWED", statusCode: 403 });
@@ -67,7 +69,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     },
     credentials: true,
   });
-  await app.register(cookie, { secret: cookieSecret, parseOptions: {} });
+  app.register(cookie, { secret: cookieSecret, parseOptions: {} });
 
   app.addHook("onRequest", async (request, reply) => {
     if (!isTrustedCookieRequest(request.method, request.cookies?.bhon_session, request.headers.origin, allowedOrigins)) {
@@ -75,13 +77,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     }
   });
 
-  await app.register(authRoutes);
-  await app.register(tenantRoutes);
-  await app.register(clinicalRoutes, { prefix: "/api" });
-  await app.register(recoveryRoutes, { prefix: "/api" });
-  await app.register(workflowRoutes, { prefix: "/api" });
-  await app.register(financeRoutes, { prefix: "/api" });
-  await app.register(teamRoutes, { prefix: "/api" });
+  app.register(authRoutes);
+  app.register(tenantRoutes);
+  app.register(clinicalRoutes, { prefix: apiPrefix });
+  app.register(recoveryRoutes, { prefix: apiPrefix });
+  app.register(workflowRoutes, { prefix: apiPrefix });
+  app.register(financeRoutes, { prefix: apiPrefix });
+  app.register(teamRoutes, { prefix: apiPrefix });
 
   app.get("/", async () => ({
     status: "ok", product: "BHON Clinical Operating System", brand: "A clínica no controle.", timestamp: new Date().toISOString(),

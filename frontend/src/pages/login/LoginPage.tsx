@@ -39,11 +39,13 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md">
         <main className="overflow-hidden rounded-xl border border-white/10 bg-white shadow-2xl shadow-black/30">
           <header className="border-b border-white/10 bg-bhon-navy px-6 py-7 text-center sm:px-8 sm:py-8">
-            <img
-              src="/logo.png"
-              alt="BHON — A clínica no controle."
-              className="mx-auto h-auto w-full max-w-[250px]"
-            />
+            <div className="mx-auto h-28 w-full max-w-sm overflow-hidden rounded-lg bg-bhon-navy">
+              <img
+                src="/brand-lockup.webp"
+                alt="BHON — A clínica no controle."
+                className="h-full w-full object-cover object-center"
+              />
+            </div>
             <p className="mt-3 text-xs font-medium tracking-wide text-slate-300">
               Sistema Operacional Clínico
             </p>

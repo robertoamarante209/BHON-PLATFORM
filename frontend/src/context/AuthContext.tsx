@@ -9,6 +9,7 @@ interface AuthContextType {
   isLoadingAuth: boolean;
   logout: () => Promise<void>;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<User | null>;
+  loginWithGoogle: (credential: string, rememberMe?: boolean) => Promise<User | null>;
   refreshSession: () => Promise<void>;
 }
 
@@ -61,6 +62,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch { return null; }
   };
 
+  const loginWithGoogle = async (credential: string, rememberMe = true): Promise<User | null> => {
+    try {
+      const response = await fetch('/auth/google', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ credential, rememberMe }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (!data.user) return null;
+      applySession(data.user);
+      return data.user;
+    } catch { return null; }
+  };
+
   const logout = async () => {
     try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
     finally {
@@ -69,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  return <AuthContext.Provider value={{ currentUser, currentClinic, isPlatformOwner: currentUser.role === 'PLATFORM_OWNER', isAuthenticated, isLoadingAuth, logout, login, refreshSession }}>
+  return <AuthContext.Provider value={{ currentUser, currentClinic, isPlatformOwner: currentUser.role === 'PLATFORM_OWNER', isAuthenticated, isLoadingAuth, logout, login, loginWithGoogle, refreshSession }}>
     {children}
   </AuthContext.Provider>;
 };

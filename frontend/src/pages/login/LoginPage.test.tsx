@@ -1,10 +1,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { LoginPage } from './LoginPage';
+import { LoginPage, GOOGLE_BUTTON_OPTIONS } from './LoginPage';
 
 vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => ({ login: vi.fn() }),
+  useAuth: () => ({ login: vi.fn(), loginWithGoogle: vi.fn() }),
 }));
 
 describe('LoginPage', () => {
@@ -30,5 +30,17 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /entrar na clínica/i })).toBeVisible();
     expect(screen.queryByText(/sua clínica em perfeita sintonia/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/agenda coordenada|acesso protegido|seu acesso é individual/i)).not.toBeInTheDocument();
+  });
+
+  it('usa o botão Google oficial em tema escuro compatível com a identidade BHON', () => {
+    expect(GOOGLE_BUTTON_OPTIONS).toMatchObject({
+      type: 'standard',
+      theme: 'outline_dark',
+      size: 'large',
+      text: 'continue_with',
+      shape: 'pill',
+      logo_alignment: 'left',
+      locale: 'pt-BR',
+    });
   });
 });

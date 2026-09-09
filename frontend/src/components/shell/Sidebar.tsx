@@ -51,8 +51,10 @@ export const Sidebar: React.FC = () => {
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_20%_0%,rgba(24,168,150,0.18),transparent_62%)]" />
 
         <div className="relative px-3 pb-5 pt-6 xl:px-6">
-          <Link href="/clinic/overview">
-            <img src="/logo.png" alt="BHON" width="156" height="48" className="mx-auto h-9 w-auto cursor-pointer object-contain xl:mx-0 xl:h-10" />
+          <Link href="/clinic/overview" aria-label="Ir para a visão do dia" className="mx-auto block w-14 overflow-hidden rounded-lg bg-white shadow-sm xl:mx-0 xl:w-full">
+            <span className="bhon-brand-lockup block w-full">
+              <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" fetchPriority="high" />
+            </span>
           </Link>
           <div className="mt-6 hidden rounded-2xl border border-white/10 bg-white/[0.055] p-4 xl:block">
             <div className="mb-2 flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-bhon-gold">

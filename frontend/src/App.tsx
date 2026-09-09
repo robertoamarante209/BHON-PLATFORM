@@ -1,7 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { Route, Switch, Redirect } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { OperationalDataProvider } from './context/OperationalDataContext';
 
 // Layouts
 import { ClinicLayout } from './components/shell/ClinicLayout';
@@ -24,17 +23,7 @@ const TeamPage = lazy(() => import('./pages/clinic/TeamPage').then((module) => (
 const IndicatorsPage = lazy(() => import('./pages/clinic/IndicatorsPage').then((module) => ({ default: module.IndicatorsPage })));
 const SettingsPage = lazy(() => import('./pages/clinic/SettingsPage').then((module) => ({ default: module.SettingsPage })));
 
-const PlatformOverviewPage = lazy(() => import('./pages/platform/PlatformOverviewPage').then((module) => ({ default: module.PlatformOverviewPage })));
-const PlatformClinicsPage = lazy(() => import('./pages/platform/PlatformClinicsPage').then((module) => ({ default: module.PlatformClinicsPage })));
-const PlatformClinicDetailPage = lazy(() => import('./pages/platform/PlatformClinicDetailPage').then((module) => ({ default: module.PlatformClinicDetailPage })));
-const PlatformSubscriptionsPage = lazy(() => import('./pages/platform/PlatformSubscriptionsPage').then((module) => ({ default: module.PlatformSubscriptionsPage })));
-const PlatformBillingPage = lazy(() => import('./pages/platform/PlatformBillingPage').then((module) => ({ default: module.PlatformBillingPage })));
-const PlatformRevenuePage = lazy(() => import('./pages/platform/PlatformRevenuePage').then((module) => ({ default: module.PlatformRevenuePage })));
-const PlatformCustomersPage = lazy(() => import('./pages/platform/PlatformCustomersPage').then((module) => ({ default: module.PlatformCustomersPage })));
-const PlatformUsersPage = lazy(() => import('./pages/platform/PlatformUsersPage').then((module) => ({ default: module.PlatformUsersPage })));
-const PlatformSupportPage = lazy(() => import('./pages/platform/PlatformSupportPage').then((module) => ({ default: module.PlatformSupportPage })));
-const PlatformIndicatorsPage = lazy(() => import('./pages/platform/PlatformIndicatorsPage').then((module) => ({ default: module.PlatformIndicatorsPage })));
-const PlatformSettingsPage = lazy(() => import('./pages/platform/PlatformSettingsPage').then((module) => ({ default: module.PlatformSettingsPage })));
+const PlatformUnavailablePage = lazy(() => import('./pages/platform/PlatformUnavailablePage').then((module) => ({ default: module.PlatformUnavailablePage })));
 
 const RouteLoading: React.FC = () => (
   <div role="status" className="flex min-h-64 items-center justify-center">
@@ -121,22 +110,21 @@ const AppRoutes: React.FC = () => {
       <Route path="/platform/:rest*">
         <RequireAuth>
           <RequireRole role="PLATFORM_OWNER">
-            <OperationalDataProvider>
             <PlatformLayout>
             <Suspense fallback={<RouteLoading />}>
             <div className="bhon-page-enter">
             <Switch>
-              <Route path="/platform/overview" component={PlatformOverviewPage} />
-              <Route path="/platform/clinics" component={PlatformClinicsPage} />
-              <Route path="/platform/clinics/:id" component={PlatformClinicDetailPage} />
-              <Route path="/platform/subscriptions" component={PlatformSubscriptionsPage} />
-              <Route path="/platform/billing" component={PlatformBillingPage} />
-              <Route path="/platform/revenue" component={PlatformRevenuePage} />
-              <Route path="/platform/customers" component={PlatformCustomersPage} />
-              <Route path="/platform/users" component={PlatformUsersPage} />
-              <Route path="/platform/support" component={PlatformSupportPage} />
-              <Route path="/platform/indicators" component={PlatformIndicatorsPage} />
-              <Route path="/platform/settings" component={PlatformSettingsPage} />
+              <Route path="/platform/overview"><PlatformUnavailablePage title="Visão Geral" description="Painel executivo de operação, clientes e saúde da plataforma BHON." /></Route>
+              <Route path="/platform/clinics/:id"><PlatformUnavailablePage title="Dossiê da Clínica" description="Visão administrativa detalhada de uma clínica da plataforma." /></Route>
+              <Route path="/platform/clinics"><PlatformUnavailablePage title="Clínicas" description="Gestão de clínicas, contratos e situação operacional." /></Route>
+              <Route path="/platform/subscriptions"><PlatformUnavailablePage title="Assinaturas" description="Planos, limites e ciclo de vida das assinaturas." /></Route>
+              <Route path="/platform/billing"><PlatformUnavailablePage title="Faturamento" description="Cobranças e conciliação das assinaturas da plataforma." /></Route>
+              <Route path="/platform/revenue"><PlatformUnavailablePage title="Receita" description="Indicadores financeiros consolidados da BHON." /></Route>
+              <Route path="/platform/customers"><PlatformUnavailablePage title="Clientes" description="Relacionamento e sucesso das clínicas atendidas." /></Route>
+              <Route path="/platform/users"><PlatformUnavailablePage title="Usuários" description="Administração dos acessos internos à plataforma." /></Route>
+              <Route path="/platform/support"><PlatformUnavailablePage title="Suporte" description="Fila de atendimento e acompanhamento técnico das clínicas." /></Route>
+              <Route path="/platform/indicators"><PlatformUnavailablePage title="Indicadores" description="Métricas consolidadas de produto e operação da plataforma." /></Route>
+              <Route path="/platform/settings"><PlatformUnavailablePage title="Configurações" description="Parâmetros administrativos e políticas globais da BHON." /></Route>
               <Route>
                 <Redirect to="/platform/overview" />
               </Route>
@@ -144,7 +132,6 @@ const AppRoutes: React.FC = () => {
             </div>
             </Suspense>
           </PlatformLayout>
-          </OperationalDataProvider>
           </RequireRole>
         </RequireAuth>
       </Route>

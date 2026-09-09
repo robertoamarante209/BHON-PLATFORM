@@ -6,3 +6,11 @@ export function matchesPreauthorizedGoogleEmail(preauthorizedEmail: string | nul
   if (!preauthorizedEmail) return false;
   return normalizeGoogleEmail(preauthorizedEmail) === normalizeGoogleEmail(googleEmail);
 }
+
+export function mapGoogleUserRowToSessionUser<T extends { tenant_id: string }>(row: T, tenant: unknown): T & { tenantId: string; tenant: unknown } {
+  return {
+    ...row,
+    tenantId: row.tenant_id,
+    tenant,
+  };
+}

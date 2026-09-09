@@ -21,7 +21,7 @@ const GOOGLE_SCRIPT_ID = 'bhon-google-identity-script';
 
 export const GOOGLE_BUTTON_OPTIONS = {
   type: 'standard',
-  theme: 'outline_dark',
+  theme: 'filled_black',
   size: 'large',
   text: 'continue_with',
   shape: 'pill',
@@ -159,7 +159,7 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {googleClientId ? (
-            <div ref={googleButtonRef} className="flex min-h-12 w-full justify-center overflow-hidden rounded-full border border-bhon-teal/45 bg-[#111E2C] p-[1px] shadow-[0_0_0_1px_rgba(19,170,153,0.06)]" aria-label="Continuar com Google" />
+            <div ref={googleButtonRef} className="flex min-h-12 w-full justify-center overflow-hidden rounded-full bg-transparent" aria-label="Continuar com Google" />
           ) : (
             <div className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-3 text-center text-xs text-slate-500">
               Login com Google aguardando configuração da credencial BHON.

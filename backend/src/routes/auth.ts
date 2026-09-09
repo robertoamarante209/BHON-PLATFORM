@@ -5,6 +5,7 @@ import { verifyPassword, generateSessionToken, hashSessionToken } from "../lib/a
 import { requireAuth } from "../lib/middleware.js";
 import { SlidingWindowRateLimiter } from "../domain/security.js";
 import { revokeSession } from "../domain/session.js";
+import { normalizeGoogleEmail } from "../domain/google-identity.js";
 
 const loginLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
 const googleClient = new OAuth2Client();
@@ -136,11 +137,6 @@ export async function authRoutes(app: FastifyInstance) {
     return createAuthenticatedSession(reply, request, user, rememberMe);
   });
 
-  /**
-   * POST /auth/google
-   * Valida um ID token emitido pelo Google e cria a mesma sessão HttpOnly usada pelo login tradicional.
-   * A primeira associação é permitida somente para um e-mail Google previamente autorizado no cadastro BHON.
-   */
   app.post("/auth/google", {
     schema: {
       body: {
@@ -174,7 +170,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const googleSubject = payload?.sub;
-    const googleEmail = payload?.email?.trim().toLowerCase();
+    const googleEmail = payload?.email ? normalizeGoogleEmail(payload.email) : null;
     const emailVerified = payload?.email_verified === true;
 
     if (!googleSubject || !googleEmail || !emailVerified) {
@@ -199,7 +195,11 @@ export async function authRoutes(app: FastifyInstance) {
              google_subject, google_email
       FROM users
       WHERE deleted_at IS NULL
-        AND (google_subject = ${googleSubject} OR google_email = ${googleEmail})
+        AND (
+          google_subject = ${googleSubject}
+          OR LOWER(TRIM(COALESCE(google_email, ''))) = ${googleEmail}
+          OR LOWER(TRIM(COALESCE(email, ''))) = ${googleEmail}
+        )
       LIMIT 1
     `;
 
@@ -219,13 +219,12 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Esta conta Google não corresponde à identidade vinculada.", code: "GOOGLE_IDENTITY_MISMATCH" });
     }
 
-    if (!userRow.google_subject) {
-      await prisma.$executeRaw`
-        UPDATE users
-        SET google_subject = ${googleSubject}, google_email = ${googleEmail}, updated_at = NOW()
-        WHERE id = ${userRow.id} AND google_email = ${googleEmail}
-      `;
-    }
+    await prisma.$executeRaw`
+      UPDATE users
+      SET google_subject = ${googleSubject}, google_email = ${googleEmail}, updated_at = NOW()
+      WHERE id = ${userRow.id}
+        AND (google_subject IS NULL OR google_subject = ${googleSubject})
+    `;
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: userRow.tenant_id },
@@ -238,6 +237,8 @@ export async function authRoutes(app: FastifyInstance) {
 
     return createAuthenticatedSession(reply, request, {
       ...userRow,
+      google_email: googleEmail,
+      google_subject: googleSubject,
       tenant,
     }, rememberMe);
   });

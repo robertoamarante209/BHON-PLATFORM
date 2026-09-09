@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => { void refreshSession(); }, [refreshSession]);
 
-  const login = async (email: string, password: string, rememberMe = true): Promise<User | null> => {
+  const login = useCallback(async (email: string, password: string, rememberMe = true): Promise<User | null> => {
     try {
       const response = await fetch('/auth/login', {
         method: 'POST', credentials: 'include',
@@ -60,9 +60,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       applySession(data.user);
       return data.user;
     } catch { return null; }
-  };
+  }, [applySession]);
 
-  const loginWithGoogle = async (credential: string, rememberMe = true): Promise<User | null> => {
+  const loginWithGoogle = useCallback(async (credential: string, rememberMe = true): Promise<User | null> => {
     try {
       const response = await fetch('/auth/google', {
         method: 'POST', credentials: 'include',
@@ -75,15 +75,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       applySession(data.user);
       return data.user;
     } catch { return null; }
-  };
+  }, [applySession]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
     finally {
       setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
       window.location.href = '/login';
     }
-  };
+  }, []);
 
   return <AuthContext.Provider value={{ currentUser, currentClinic, isPlatformOwner: currentUser.role === 'PLATFORM_OWNER', isAuthenticated, isLoadingAuth, logout, login, loginWithGoogle, refreshSession }}>
     {children}

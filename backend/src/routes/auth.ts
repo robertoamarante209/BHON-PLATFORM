@@ -205,6 +205,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const userRow = rows[0];
     if (!userRow) {
+      request.log.warn({ code: "GOOGLE_ACCOUNT_NOT_LINKED" }, "Google authentication rejected: user not found in production database");
       return reply.code(403).send({
         error: "Esta conta Google ainda não está vinculada a um usuário BHON.",
         code: "GOOGLE_ACCOUNT_NOT_LINKED",
@@ -212,10 +213,12 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     if (userRow.status !== "ACTIVE") {
+      request.log.warn({ code: "USER_INACTIVE_OR_BLOCKED", role: userRow.role }, "Google authentication rejected: user inactive or blocked");
       return reply.code(403).send({ error: "Este usuário está inativo ou bloqueado no sistema.", code: "USER_INACTIVE_OR_BLOCKED" });
     }
 
     if (userRow.google_subject && userRow.google_subject !== googleSubject) {
+      request.log.warn({ code: "GOOGLE_IDENTITY_MISMATCH", role: userRow.role }, "Google authentication rejected: linked Google subject mismatch");
       return reply.code(403).send({ error: "Esta conta Google não corresponde à identidade vinculada.", code: "GOOGLE_IDENTITY_MISMATCH" });
     }
 
@@ -232,9 +235,11 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     if (!tenant) {
+      request.log.error({ code: "TENANT_NOT_FOUND", role: userRow.role }, "Google authentication rejected: tenant not found");
       return reply.code(403).send({ error: "Clínica do usuário não encontrada.", code: "TENANT_NOT_FOUND" });
     }
 
+    request.log.info({ code: "GOOGLE_AUTHENTICATED", role: userRow.role }, "Google authentication accepted");
     return createAuthenticatedSession(reply, request, mapGoogleUserRowToSessionUser({
       ...userRow,
       google_email: googleEmail,

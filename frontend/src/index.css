@@ -57,6 +57,33 @@
   contain-intrinsic-size: 0 56px;
 }
 
+.bhon-mobile-sheet {
+  animation: bhon-sheet-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bhon-page-enter {
+  animation: bhon-page-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bhon-drawer-enter {
+  animation: bhon-drawer-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes bhon-sheet-enter {
+  from { opacity: 0; transform: translateY(1.25rem) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes bhon-page-enter {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bhon-drawer-enter {
+  from { opacity: 0; transform: translateX(1rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 /* Tipografia de dados operacionais e funcionais */
 .font-mono-data {
   font-family: 'IBM Plex Mono', monospace;

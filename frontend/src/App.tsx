@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Route, Switch, Redirect } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OperationalDataProvider } from './context/OperationalDataContext';
@@ -10,32 +10,40 @@ import { PlatformLayout } from './components/shell/PlatformLayout';
 // Páginas de Autenticação
 import { LoginPage } from './pages/login/LoginPage';
 
-// Páginas da Clínica
-import { OverviewPage } from './pages/clinic/OverviewPage';
-import { AgendaPage } from './pages/clinic/AgendaPage';
-import { PatientsPage } from './pages/clinic/PatientsPage';
-import { PatientDetailPage } from './pages/clinic/PatientDetailPage';
-import { TreatmentsPage } from './pages/clinic/TreatmentsPage';
-import { OpportunitiesPage } from './pages/clinic/OpportunitiesPage';
-import { FollowUpsPage } from './pages/clinic/FollowUpsPage';
-import { BudgetsPage } from './pages/clinic/BudgetsPage';
-import { FinancePage } from './pages/clinic/FinancePage';
-import { TeamPage } from './pages/clinic/TeamPage';
-import { IndicatorsPage } from './pages/clinic/IndicatorsPage';
-import { SettingsPage } from './pages/clinic/SettingsPage';
+// Cada área é carregada somente quando aberta, mantendo a entrada leve.
+const OverviewPage = lazy(() => import('./pages/clinic/OverviewPage').then((module) => ({ default: module.OverviewPage })));
+const AgendaPage = lazy(() => import('./pages/clinic/AgendaPage').then((module) => ({ default: module.AgendaPage })));
+const PatientsPage = lazy(() => import('./pages/clinic/PatientsPage').then((module) => ({ default: module.PatientsPage })));
+const PatientDetailPage = lazy(() => import('./pages/clinic/PatientDetailPage').then((module) => ({ default: module.PatientDetailPage })));
+const TreatmentsPage = lazy(() => import('./pages/clinic/TreatmentsPage').then((module) => ({ default: module.TreatmentsPage })));
+const OpportunitiesPage = lazy(() => import('./pages/clinic/OpportunitiesPage').then((module) => ({ default: module.OpportunitiesPage })));
+const FollowUpsPage = lazy(() => import('./pages/clinic/FollowUpsPage').then((module) => ({ default: module.FollowUpsPage })));
+const BudgetsPage = lazy(() => import('./pages/clinic/BudgetsPage').then((module) => ({ default: module.BudgetsPage })));
+const FinancePage = lazy(() => import('./pages/clinic/FinancePage').then((module) => ({ default: module.FinancePage })));
+const TeamPage = lazy(() => import('./pages/clinic/TeamPage').then((module) => ({ default: module.TeamPage })));
+const IndicatorsPage = lazy(() => import('./pages/clinic/IndicatorsPage').then((module) => ({ default: module.IndicatorsPage })));
+const SettingsPage = lazy(() => import('./pages/clinic/SettingsPage').then((module) => ({ default: module.SettingsPage })));
 
-// Páginas da Plataforma (Platform Owner)
-import { PlatformOverviewPage } from './pages/platform/PlatformOverviewPage';
-import { PlatformClinicsPage } from './pages/platform/PlatformClinicsPage';
-import { PlatformClinicDetailPage } from './pages/platform/PlatformClinicDetailPage';
-import { PlatformSubscriptionsPage } from './pages/platform/PlatformSubscriptionsPage';
-import { PlatformBillingPage } from './pages/platform/PlatformBillingPage';
-import { PlatformRevenuePage } from './pages/platform/PlatformRevenuePage';
-import { PlatformCustomersPage } from './pages/platform/PlatformCustomersPage';
-import { PlatformUsersPage } from './pages/platform/PlatformUsersPage';
-import { PlatformSupportPage } from './pages/platform/PlatformSupportPage';
-import { PlatformIndicatorsPage } from './pages/platform/PlatformIndicatorsPage';
-import { PlatformSettingsPage } from './pages/platform/PlatformSettingsPage';
+const PlatformOverviewPage = lazy(() => import('./pages/platform/PlatformOverviewPage').then((module) => ({ default: module.PlatformOverviewPage })));
+const PlatformClinicsPage = lazy(() => import('./pages/platform/PlatformClinicsPage').then((module) => ({ default: module.PlatformClinicsPage })));
+const PlatformClinicDetailPage = lazy(() => import('./pages/platform/PlatformClinicDetailPage').then((module) => ({ default: module.PlatformClinicDetailPage })));
+const PlatformSubscriptionsPage = lazy(() => import('./pages/platform/PlatformSubscriptionsPage').then((module) => ({ default: module.PlatformSubscriptionsPage })));
+const PlatformBillingPage = lazy(() => import('./pages/platform/PlatformBillingPage').then((module) => ({ default: module.PlatformBillingPage })));
+const PlatformRevenuePage = lazy(() => import('./pages/platform/PlatformRevenuePage').then((module) => ({ default: module.PlatformRevenuePage })));
+const PlatformCustomersPage = lazy(() => import('./pages/platform/PlatformCustomersPage').then((module) => ({ default: module.PlatformCustomersPage })));
+const PlatformUsersPage = lazy(() => import('./pages/platform/PlatformUsersPage').then((module) => ({ default: module.PlatformUsersPage })));
+const PlatformSupportPage = lazy(() => import('./pages/platform/PlatformSupportPage').then((module) => ({ default: module.PlatformSupportPage })));
+const PlatformIndicatorsPage = lazy(() => import('./pages/platform/PlatformIndicatorsPage').then((module) => ({ default: module.PlatformIndicatorsPage })));
+const PlatformSettingsPage = lazy(() => import('./pages/platform/PlatformSettingsPage').then((module) => ({ default: module.PlatformSettingsPage })));
+
+const RouteLoading: React.FC = () => (
+  <div role="status" className="flex min-h-64 items-center justify-center">
+    <div className="flex flex-col items-center gap-3 text-center">
+      <div aria-hidden="true" className="h-8 w-8 animate-spin rounded-full border-2 border-bhon-teal border-t-transparent" />
+      <span className="text-sm font-medium text-bhon-muted">Preparando seu ambiente…</span>
+    </div>
+  </div>
+);
 
 // ============================================================
 // Guard: redireciona para /login se não autenticado
@@ -83,6 +91,8 @@ const AppRoutes: React.FC = () => {
         <RequireAuth>
           <RequireRole role="CLINIC_USER">
             <ClinicLayout>
+            <Suspense fallback={<RouteLoading />}>
+            <div className="bhon-page-enter">
             <Switch>
               <Route path="/clinic/overview" component={OverviewPage} />
               <Route path="/clinic/agenda" component={AgendaPage} />
@@ -100,6 +110,8 @@ const AppRoutes: React.FC = () => {
                 <Redirect to="/clinic/overview" />
               </Route>
             </Switch>
+            </div>
+            </Suspense>
           </ClinicLayout>
           </RequireRole>
         </RequireAuth>
@@ -109,7 +121,10 @@ const AppRoutes: React.FC = () => {
       <Route path="/platform/:rest*">
         <RequireAuth>
           <RequireRole role="PLATFORM_OWNER">
+            <OperationalDataProvider>
             <PlatformLayout>
+            <Suspense fallback={<RouteLoading />}>
+            <div className="bhon-page-enter">
             <Switch>
               <Route path="/platform/overview" component={PlatformOverviewPage} />
               <Route path="/platform/clinics" component={PlatformClinicsPage} />
@@ -126,7 +141,10 @@ const AppRoutes: React.FC = () => {
                 <Redirect to="/platform/overview" />
               </Route>
             </Switch>
+            </div>
+            </Suspense>
           </PlatformLayout>
+          </OperationalDataProvider>
           </RequireRole>
         </RequireAuth>
       </Route>
@@ -142,9 +160,7 @@ const AppRoutes: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <OperationalDataProvider>
-        <AppRoutes />
-      </OperationalDataProvider>
+      <AppRoutes />
     </AuthProvider>
   );
 };

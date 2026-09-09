@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma.js";
 import { verifyPassword, generateSessionToken, hashSessionToken } from "../lib/auth.js";
 import { requireAuth } from "../lib/middleware.js";
 import { SlidingWindowRateLimiter } from "../domain/security.js";
+import { revokeSession } from "../domain/session.js";
 
 const loginLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
 
@@ -214,10 +215,7 @@ export async function authRoutes(app: FastifyInstance) {
       const user = request.user;
 
       if (session) {
-        await prisma.session.update({
-          where: { id: session.id },
-          data: { revokedAt: new Date() }
-        });
+        await revokeSession(session.id, prisma);
       }
 
       if (user) {
@@ -244,4 +242,3 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 }
-

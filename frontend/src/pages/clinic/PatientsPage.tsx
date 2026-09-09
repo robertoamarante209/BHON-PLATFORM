@@ -109,6 +109,8 @@ export const PatientsPage: React.FC = () => {
           <Search className="w-4 h-4 text-bhon-muted absolute left-3 top-2.5" />
           <input
             type="text"
+            aria-label="Buscar pacientes"
+            name="patientSearch"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por nome, prontuário (#03945) ou telefone..."
@@ -118,6 +120,8 @@ export const PatientsPage: React.FC = () => {
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <select
+            aria-label="Filtrar pacientes por status"
+            name="patientStatus"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as PatientStatus | 'ALL')}
             className="px-2.5 py-1.5 border border-bhon-border rounded text-xs text-bhon-text bg-white"
@@ -158,11 +162,7 @@ export const PatientsPage: React.FC = () => {
                 <tr><td colSpan={9} className="py-10 text-center text-xs text-bhon-muted">Nenhum paciente encontrado para estes filtros.</td></tr>
               )}
               {patients.map((p) => (
-                <tr
-                  key={p.id}
-                  onClick={() => setLocation(`/clinic/patients/${p.id}`)}
-                  className="cursor-pointer hover:bg-slate-50 transition-colors"
-                >
+                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                   <td className="font-bold text-bhon-text whitespace-nowrap">
                     {p.name}
                   </td>
@@ -191,8 +191,9 @@ export const PatientsPage: React.FC = () => {
                   </td>
                   <td className="text-right whitespace-nowrap">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      type="button"
+                      aria-label={`Abrir prontuário de ${p.name}`}
+                      onClick={() => {
                         setLocation(`/clinic/patients/${p.id}`);
                       }}
                       className="px-2.5 py-1 text-[11px] font-semibold text-bhon-navy bg-slate-100 hover:bg-bhon-navy hover:text-white rounded border border-bhon-border transition-colors inline-flex items-center gap-1"
@@ -323,4 +324,3 @@ export const PatientsPage: React.FC = () => {
     </div>
   );
 };
-

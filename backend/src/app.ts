@@ -10,6 +10,7 @@ import { financeRoutes } from "./routes/finance.js";
 import { recoveryRoutes } from "./routes/recovery.js";
 import { tenantRoutes } from "./routes/tenants.js";
 import { teamRoutes } from "./routes/team.js";
+import { settingsRoutes } from "./routes/settings.js";
 import { workflowRoutes } from "./routes/workflow.js";
 
 export type BuildAppOptions = {
@@ -82,6 +83,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(workflowRoutes, { prefix: "/api" });
   app.register(financeRoutes, { prefix: "/api" });
   app.register(teamRoutes, { prefix: "/api" });
+  app.register(settingsRoutes, { prefix: "/api" });
 
   app.get("/", async () => ({
     status: "ok", product: "BHON Clinical Operating System", brand: "A clínica no controle.", timestamp: new Date().toISOString(),
@@ -102,4 +104,3 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   return app;
 }
-

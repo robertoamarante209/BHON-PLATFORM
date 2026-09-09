@@ -29,3 +29,16 @@ export function zonedDayRange(now: Date, timeZone: string) {
   };
 }
 
+export function zonedCalendarDayRange(value: string, timeZone: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const civilDate = new Date(Date.UTC(year, month - 1, day));
+  if (civilDate.getUTCFullYear() !== year || civilDate.getUTCMonth() !== month - 1 || civilDate.getUTCDate() !== day) return null;
+  return {
+    start: zonedMidnightUtc(year, month, day, timeZone),
+    end: zonedMidnightUtc(year, month, day + 1, timeZone),
+  };
+}

@@ -1,5 +1,6 @@
 import type { Appointment, AppointmentStatus, Budget, FollowUp, FollowUpCategory, FollowUpStatus, Opportunity, OpportunityStatus, Patient, PatientStatus, Payment, PaymentStatus, QuoteStatus, Room, TeamMember, TimelineEvent, Treatment, TreatmentStatus, UserRole, UserStatus } from '../types';
 import { apiRequest } from './api';
+import { formatClinicTime } from './datetime';
 
 export const appointmentTransitions: Record<AppointmentStatus, readonly AppointmentStatus[]> = {
   CONFIRMADO: ['NA_RECEPCAO', 'CANCELADO', 'FALTA', 'ENCAIXE'],
@@ -133,7 +134,7 @@ function mapAppointment(value: ApiAppointment): Appointment {
     professionalName: value.professional.name,
     roomName: value.room.name,
     treatmentName: value.treatment?.name,
-    time: scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    time: formatClinicTime(scheduledAt),
   };
 }
 
@@ -380,6 +381,54 @@ export function listTeam(input: { search?: string; role?: UserRole; status?: Use
   return apiRequest<{ data: TeamMember[]; pagination: Pagination; metrics: TeamMetrics }>(`/api/team?${query}`, { signal });
 }
 
+export type IndicatorPeriod = 'TODAY' | 'WEEK' | 'MONTH';
+export type ClinicIndicators = {
+  period: IndicatorPeriod;
+  range: { start: string; end: string };
+  metrics: {
+    attendanceRate: number | null;
+    roomOccupancyRate: number | null;
+    roomOccupancyReason: string;
+    quoteConversionRate: number | null;
+    abandonmentRate: number | null;
+    averageTicket: number | null;
+    activeTreatments: number;
+    receivedRevenue: number;
+    scheduledMinutes: number;
+    activeRoomsCount: number;
+  };
+  productivity: Array<{
+    id: string;
+    name: string;
+    specialty?: string | null;
+    scheduledCount: number;
+    completedCount: number;
+    noShowCount: number;
+    scheduledMinutes: number;
+    attendanceRate: number | null;
+  }>;
+};
+
+export type ClinicSettings = { clinic: import('../types').Tenant; rooms: Room[] };
+export type RoomInput = { name: string; description?: string; orderIndex?: number };
+export type RoomUpdate = Partial<RoomInput> & { isActive?: boolean; description?: string | null };
+
+export function getIndicators(period: IndicatorPeriod, signal?: AbortSignal) {
+  return apiRequest<ClinicIndicators>(`/api/indicators?period=${period}`, { signal });
+}
+
+export function getClinicSettings(signal?: AbortSignal) {
+  return apiRequest<ClinicSettings>('/api/settings', { signal });
+}
+
+export function createRoom(input: RoomInput) {
+  return apiRequest<Room>('/api/rooms', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function updateRoom(id: string, input: RoomUpdate) {
+  return apiRequest<Room>(`/api/rooms/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
 export type OpportunityMetrics = { activePotential: number; counts: Record<OpportunityStatus, number> };
 
 export async function listOpportunities(input: { search?: string; status?: OpportunityStatus; page?: number; limit?: number } = {}, signal?: AbortSignal) {
@@ -444,4 +493,3 @@ export function executeFollowUpAction(id: string, input: FollowUpAction) {
     body: JSON.stringify(input),
   });
 }
-

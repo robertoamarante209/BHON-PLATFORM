@@ -15,16 +15,12 @@ import {
 import type { Appointment, AppointmentStatus, Patient, Room } from '../../types';
 import { appointmentTransitions, createAppointment, getSchedulingResources, listAppointments, listPatients, updateAppointmentStatus } from '../../lib/clinic';
 import type { ProfessionalOption } from '../../lib/clinic';
-
-function localDateInput(date = new Date()): string {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
+import { clinicCalendarDate, zonedLocalDateTimeToIso } from '../../lib/datetime';
 
 function moveDate(value: string, days: number): string {
-  const date = new Date(`${value}T12:00:00`);
-  date.setDate(date.getDate() + days);
-  return localDateInput(date);
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 export const AgendaPage: React.FC = () => {
@@ -33,7 +29,7 @@ export const AgendaPage: React.FC = () => {
   const [professionals, setProfessionals] = useState<ProfessionalOption[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [selectedDate, setSelectedDate] = useState(localDateInput());
+  const [selectedDate, setSelectedDate] = useState(clinicCalendarDate());
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
@@ -103,7 +99,7 @@ export const AgendaPage: React.FC = () => {
         patientId: patient.id,
         professionalId: professional.id,
         roomId: room.id,
-        scheduledAt: new Date(`${selectedDate}T${newTime}:00`).toISOString(),
+        scheduledAt: zonedLocalDateTimeToIso(selectedDate, newTime),
         durationMinutes: 30,
         procedureName: newProcedure.trim(),
       });
@@ -463,8 +459,10 @@ export const AgendaPage: React.FC = () => {
       >
         <form onSubmit={handleCreateAppointment} className="space-y-4 text-xs">
           <div>
-            <label className="block font-semibold text-bhon-text mb-1">Paciente</label>
+            <label htmlFor="new-appointment-patient" className="block font-semibold text-bhon-text mb-1">Paciente</label>
             <select
+              id="new-appointment-patient"
+              name="patientId"
               value={newPatientId}
               onChange={(e) => setNewPatientId(e.target.value)}
               className="w-full px-2.5 py-2 border border-bhon-border rounded bg-white text-bhon-text"
@@ -479,8 +477,10 @@ export const AgendaPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block font-semibold text-bhon-text mb-1">Horário</label>
+              <label htmlFor="new-appointment-time" className="block font-semibold text-bhon-text mb-1">Horário</label>
               <select
+                id="new-appointment-time"
+                name="time"
                 value={newTime}
                 onChange={(e) => setNewTime(e.target.value)}
                 className="w-full px-2.5 py-2 border border-bhon-border rounded bg-white font-mono-data text-bhon-text"
@@ -494,8 +494,10 @@ export const AgendaPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-semibold text-bhon-text mb-1">Consultório</label>
+              <label htmlFor="new-appointment-room" className="block font-semibold text-bhon-text mb-1">Consultório</label>
               <select
+                id="new-appointment-room"
+                name="roomId"
                 value={newRoomId}
                 onChange={(e) => setNewRoomId(e.target.value)}
                 className="w-full px-2.5 py-2 border border-bhon-border rounded bg-white text-bhon-text"
@@ -510,8 +512,10 @@ export const AgendaPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-semibold text-bhon-text mb-1">Profissional</label>
+            <label htmlFor="new-appointment-professional" className="block font-semibold text-bhon-text mb-1">Profissional</label>
             <select
+              id="new-appointment-professional"
+              name="professionalId"
               value={newProfessionalId}
               onChange={(e) => setNewProfessionalId(e.target.value)}
               className="w-full px-2.5 py-2 border border-bhon-border rounded bg-white text-bhon-text"
@@ -523,8 +527,10 @@ export const AgendaPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-semibold text-bhon-text mb-1">Procedimento Clínico</label>
+            <label htmlFor="new-appointment-procedure" className="block font-semibold text-bhon-text mb-1">Procedimento clínico</label>
             <input
+              id="new-appointment-procedure"
+              name="procedureName"
               type="text"
               value={newProcedure}
               onChange={(e) => setNewProcedure(e.target.value)}
@@ -557,4 +563,3 @@ export const AgendaPage: React.FC = () => {
     </div>
   );
 };
-

@@ -4,6 +4,7 @@ import { requireAuth, requireTenant, requireRole } from "../lib/middleware.js";
 import { AppointmentStatus, PatientStatus, QuoteStatus, TreatmentStatus, OpportunityStatus, FollowUpStatus, PaymentStatus, StageStatus } from "../lib/prisma-types.js";
 import { intervalsOverlap, isAppointmentTransitionAllowed, parseAppointmentDuration } from "../domain/scheduling.js";
 import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgress, type StageState, type TreatmentState } from "../domain/treatment.js";
+import { zonedCalendarDayRange, zonedDayRange } from "../domain/time.js";
 
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const CLINIC_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
@@ -75,10 +76,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   app.get("/overview", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const { start: todayStart, end: todayEnd } = zonedDayRange(new Date(), process.env.BHON_TIME_ZONE || "America/Sao_Paulo");
 
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
@@ -98,7 +96,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
         where: {
           tenantId,
           status: AppointmentStatus.FALTA,
-          scheduledAt: { gte: todayStart, lte: todayEnd }
+          scheduledAt: { gte: todayStart, lt: todayEnd }
         },
         include: { patient: true },
         take: 5
@@ -140,7 +138,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
       prisma.appointment.findMany({
         where: {
           tenantId,
-          scheduledAt: { gte: todayStart, lte: todayEnd }
+          scheduledAt: { gte: todayStart, lt: todayEnd }
         },
         select: { status: true, delayMinutes: true }
       }),
@@ -529,15 +527,13 @@ export async function clinicalRoutes(app: FastifyInstance) {
     const tenantId = request.tenantId!;
     const query = request.query as { date?: string; roomId?: string };
 
-    const targetDate = query.date ? new Date(`${query.date}T12:00:00`) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const timeZone = process.env.BHON_TIME_ZONE || "America/Sao_Paulo";
+    const dayRange = query.date ? zonedCalendarDayRange(query.date, timeZone) : zonedDayRange(new Date(), timeZone);
+    if (!dayRange) return reply.code(400).send({ error: "Data da agenda inválida.", code: "INVALID_CALENDAR_DATE" });
 
     const where: any = {
       tenantId,
-      scheduledAt: { gte: startOfDay, lte: endOfDay }
+      scheduledAt: { gte: dayRange.start, lt: dayRange.end }
     };
 
     if (query.roomId) {
@@ -1299,4 +1295,3 @@ export async function clinicalRoutes(app: FastifyInstance) {
     return reply.send(results);
   });
 }
-

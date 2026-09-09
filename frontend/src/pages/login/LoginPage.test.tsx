@@ -32,10 +32,10 @@ describe('LoginPage', () => {
     expect(screen.queryByText(/agenda coordenada|acesso protegido|seu acesso é individual/i)).not.toBeInTheDocument();
   });
 
-  it('usa o botão Google oficial em tema escuro compatível com a identidade BHON', () => {
+  it('usa o botão Google oficial em tratamento escuro compatível com a identidade BHON', () => {
     expect(GOOGLE_BUTTON_OPTIONS).toMatchObject({
       type: 'standard',
-      theme: 'outline_dark',
+      theme: 'filled_black',
       size: 'large',
       text: 'continue_with',
       shape: 'pill',

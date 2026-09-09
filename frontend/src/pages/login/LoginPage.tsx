@@ -14,7 +14,7 @@ function shouldShowBrandIntro() {
 export const LoginPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
-  const [email, setEmail] = useState('roberto@odontoprime.com.br');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');

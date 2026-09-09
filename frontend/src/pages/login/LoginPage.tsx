@@ -1,7 +1,15 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ArrowRight, Lock, Mail } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
+import { BrandIntro } from '../../components/brand/BrandIntro';
+
+const INTRO_SESSION_KEY = 'bhon:intro-seen';
+
+function shouldShowBrandIntro() {
+  try { return window.sessionStorage.getItem(INTRO_SESSION_KEY) !== 'true'; }
+  catch { return true; }
+}
 
 export const LoginPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -11,6 +19,12 @@ export const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBrandIntro, setShowBrandIntro] = useState(shouldShowBrandIntro);
+
+  const finishBrandIntro = useCallback(() => {
+    try { window.sessionStorage.setItem(INTRO_SESSION_KEY, 'true'); } catch { /* armazenamento opcional */ }
+    setShowBrandIntro(false);
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -33,6 +47,8 @@ export const LoginPage: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (showBrandIntro) return <BrandIntro onComplete={finishBrandIntro} />;
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-bhon-navy px-4 py-8 sm:p-6">

@@ -53,7 +53,7 @@ export const Sidebar: React.FC = () => {
         <div className="relative px-3 pb-5 pt-6 xl:px-6">
           <Link href="/clinic/overview" aria-label="Ir para a visão do dia" className="mx-auto block w-14 overflow-hidden rounded-lg bg-white shadow-sm xl:mx-0 xl:w-full">
             <span className="bhon-brand-lockup block w-full">
-              <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" fetchPriority="high" />
+              <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" />
             </span>
           </Link>
           <div className="mt-6 hidden rounded-2xl border border-white/10 bg-white/[0.055] p-4 xl:block">

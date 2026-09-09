@@ -42,7 +42,7 @@ export const LoginPage: React.FC = () => {
       <main className="relative mx-auto grid w-full max-w-[1180px] overflow-hidden rounded-[26px] border border-[#DFE7E1] bg-white shadow-[0_28px_90px_rgba(18,39,34,0.09)] lg:min-h-[680px] lg:grid-cols-[1.08fr_0.92fr]">
         <section className="relative flex flex-col border-b border-[#E5EBE6] px-6 pb-7 pt-5 sm:px-10 sm:pt-7 lg:border-b-0 lg:border-r lg:px-14 lg:py-12">
           <div className="bhon-brand-lockup bhon-login-brand w-52 sm:w-64 lg:w-72">
-            <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" fetchPriority="high" />
+            <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" />
           </div>
 
           <div className="bhon-login-copy mt-5 lg:my-auto lg:mt-12">

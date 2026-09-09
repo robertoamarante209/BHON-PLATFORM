@@ -43,7 +43,7 @@ export const PlatformSidebar: React.FC = () => {
       <div className="p-5 pb-4 border-b border-slate-800/80 bg-slate-900/50">
         <Link href="/platform/overview" aria-label="Ir para a visão geral da plataforma" className="block overflow-hidden rounded-lg bg-white shadow-sm">
           <span className="bhon-brand-lockup block w-full">
-            <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" fetchPriority="high" />
+            <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" />
           </span>
         </Link>
 

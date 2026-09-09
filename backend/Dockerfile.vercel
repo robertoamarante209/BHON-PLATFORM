@@ -9,7 +9,10 @@ RUN apt-get update \
 COPY package.json package-lock.json prisma.config.ts tsconfig.json ./
 COPY prisma ./prisma
 
-RUN npm ci --include=dev
+# The repository lockfile is currently behind package.json (Google auth dependency).
+# npm install reconciles the lockfile during the immutable build image instead of
+# failing at npm ci before the backend can be compiled.
+RUN npm install --include=dev
 
 COPY src ./src
 RUN npm run build

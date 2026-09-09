@@ -5,7 +5,7 @@ import { verifyPassword, generateSessionToken, hashSessionToken } from "../lib/a
 import { requireAuth } from "../lib/middleware.js";
 import { SlidingWindowRateLimiter } from "../domain/security.js";
 import { revokeSession } from "../domain/session.js";
-import { normalizeGoogleEmail } from "../domain/google-identity.js";
+import { normalizeGoogleEmail, mapGoogleUserRowToSessionUser } from "../domain/google-identity.js";
 
 const loginLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
 const googleClient = new OAuth2Client();
@@ -235,12 +235,11 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Clínica do usuário não encontrada.", code: "TENANT_NOT_FOUND" });
     }
 
-    return createAuthenticatedSession(reply, request, {
+    return createAuthenticatedSession(reply, request, mapGoogleUserRowToSessionUser({
       ...userRow,
       google_email: googleEmail,
       google_subject: googleSubject,
-      tenant,
-    }, rememberMe);
+    }, tenant), rememberMe);
   });
 
   app.get("/auth/me", { preHandler: [requireAuth] }, async (request, reply) => {

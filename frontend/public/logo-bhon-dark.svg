@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 190" role="img" aria-labelledby="title desc">
+  <title id="title">BHON</title><desc id="desc">A clínica no controle.</desc>
+  <g transform="translate(18 20) scale(1.25)">
+    <path fill="#0F1115" d="M16 14h48c21 0 35 10 36 27 1 19-16 31-37 33-15 1-22 7-30 19l-10 15c-3 4-7 2-7-4V14Z"/>
+    <path fill="#00B894" d="M38 105c12-20 28-39 47-45 15-5 23 4 21 20-3 23-20 32-44 32H43c-6 0-8-3-5-7Z"/>
+  </g>
+  <text x="170" y="112" fill="#0F1115" font-family="Manrope,Arial,sans-serif" font-size="86" font-weight="500" letter-spacing="2">BHON</text>
+  <text x="174" y="154" fill="#6B7280" font-family="Manrope,Arial,sans-serif" font-size="24" font-weight="400" letter-spacing="2">A clínica no controle.</text>
+</svg>

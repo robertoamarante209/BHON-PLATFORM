@@ -17,6 +17,11 @@ vi.mock('../../context/AuthContext', () => ({
 }));
 
 describe('Sidebar', () => {
+  it('usa o novo símbolo da BHON na navegação principal', () => {
+    render(<Sidebar />);
+    expect(screen.getByRole('img', { name: 'BHON' })).toHaveAttribute('src', '/bhon-symbol.svg');
+  });
+
   it('abre navegação móvel completa e fecha com Escape', async () => {
     const user = userEvent.setup();
     render(<Sidebar />);

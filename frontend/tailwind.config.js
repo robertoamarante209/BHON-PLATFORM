@@ -8,19 +8,19 @@ export default {
     extend: {
       colors: {
         bhon: {
-          navy: '#121B2A',
-          'navy-hover': '#1A273D',
-          teal: '#13AA99',
-          'teal-dark': '#0E8073',
-          'teal-subtle': '#E6F6F4',
+          navy: '#0F1115',
+          'navy-hover': '#202329',
+          teal: '#00B894',
+          'teal-dark': '#00A383',
+          'teal-subtle': '#12342F',
           gold: '#B79A63',
-          ivory: '#F4F1EA',
-          bg: '#F4F1EA',
-          surface: '#FFFEFB',
-          text: '#172235',
-          muted: '#6E746F',
-          border: '#DED9CE',
-          'border-strong': '#CBD5E1',
+          ivory: '#F8F9F7',
+          bg: '#0F1115',
+          surface: '#181A1F',
+          text: '#F8F9F7',
+          muted: '#9CA3AF',
+          border: '#2A2D32',
+          'border-strong': '#3A3E45',
           
           // Status semafóricos operacionais estritos
           critical: '#D9383A',
@@ -35,7 +35,7 @@ export default {
       },
       fontFamily: {
         sans: ['Manrope', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['"DM Serif Display"', 'Georgia', 'serif'],
+        display: ['Manrope', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'monospace'],
       }
     },

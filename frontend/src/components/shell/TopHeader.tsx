@@ -39,18 +39,18 @@ export const TopHeader: React.FC = () => {
 
   return (
     <>
-      <header className="relative z-30 flex min-h-[76px] items-center justify-between border-b border-bhon-border/80 bg-bhon-surface/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8 2xl:px-10">
+      <header className="relative z-30 flex min-h-[72px] items-center justify-between border-b border-white/[0.06] bg-bhon-bg/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8 2xl:px-10">
         <div className="min-w-0">
           <p className="bhon-eyebrow hidden sm:block">{dateFormatter.format(new Date())}</p>
           <div className="mt-1 flex min-w-0 items-center gap-2">
-            <h1 className="truncate font-display text-xl leading-none text-bhon-navy sm:text-2xl">Olá, {firstName}.</h1>
+            <h1 className="truncate font-display text-xl font-semibold leading-none text-bhon-text sm:text-2xl">Olá, {firstName}.</h1>
             <span aria-hidden="true" className="hidden h-1 w-1 rounded-full bg-bhon-gold sm:block" />
             <p className="hidden truncate text-[11px] text-bhon-muted lg:block">{currentClinic.name}</p>
           </div>
         </div>
 
         <div className="ml-4 flex items-center gap-2 sm:gap-3">
-          <div className="hidden items-center gap-2 rounded-full border border-bhon-border bg-white/70 px-3 py-2 lg:flex" aria-live="polite">
+          <div className="hidden items-center gap-2 rounded-full border border-bhon-border bg-bhon-surface px-3 py-2 lg:flex" aria-live="polite">
             <span className="relative flex h-2 w-2">
               {isPulseLoading ? <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bhon-gold opacity-50 motion-reduce:animate-none" /> : null}
               <span className={`relative inline-flex h-2 w-2 rounded-full ${isPulseLoading ? 'bg-bhon-gold' : 'bg-bhon-teal'}`} />
@@ -61,16 +61,16 @@ export const TopHeader: React.FC = () => {
             {!isPulseLoading && inReceptionCount > 0 ? <span className="border-l border-bhon-border pl-2 font-mono-data text-[9px] text-bhon-muted">{inReceptionCount} na recepção</span> : null}
           </div>
 
-          <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Buscar pacientes" className="group flex h-10 items-center gap-2 rounded-full border border-bhon-border bg-white/80 px-3 text-bhon-muted transition-[border-color,color,box-shadow] hover:border-bhon-teal/50 hover:text-bhon-navy hover:shadow-sm sm:min-w-[220px] sm:justify-between">
+          <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Buscar pacientes" className="group flex h-10 items-center gap-2 rounded-full border border-bhon-border bg-bhon-surface px-3 text-bhon-muted transition-[border-color,color,box-shadow] hover:border-bhon-teal/50 hover:text-bhon-text hover:shadow-sm sm:min-w-[220px] sm:justify-between">
             <span className="flex items-center gap-2 text-[11px]"><Search aria-hidden="true" className="h-4 w-4" /><span className="hidden sm:inline">Buscar paciente</span></span>
             <kbd className="hidden rounded border border-bhon-border bg-bhon-bg px-1.5 py-0.5 font-mono-data text-[9px] text-bhon-muted sm:block">Ctrl K</kbd>
           </button>
 
-          <Link href="/clinic/agenda" aria-label="Abrir agenda" title="Abrir agenda" className="flex h-10 w-10 items-center justify-center rounded-full bg-bhon-navy text-white transition-[background-color,transform] hover:bg-bhon-navy-hover active:scale-95">
+          <Link href="/clinic/agenda" aria-label="Abrir agenda" title="Abrir agenda" className="flex h-10 w-10 items-center justify-center rounded-full bg-bhon-teal text-bhon-navy transition-[background-color,transform] hover:bg-[#14CBA7] active:scale-95">
             <CalendarDays aria-hidden="true" className="h-4 w-4" />
           </Link>
 
-          <span title="Dados conectados ao ambiente clínico" aria-label="Dados conectados ao ambiente clínico" className="hidden h-10 w-10 items-center justify-center rounded-full border border-bhon-border bg-white/80 text-bhon-teal sm:flex">
+          <span title="Dados conectados ao ambiente clínico" aria-label="Dados conectados ao ambiente clínico" className="hidden h-10 w-10 items-center justify-center rounded-full border border-bhon-border bg-bhon-surface text-bhon-teal sm:flex">
             <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
           </span>
         </div>

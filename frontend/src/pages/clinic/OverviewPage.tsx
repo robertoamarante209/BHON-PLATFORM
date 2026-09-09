@@ -89,25 +89,24 @@ export const OverviewPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-6">
-      <section className="relative overflow-hidden rounded-[28px] bg-bhon-navy px-5 py-6 text-white shadow-[0_28px_80px_rgba(18,27,42,0.18)] sm:px-7 sm:py-8 lg:px-10">
-        <div aria-hidden="true" className="absolute -right-20 -top-28 h-80 w-80 rounded-full bg-bhon-teal/20 blur-3xl" />
-        <div aria-hidden="true" className="absolute bottom-0 right-[28%] h-32 w-32 rounded-full bg-bhon-gold/10 blur-2xl" />
-        <div className="relative grid gap-8 lg:grid-cols-[1.35fr_0.65fr] lg:items-end">
+      <section className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#14161A] px-5 py-6 text-white shadow-[0_24px_70px_rgba(0,0,0,0.2)] sm:px-7 lg:px-8">
+        <div aria-hidden="true" className="absolute -right-24 -top-32 h-72 w-72 rounded-full bg-bhon-teal/10 blur-3xl" />
+        <div className="relative grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
           <div>
-            <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-bhon-gold"><Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Pulso da clínica</p>
-            <h2 className="max-w-2xl text-balance font-display text-3xl leading-[1.08] sm:text-4xl lg:text-[46px]">
-              O cuidado de hoje,<br /><span className="text-bhon-teal">em perfeita sintonia.</span>
+            <p className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-bhon-teal"><Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Operação de hoje</p>
+            <h2 className="max-w-2xl text-balance font-display text-2xl font-semibold leading-tight sm:text-3xl">
+              Sua clínica, <span className="text-bhon-teal">em movimento.</span>
             </h2>
-            <p className="mt-4 max-w-xl text-pretty text-xs leading-relaxed text-slate-300 sm:text-sm">
+            <p className="mt-3 max-w-xl text-pretty text-xs leading-relaxed text-slate-400 sm:text-sm">
               {loadingAgenda ? 'Preparando a jornada clínica do dia…' : `${totalPatientsToday} pacientes compõem a jornada de hoje em ${rooms.length} ambiente${rooms.length === 1 ? '' : 's'} clínico${rooms.length === 1 ? '' : 's'}.`}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-5 backdrop-blur-sm">
             <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-400">Próximo gesto de cuidado</p>
             {nextAppointment ? (
               <div className="mt-4">
-                <div className="flex items-baseline justify-between gap-4"><p className="font-display text-2xl">{nextAppointment.patientName}</p><span className="font-mono-data text-sm text-bhon-teal">{nextAppointment.time}</span></div>
+                <div className="flex items-baseline justify-between gap-4"><p className="font-display text-lg font-semibold">{nextAppointment.patientName}</p><span className="font-mono-data text-sm text-bhon-teal">{nextAppointment.time}</span></div>
                 <p className="mt-1 truncate text-[11px] text-slate-400">{nextAppointment.procedureName} · {nextAppointment.roomName}</p>
               </div>
             ) : <p className="mt-4 font-display text-xl text-slate-300">Agenda em ordem.</p>}
@@ -122,21 +121,18 @@ export const OverviewPage: React.FC = () => {
 
       {agendaError ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-900" role="alert" aria-live="polite">{agendaError}</div> : null}
 
-      <section aria-labelledby="operation-title" className="bhon-panel overflow-hidden rounded-2xl">
-        <div className="flex flex-col justify-between gap-2 border-b border-bhon-border px-5 py-4 sm:flex-row sm:items-center sm:px-6">
-          <div><p className="bhon-eyebrow">Agora na clínica</p><h2 id="operation-title" className="mt-1 font-display text-xl text-bhon-navy">Ritmo da operação</h2></div>
-          <span className="font-mono-data text-[10px] text-bhon-muted">{loadingAgenda ? 'Atualizando…' : `${completionRate}% da jornada concluída`}</span>
-        </div>
-        <div className="grid grid-cols-2 divide-x divide-y divide-bhon-border sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
+      <section aria-labelledby="operation-title">
+        <div className="mb-3 flex items-center justify-between"><h2 id="operation-title" className="text-sm font-semibold text-bhon-text">Ritmo da operação</h2><span className="font-mono-data text-[10px] text-bhon-muted">{loadingAgenda ? 'Atualizando…' : `${completionRate}% concluída`}</span></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {[
-            { label: 'Pacientes hoje', value: totalPatientsToday, detail: 'jornada prevista', icon: Users, tone: 'text-bhon-navy' },
-            { label: 'Concluídos', value: completedCount, detail: `${completionRate}% do dia`, icon: CheckCircle2, tone: 'text-emerald-700' },
+            { label: 'Pacientes hoje', value: totalPatientsToday, detail: 'jornada prevista', icon: Users, tone: 'text-bhon-text' },
+            { label: 'Concluídos', value: completedCount, detail: `${completionRate}% do dia`, icon: CheckCircle2, tone: 'text-emerald-400' },
             { label: 'Em atendimento', value: inProgressCount, detail: 'cuidado em curso', icon: Sparkles, tone: 'text-bhon-teal-dark' },
-            { label: 'Próximos', value: upcomingCount, detail: 'recepção & agenda', icon: Clock3, tone: 'text-blue-700' },
-            { label: 'Atenções', value: missedCount, detail: 'faltas registradas', icon: CalendarDays, tone: missedCount > 0 ? 'text-rose-700' : 'text-bhon-muted' },
+            { label: 'Próximos', value: upcomingCount, detail: 'recepção & agenda', icon: Clock3, tone: 'text-sky-400' },
+            { label: 'Atenções', value: missedCount, detail: 'faltas registradas', icon: CalendarDays, tone: missedCount > 0 ? 'text-rose-400' : 'text-bhon-muted' },
           ].map((metric) => {
             const Icon = metric.icon;
-            return <div key={metric.label} className="min-w-0 p-4 sm:p-5"><div className="flex items-start justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-bhon-muted">{metric.label}</p><Icon aria-hidden="true" className={`h-4 w-4 ${metric.tone}`} /></div><p className={`mt-4 font-display text-3xl ${metric.tone}`}>{metric.value}</p><p className="mt-1 text-[10px] text-bhon-muted">{metric.detail}</p></div>;
+            return <div key={metric.label} className="min-w-0 rounded-2xl border border-white/[0.07] bg-bhon-surface p-4 shadow-[0_14px_36px_rgba(0,0,0,0.14)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-bhon-muted">{metric.label}</p><Icon aria-hidden="true" className={`h-4 w-4 ${metric.tone}`} /></div><p className={`mt-4 font-display text-3xl font-semibold ${metric.tone}`}>{metric.value}</p><p className="mt-1 text-[10px] text-bhon-muted">{metric.detail}</p></div>;
           })}
         </div>
       </section>
@@ -173,11 +169,7 @@ export const OverviewPage: React.FC = () => {
               {loadingAgenda && todayAppointments.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Carregando agenda de hoje…</td></tr>}
               {!loadingAgenda && todayAppointments.length === 0 && !agendaError && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Nenhum atendimento agendado para hoje.</td></tr>}
               {todayAppointments.map((apt) => (
-                <tr
-                  key={apt.id}
-                  onClick={() => setSelectedAppointment(apt)}
-                  className="cursor-pointer hover:bg-slate-50 transition-colors"
-                >
+                <tr key={apt.id}>
                   <td className="font-mono-data font-bold text-bhon-text whitespace-nowrap">
                     {apt.time}
                     {apt.delayMinutes > 0 ? (

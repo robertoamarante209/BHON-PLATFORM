@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
-  BarChart3, Building2, CalendarDays, CircleDollarSign, ClipboardCheck,
+  BarChart3, CalendarDays, CircleDollarSign, ClipboardCheck,
   Clock3, LayoutDashboard, LogOut, Menu, Settings, ShieldAlert, Sparkles,
   Stethoscope, Target, UserCheck, Users, X,
 } from 'lucide-react';
@@ -47,38 +47,31 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      <aside className="relative z-40 hidden min-h-screen w-[84px] flex-shrink-0 flex-col overflow-hidden border-r border-white/10 bg-bhon-navy text-white shadow-[18px_0_50px_rgba(14,26,43,0.08)] sm:flex xl:w-[264px]">
+      <aside className="relative z-40 hidden min-h-screen w-20 flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06] bg-[#0B0D10] text-white sm:flex">
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_20%_0%,rgba(24,168,150,0.18),transparent_62%)]" />
 
-        <div className="relative px-3 pb-5 pt-6 xl:px-6">
-          <Link href="/clinic/overview" aria-label="Ir para a visão do dia" className="mx-auto block w-14 overflow-hidden rounded-lg bg-white shadow-sm xl:mx-0 xl:w-full">
-            <span className="bhon-brand-lockup block w-full">
-              <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" />
+        <div className="relative px-3 pb-6 pt-5">
+          <Link href="/clinic/overview" aria-label="Ir para a visão do dia" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.035] transition-colors hover:bg-white/[0.07]">
+            <span className="block h-8 w-8">
+              <img src="/bhon-symbol.svg" alt="BHON" width="120" height="120" className="h-full w-full object-contain" />
             </span>
           </Link>
-          <div className="mt-6 hidden rounded-2xl border border-white/10 bg-white/[0.055] p-4 xl:block">
-            <div className="mb-2 flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-bhon-gold">
-              <Building2 aria-hidden="true" className="h-3 w-3" /> Clínica ativa
-            </div>
-            <p className="truncate text-sm font-semibold text-white" title={currentClinic.name}>{currentClinic.name}</p>
-            <p className="mt-1 text-[11px] text-slate-400">{currentClinic.activeRoomsCount} ambientes em operação</p>
-          </div>
         </div>
 
-        <nav aria-label="Navegação clínica" className="relative flex-1 overflow-y-auto px-2 pb-4 xl:px-4">
+        <nav aria-label="Navegação clínica" className="relative flex-1 overflow-y-auto px-3 pb-4">
           {sections.map((section) => (
             <div key={section.label} className="mb-5">
-              <p className="mb-2 hidden px-3 text-[9px] font-bold uppercase tracking-[0.24em] text-slate-500 xl:block">{section.label}</p>
+              <p className="sr-only">{section.label}</p>
               <div className="space-y-1">
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.path);
                   return (
-                    <Link key={item.path} href={item.path} title={item.label} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`group relative flex min-h-11 items-center justify-center rounded-xl px-3 transition-[color,background-color,box-shadow] duration-200 xl:justify-start ${active ? 'bg-white text-bhon-navy shadow-[0_8px_24px_rgba(0,0,0,0.18)]' : 'text-slate-400 hover:bg-white/[0.07] hover:text-white'}`}>
-                      {active ? <span aria-hidden="true" className="absolute -left-2 h-5 w-1 rounded-r-full bg-bhon-teal xl:-left-4" /> : null}
+                    <Link key={item.path} href={item.path} title={item.label} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`group relative flex min-h-11 items-center justify-center rounded-xl px-3 transition-[color,background-color,box-shadow] duration-200 ${active ? 'bg-bhon-teal/15 text-bhon-teal shadow-[inset_0_0_0_1px_rgba(0,184,148,0.14)]' : 'text-slate-500 hover:bg-white/[0.05] hover:text-white'}`}>
+                      {active ? <span aria-hidden="true" className="absolute -left-3 h-5 w-0.5 rounded-r-full bg-bhon-teal" /> : null}
                       <div className="flex items-center gap-3">
                         <Icon aria-hidden="true" className={`h-[18px] w-[18px] ${active ? 'text-bhon-teal-dark' : 'text-slate-500 group-hover:text-bhon-teal'}`} />
-                        <span className="hidden text-[12px] font-semibold xl:block">{item.label}</span>
+                        <span className="sr-only">{item.label}</span>
                       </div>
                     </Link>
                   );
@@ -88,17 +81,17 @@ export const Sidebar: React.FC = () => {
           ))}
 
           {currentUser.role === 'PLATFORM_OWNER' ? (
-            <Link href="/platform/overview" aria-label="Ambiente da plataforma" className="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-bhon-gold/30 bg-bhon-gold/10 px-3 text-bhon-gold xl:justify-start xl:gap-3">
+            <Link href="/platform/overview" aria-label="Ambiente da plataforma" className="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-bhon-gold/30 bg-bhon-gold/10 px-3 text-bhon-gold">
               <ShieldAlert aria-hidden="true" className="h-[18px] w-[18px]" />
-              <span className="hidden text-[11px] font-semibold xl:block">Ambiente da plataforma</span>
+              <span className="sr-only">Ambiente da plataforma</span>
             </Link>
           ) : null}
         </nav>
 
-        <div className="relative border-t border-white/10 p-2 xl:p-4">
-          <div className="flex items-center justify-center gap-3 rounded-xl p-2 xl:justify-start">
+        <div className="relative border-t border-white/[0.06] p-2">
+          <div className="flex flex-col items-center justify-center gap-1 rounded-xl p-2">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-bhon-teal/30 bg-bhon-teal/10 text-sm font-semibold text-bhon-teal">{currentUser.name.charAt(0)}</div>
-            <div className="hidden min-w-0 flex-1 xl:block">
+            <div className="sr-only">
               <p className="truncate text-xs font-semibold text-white">{currentUser.name}</p>
               <p className="mt-0.5 flex items-center gap-1 text-[9px] uppercase tracking-[0.12em] text-slate-500"><Sparkles aria-hidden="true" className="h-2.5 w-2.5" /> Operação clínica</p>
             </div>

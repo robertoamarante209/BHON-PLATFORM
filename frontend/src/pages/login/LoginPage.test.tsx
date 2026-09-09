@@ -14,19 +14,21 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText('E-mail Institucional')).toHaveValue('');
   });
 
-  it('apresenta a identidade clínica oficial sem linguagem técnica de SaaS', () => {
+  it('apresenta a marca clara aprimorada sobre a entrada', () => {
     render(<LoginPage />);
 
-    expect(screen.getByRole('img', { name: 'BHON — A clínica no controle.' })).toHaveAttribute('src', '/logo-official.jpg');
-    expect(screen.getByRole('heading', { name: /sua clínica em perfeita sintonia/i })).toBeInTheDocument();
-    expect(screen.queryByText(/multi-tenant/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'BHON' })).toHaveAttribute('src', '/logo-bhon-light.svg');
+    expect(screen.getByRole('heading', { name: /acesse sua clínica/i })).toBeVisible();
   });
 
-  it('reúne a apresentação da marca e o acesso na mesma tela', () => {
+  it('mantém somente as informações essenciais para entrar', () => {
     render(<LoginPage />);
 
-    expect(screen.getByRole('heading', { name: /sua clínica em perfeita sintonia/i })).toBeVisible();
-    expect(screen.getByRole('heading', { name: /bem-vindo de volta/i })).toBeVisible();
+    expect(screen.getByLabelText('E-mail Institucional')).toBeVisible();
+    expect(screen.getByLabelText('Senha de Acesso')).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: /lembrar meu acesso/i })).toBeVisible();
     expect(screen.getByRole('button', { name: /entrar na clínica/i })).toBeVisible();
+    expect(screen.queryByText(/sua clínica em perfeita sintonia/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/agenda coordenada|acesso protegido|seu acesso é individual/i)).not.toBeInTheDocument();
   });
 });

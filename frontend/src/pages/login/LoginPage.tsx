@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { ArrowRight, CheckCircle2, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
 
@@ -35,122 +34,88 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="bhon-login-shell relative min-h-[100dvh] overflow-x-hidden bg-[#F3F6F3] px-4 py-5 sm:px-6 sm:py-8 lg:flex lg:items-center lg:justify-center lg:px-10">
-      <div aria-hidden="true" className="pointer-events-none absolute -left-28 top-16 h-80 w-80 rounded-full bg-bhon-teal/[0.06] blur-3xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-bhon-navy/[0.055] blur-3xl" />
+    <div className="bhon-login-shell relative min-h-[100dvh] overflow-hidden bg-[#0C1725] text-white">
+      <div aria-hidden="true" className="bhon-login-glow bhon-login-glow-left absolute -left-40 -top-32 h-[34rem] w-[34rem] rounded-full bg-bhon-teal/20 blur-[110px]" />
+      <div aria-hidden="true" className="bhon-login-glow bhon-login-glow-right absolute -bottom-48 -right-36 h-[38rem] w-[38rem] rounded-full bg-[#28525B]/40 blur-[130px]" />
+      <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(5,12,21,0.3)_70%,rgba(5,12,21,0.58)_100%)]" />
 
-      <main className="relative mx-auto grid w-full max-w-[1180px] overflow-hidden rounded-[26px] border border-[#DFE7E1] bg-white shadow-[0_28px_90px_rgba(18,39,34,0.09)] lg:min-h-[680px] lg:grid-cols-[1.08fr_0.92fr]">
-        <section className="relative flex flex-col border-b border-[#E5EBE6] px-6 pb-7 pt-5 sm:px-10 sm:pt-7 lg:border-b-0 lg:border-r lg:px-14 lg:py-12">
-          <div className="bhon-brand-lockup bhon-login-brand w-52 sm:w-64 lg:w-72">
-            <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" />
-          </div>
+      <main className="bhon-login-stage relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col justify-center px-6 py-10">
+        <img
+          src="/logo-bhon-light.svg"
+          alt="BHON"
+          width="620"
+          height="190"
+          className="bhon-login-logo mx-auto h-auto w-full max-w-[310px] object-contain"
+        />
 
-          <div className="bhon-login-copy mt-5 lg:my-auto lg:mt-12">
-            <p className="bhon-eyebrow">A clínica no controle</p>
-            <h1 className="mt-3 max-w-xl text-balance font-display text-3xl leading-[1.05] text-bhon-navy sm:text-4xl lg:text-6xl">Sua clínica em perfeita sintonia.</h1>
-            <p className="mt-4 max-w-lg text-pretty text-sm leading-6 text-bhon-muted lg:mt-6">Uma operação mais leve para que sua equipe cuide de cada paciente com atenção, clareza e continuidade.</p>
+        <section className="bhon-login-form mt-10" aria-labelledby="login-title">
+          <h1 id="login-title" className="text-center font-display text-2xl font-medium tracking-[-0.02em] text-[#F8F5EE] sm:text-3xl">
+            Acesse sua clínica
+          </h1>
 
-            <div className="mt-7 hidden grid-cols-3 gap-3 lg:grid">
-              {['Agenda coordenada', 'Cuidado contínuo', 'Gestão segura'].map((benefit) => (
-                <div key={benefit} className="border-t border-[#DDE6DF] pt-3">
-                  <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-bhon-teal" />
-                  <p className="mt-2 text-[11px] font-semibold text-bhon-navy">{benefit}</p>
-                </div>
-              ))}
+          {error && (
+            <div id="login-error" role="alert" aria-live="polite" className="mt-7 rounded-xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm text-rose-100">
+              {error}
             </div>
-          </div>
+          )}
 
-          <p className="mt-8 hidden text-[10px] uppercase tracking-[0.2em] text-bhon-muted/70 lg:block">Clareza para cuidar. Controle para crescer.</p>
-        </section>
-
-        <section className="bhon-login-form flex items-center bg-[#FAFBF9] px-6 py-8 sm:px-10 lg:px-14 lg:py-12" aria-labelledby="login-title">
-          <div className="w-full">
-            <div className="flex items-center gap-2 text-bhon-teal-dark">
-              <ShieldCheck aria-hidden="true" className="h-4 w-4" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em]">Acesso protegido</span>
-            </div>
-            <h2 id="login-title" className="mt-4 font-display text-3xl text-bhon-navy sm:text-4xl">Bem-vindo de volta.</h2>
-            <p className="mt-2 text-sm leading-relaxed text-bhon-muted">Entre para começar o dia clínico com tudo em ordem.</p>
-
-            {error && (
-              <div
-                role="alert"
-                aria-live="polite"
-                className="mt-6 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800"
-              >
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="mt-7 space-y-5 text-xs">
-              <div>
-                <label htmlFor="login-email" className="mb-2 block text-[10px] font-bold uppercase tracking-[0.16em] text-bhon-text">
-                  E-mail Institucional
-                </label>
-                <div className="relative rounded-xl border border-bhon-border bg-white shadow-sm focus-within:border-bhon-teal focus-within:ring-2 focus-within:ring-bhon-teal/15">
-                  <Mail aria-hidden="true" className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-bhon-muted" />
-                  <input
-                    id="login-email"
-                    name="email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="seu.nome@clinica.com.br…"
-                    autoComplete="username"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    required
-                    className="h-12 w-full rounded-xl border-0 bg-transparent pl-11 pr-4 text-sm text-bhon-text outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label htmlFor="login-password" className="text-[10px] font-bold uppercase tracking-[0.16em] text-bhon-text">
-                    Senha de Acesso
-                  </label>
-                  <span className="ml-4 text-right text-[10px] leading-tight text-bhon-muted">Recuperação com o administrador</span>
-                </div>
-                <div className="relative rounded-xl border border-bhon-border bg-white shadow-sm focus-within:border-bhon-teal focus-within:ring-2 focus-within:ring-bhon-teal/15">
-                  <Lock aria-hidden="true" className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-bhon-muted" />
-                  <input
-                    id="login-password"
-                    name="password"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Sua senha…"
-                    autoComplete="current-password"
-                    required
-                    className="h-12 w-full rounded-xl border-0 bg-transparent pl-11 pr-4 font-mono text-sm text-bhon-text outline-none"
-                  />
-                </div>
-              </div>
-
-              <label className="flex min-h-11 cursor-pointer items-center gap-2 text-bhon-muted">
-                <input
-                  name="remember-me"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(event) => setRememberMe(event.target.checked)}
-                  className="h-4 w-4 rounded border-bhon-border text-bhon-teal focus:ring-bhon-teal"
-                />
-                <span>Lembrar meu acesso</span>
+          <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="mt-8 space-y-7">
+            <div>
+              <label htmlFor="login-email" className="block text-xs font-semibold tracking-[0.08em] text-slate-300">
+                E-mail Institucional
               </label>
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="seu.nome@clinica.com.br…"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                required
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'login-error' : undefined}
+                className="mt-2 h-12 w-full rounded-t-lg border-0 border-b border-white/30 bg-white/[0.025] px-2 text-base text-white outline-none transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-slate-500 focus:border-bhon-teal focus:bg-white/[0.045] focus:ring-2 focus:ring-bhon-teal/20"
+              />
+            </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-bhon-navy px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-[0_12px_30px_rgba(18,27,42,0.16)] transition-[background-color,transform] duration-150 ease-out hover:bg-bhon-navy-hover active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
-              >
-                <span>{isSubmitting ? 'Preparando sua clínica…' : 'Entrar na clínica'}</span>
-                {!isSubmitting ? <ArrowRight aria-hidden="true" className="h-4 w-4 text-bhon-teal" /> : null}
-              </button>
-            </form>
+            <div>
+              <label htmlFor="login-password" className="block text-xs font-semibold tracking-[0.08em] text-slate-300">
+                Senha de Acesso
+              </label>
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Sua senha…"
+                autoComplete="current-password"
+                required
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'login-error' : undefined}
+                className="mt-2 h-12 w-full rounded-t-lg border-0 border-b border-white/30 bg-white/[0.025] px-2 text-base text-white outline-none transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-slate-500 focus:border-bhon-teal focus:bg-white/[0.045] focus:ring-2 focus:ring-bhon-teal/20"
+              />
+            </div>
 
-            <p className="mt-8 text-center text-[10px] leading-relaxed text-bhon-muted">Seu acesso é individual e protegido. Em caso de dúvida, fale com o responsável pela clínica.</p>
-          </div>
+            <label htmlFor="remember-access" className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-slate-400">
+              <input
+                id="remember-access"
+                name="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                className="h-4 w-4 rounded border-white/30 bg-transparent text-bhon-teal focus:ring-bhon-teal focus:ring-offset-[#0C1725]"
+              />
+              <span>Lembrar meu acesso</span>
+            </label>
+
+            <button type="submit" disabled={isSubmitting} className="bhon-login-action min-h-12 w-full px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-[#EAFBF8] disabled:cursor-wait disabled:opacity-60">
+              {isSubmitting ? 'Entrando…' : 'Entrar na clínica'}
+            </button>
+          </form>
         </section>
       </main>
     </div>

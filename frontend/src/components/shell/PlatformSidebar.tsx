@@ -41,18 +41,18 @@ export const PlatformSidebar: React.FC = () => {
         Logo oficial BHON única no topo esquerdo.
       */}
       <div className="p-5 pb-4 border-b border-slate-800/80 bg-slate-900/50">
-        <Link href="/platform/overview" aria-label="Ir para a visão geral da plataforma" className="block overflow-hidden rounded-lg bg-white shadow-sm">
-          <span className="bhon-brand-lockup block w-full">
-            <img src="/logo-official.jpg" alt="BHON — A clínica no controle." width="1920" height="1280" />
+        <Link href="/platform/overview" aria-label="Ir para a visão geral da plataforma" className="block rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+          <span className="block w-full">
+            <img src="/logo-bhon-light.svg" alt="BHON" width="620" height="190" className="h-auto w-full" />
           </span>
         </Link>
 
         <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[10px] uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 text-bhon-teal font-bold text-[10px] uppercase tracking-wider">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Plataforma BHON (Owner)</span>
           </div>
-          <span className="font-mono-data text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">
+          <span className="font-mono-data text-[10px] px-1.5 py-0.5 rounded bg-bhon-teal/10 text-bhon-teal border border-bhon-teal/30">
             ROOT
           </span>
         </div>
@@ -71,7 +71,7 @@ export const PlatformSidebar: React.FC = () => {
               aria-current={isActive ? 'page' : undefined}
               className={`flex items-center justify-between px-3 py-2 rounded text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-amber-600 text-white font-semibold'
+                    ? 'bg-bhon-teal/15 text-bhon-teal font-semibold'
                     : 'text-slate-300 hover:bg-slate-900 hover:text-white'
                 }`}
             >
@@ -97,7 +97,7 @@ export const PlatformSidebar: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="truncate pr-2">
             <p className="font-semibold text-slate-200 truncate">{currentUser.name}</p>
-            <p className="text-[10px] font-mono-data text-amber-400">PLATFORM_OWNER</p>
+            <p className="text-[10px] font-mono-data text-bhon-teal">PLATFORM_OWNER</p>
           </div>
           <button
             type="button"

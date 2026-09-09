@@ -11,7 +11,7 @@ export const PlatformLayout: React.FC<PlatformLayoutProps> = ({ children }) => {
   const { currentUser } = useAuth();
 
   return (
-    <div className="flex h-screen bg-slate-900 text-slate-100 overflow-hidden">
+    <div className="bhon-dark-theme flex h-screen bg-bhon-bg text-bhon-text overflow-hidden">
       <PlatformSidebar />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header do Mantenedor da Plataforma */}
@@ -20,7 +20,7 @@ export const PlatformLayout: React.FC<PlatformLayoutProps> = ({ children }) => {
             <span className="text-xs font-bold text-slate-200 tracking-wide">
               BHON PLATFORM MANAGEMENT CENTER
             </span>
-            <span className="font-mono-data text-[10px] text-amber-400 bg-amber-950/80 border border-amber-800 px-1.5 py-0.2 rounded">
+            <span className="font-mono-data text-[10px] text-bhon-teal bg-bhon-teal/10 border border-bhon-teal/30 px-1.5 py-0.2 rounded">
               MODO OPERADOR GLOBAL
             </span>
           </div>
@@ -32,12 +32,12 @@ export const PlatformLayout: React.FC<PlatformLayoutProps> = ({ children }) => {
             </div>
             <div className="text-right">
               <span className="font-semibold text-slate-200">{currentUser.name}</span>
-              <span className="text-[10px] font-mono-data text-amber-400 block">PLATFORM_OWNER</span>
+              <span className="text-[10px] font-mono-data text-bhon-teal block">PLATFORM_OWNER</span>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 bg-slate-900">
+        <main className="flex-1 overflow-y-auto p-6 bg-bhon-bg">
           {children}
         </main>
       </div>

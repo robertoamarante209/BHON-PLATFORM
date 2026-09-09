@@ -19,6 +19,17 @@ declare global {
 
 const GOOGLE_SCRIPT_ID = 'bhon-google-identity-script';
 
+export const GOOGLE_BUTTON_OPTIONS = {
+  type: 'standard',
+  theme: 'outline_dark',
+  size: 'large',
+  text: 'continue_with',
+  shape: 'pill',
+  width: 398,
+  logo_alignment: 'left',
+  locale: 'pt-BR',
+} as const;
+
 export const LoginPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const { login, loginWithGoogle } = useAuth();
@@ -45,7 +56,7 @@ export const LoginPage: React.FC = () => {
           try {
             const user = await loginWithGoogle(credential, rememberMe);
             if (!user) {
-              setError('Não foi possível entrar com Google. Verifique se esta conta Google está vinculada à BHON.');
+              setError('Não foi possível concluir o login com Google. A conta selecionada não está autorizada na BHON.');
               return;
             }
             setLocation(user.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview');
@@ -56,16 +67,7 @@ export const LoginPage: React.FC = () => {
       });
 
       googleButtonRef.current.replaceChildren();
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        type: 'standard',
-        theme: 'outline',
-        size: 'large',
-        text: 'continue_with',
-        shape: 'rectangular',
-        width: 398,
-        logo_alignment: 'left',
-        locale: 'pt-BR',
-      });
+      window.google.accounts.id.renderButton(googleButtonRef.current, GOOGLE_BUTTON_OPTIONS);
     };
 
     if (window.google) {
@@ -157,9 +159,9 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {googleClientId ? (
-            <div ref={googleButtonRef} className="flex min-h-11 justify-center" aria-label="Continuar com Google" />
+            <div ref={googleButtonRef} className="flex min-h-12 w-full justify-center overflow-hidden rounded-full border border-bhon-teal/45 bg-[#111E2C] p-[1px] shadow-[0_0_0_1px_rgba(19,170,153,0.06)]" aria-label="Continuar com Google" />
           ) : (
-            <div className="rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-center text-xs text-slate-500">
+            <div className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-3 text-center text-xs text-slate-500">
               Login com Google aguardando configuração da credencial BHON.
             </div>
           )}

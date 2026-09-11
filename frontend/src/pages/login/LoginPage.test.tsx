@@ -33,13 +33,13 @@ describe('LoginPage', () => {
   it('inicia o campo de e-mail vazio para não expor o acesso administrativo', () => {
     render(<LoginPage />);
 
-    expect(screen.getByLabelText('E-mail')).toHaveValue('');
+    expect(screen.getByLabelText('Usuário')).toHaveValue('');
   });
 
   it('reproduz a composição editorial do protótipo aprovado', () => {
     render(<LoginPage />);
 
-    expect(screen.getAllByRole('img', { name: 'BHON' })[0]).toHaveAttribute('src', '/figma-login-symbol.svg');
+    expect(screen.getAllByRole('img', { name: 'BHON' })[0]).toHaveAttribute('src', '/figma-login-symbol.png');
     expect(screen.getByRole('heading', { name: /^login$/i })).toBeVisible();
     expect(screen.getByText(/acreditar no futuro da saúde/i)).toBeVisible();
     expect(screen.getByRole('img', { name: /ambiente clínico minimalista/i })).toHaveAttribute('src', '/figma-login-office.jpg');
@@ -48,7 +48,7 @@ describe('LoginPage', () => {
   it('mantém somente as informações essenciais para entrar', () => {
     render(<LoginPage />);
 
-    expect(screen.getByLabelText('E-mail')).toBeVisible();
+    expect(screen.getByLabelText('Usuário')).toBeVisible();
     expect(screen.getByLabelText('Senha')).toBeVisible();
     expect(screen.getByRole('checkbox', { name: /lembrar meu acesso/i })).toBeVisible();
     expect(screen.getByRole('button', { name: /^entrar$/i })).toBeVisible();

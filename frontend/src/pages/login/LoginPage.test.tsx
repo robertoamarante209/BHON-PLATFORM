@@ -33,24 +33,25 @@ describe('LoginPage', () => {
   it('inicia o campo de e-mail vazio para não expor o acesso administrativo', () => {
     render(<LoginPage />);
 
-    expect(screen.getByLabelText('E-mail Institucional')).toHaveValue('');
+    expect(screen.getByLabelText('E-mail')).toHaveValue('');
   });
 
-  it('apresenta a marca clara aprimorada sobre a entrada', () => {
+  it('reproduz a composição editorial do protótipo aprovado', () => {
     render(<LoginPage />);
 
-    expect(screen.getByRole('img', { name: 'BHON' })).toHaveAttribute('src', '/logo-bhon-dark.svg');
-    expect(screen.getByRole('heading', { name: /oi, seja bem - vindo/i })).toBeVisible();
-    expect(screen.getByRole('img', { name: /organização clínica inteligente/i })).toHaveAttribute('src', '/figma-login-illustration.png');
+    expect(screen.getAllByRole('img', { name: 'BHON' })[0]).toHaveAttribute('src', '/figma-login-asset-2.png');
+    expect(screen.getByRole('heading', { name: /^login$/i })).toBeVisible();
+    expect(screen.getByText(/acreditar no futuro da saúde/i)).toBeVisible();
+    expect(screen.getByRole('img', { name: /ambiente clínico minimalista/i })).toHaveAttribute('src', '/figma-login-office.jpg');
   });
 
   it('mantém somente as informações essenciais para entrar', () => {
     render(<LoginPage />);
 
-    expect(screen.getByLabelText('E-mail Institucional')).toBeVisible();
-    expect(screen.getByLabelText('Senha de Acesso')).toBeVisible();
+    expect(screen.getByLabelText('E-mail')).toBeVisible();
+    expect(screen.getByLabelText('Senha')).toBeVisible();
     expect(screen.getByRole('checkbox', { name: /lembrar meu acesso/i })).toBeVisible();
-    expect(screen.getByRole('button', { name: /entrar na clínica/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /^entrar$/i })).toBeVisible();
     expect(screen.queryByText(/sua clínica em perfeita sintonia/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/agenda coordenada|acesso protegido|seu acesso é individual/i)).not.toBeInTheDocument();
   });

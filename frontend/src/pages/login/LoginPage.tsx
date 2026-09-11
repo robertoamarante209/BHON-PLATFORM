@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Mail } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
 
@@ -90,59 +90,55 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="bhon-login-shell min-h-[100dvh] overflow-hidden bg-[#F9E6E6] text-[#101827]">
+    <div className="bhon-login-shell min-h-[100dvh] overflow-hidden bg-white text-[#171725]">
       {showIntro && (
-        <div data-testid="brand-intro" aria-hidden="true" className="bhon-brand-intro fixed inset-0 z-50 grid place-items-center bg-[#F9E6E6]">
-          <img src="/logo-bhon-dark.svg" alt="" className="bhon-brand-intro-logo w-[min(68vw,360px)]" />
+        <div data-testid="brand-intro" aria-hidden="true" className="bhon-brand-intro fixed inset-0 z-50 grid place-items-center bg-[#f8f7f4]">
+          <img src="/figma-login-asset-2.png" alt="" className="bhon-brand-intro-logo w-[min(32vw,160px)] rounded-2xl" />
         </div>
       )}
 
-      <main className="mx-auto grid min-h-[100dvh] w-full max-w-[1440px] lg:grid-cols-[minmax(430px,0.78fr)_1.22fr]">
-        <section className="bhon-login-form relative flex min-h-[100dvh] flex-col px-6 py-8 sm:px-12 lg:px-16 xl:px-24" aria-labelledby="login-title">
-          <img src="/logo-bhon-dark.svg" alt="BHON" width="620" height="190" className="h-auto w-[142px] object-contain lg:absolute lg:right-10 lg:top-7 lg:w-[122px] xl:right-14" />
-          <div className="my-auto w-full max-w-[430px] py-10">
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#D94F70]">Área segura</p>
-            <h1 id="login-title" className="mt-4 font-display text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">
-              Oi, seja bem - vindo! <span aria-hidden="true">👋</span>
-            </h1>
-            <p className="mt-3 text-sm text-[#706670]">Entre para cuidar da sua clínica.</p>
+      <main className="grid min-h-[100dvh] w-full lg:grid-cols-[44%_56%]">
+        <section className="bhon-login-form relative z-10 flex min-h-[100dvh] items-center bg-white px-6 py-10 sm:px-12 lg:px-[clamp(4rem,8.5vw,8rem)]" aria-labelledby="login-title">
+          <div className="w-full max-w-[403px]">
+            <img src="/figma-login-asset-2.png" alt="BHON" width="400" height="400" className="mb-8 h-16 w-16 rounded-xl object-cover lg:hidden" />
+            <h1 id="login-title" className="font-display text-[30px] font-semibold tracking-[0.1px]">Login</h1>
             {error && <div id="login-error" role="alert" aria-live="polite" className="mt-6 rounded-2xl border border-[#D94F70]/25 bg-white/55 px-4 py-3 text-sm text-[#8E2641]">{error}</div>}
 
-            <div className="mt-7">
-              {googleClientId ? (
-                <div className="flex min-h-12 w-full items-center justify-center overflow-hidden rounded-full bg-[#111827]">
-                  <div ref={googleButtonRef} className="flex min-h-12 w-full justify-center" aria-label="Continuar com Google" />
-                </div>
-              ) : <div className="rounded-full border border-[#101827]/10 bg-white/45 px-4 py-3 text-center text-xs text-[#786D76]">Login com Google aguardando configuração.</div>}
-            </div>
-
-            <div className="my-6 flex items-center gap-3" aria-hidden="true">
-              <div className="h-px flex-1 bg-[#101827]/10" /><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8B7D86]">ou entre com e-mail</span><div className="h-px flex-1 bg-[#101827]/10" />
-            </div>
-
-            <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="space-y-5">
+            <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="mt-10 space-y-4">
               <div>
-                <label htmlFor="login-email" className="block text-xs font-bold text-[#342B32]">E-mail Institucional</label>
-                <input id="login-email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@clinica.com.br" autoComplete="username" autoCapitalize="none" spellCheck={false} required aria-invalid={error ? true : undefined} aria-describedby={error ? 'login-error' : undefined} className="bhon-login-input mt-2 h-12 w-full rounded-2xl border border-transparent bg-white/75 px-4 text-base outline-none placeholder:text-[#A4939C] focus:border-[#D94F70]/50 focus:ring-4 focus:ring-[#D94F70]/10" />
-              </div>
-              <div>
-                <label htmlFor="login-password" className="block text-xs font-bold text-[#342B32]">Senha de Acesso</label>
-                <div className="relative mt-2">
-                  <input id="login-password" name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua senha" autoComplete="current-password" required aria-invalid={error ? true : undefined} aria-describedby={error ? 'login-error' : undefined} className="bhon-login-input h-12 w-full rounded-2xl border border-transparent bg-white/75 px-4 pr-12 text-base outline-none placeholder:text-[#A4939C] focus:border-[#D94F70]/50 focus:ring-4 focus:ring-[#D94F70]/10" />
-                  <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} className="absolute inset-y-0 right-1 flex w-11 items-center justify-center rounded-xl text-[#776B73] hover:text-[#101827]">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                <label htmlFor="login-email" className="sr-only">E-mail</label>
+                <div className="flex h-[46px] items-center gap-4 rounded-lg border border-[#e0e2e9] px-5 transition focus-within:border-[#00b894] focus-within:ring-4 focus-within:ring-[#00b894]/10">
+                  <Mail size={19} className="shrink-0 text-[#969ab8]" aria-hidden="true" />
+                  <input id="login-email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com.br" autoComplete="username" autoCapitalize="none" spellCheck={false} required aria-invalid={error ? true : undefined} aria-describedby={error ? 'login-error' : undefined} className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#969ab8]" />
                 </div>
               </div>
-              <label htmlFor="remember-access" className="flex min-h-10 cursor-pointer items-center gap-3 text-sm text-[#665B63]">
-                <input id="remember-access" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded border-[#101827]/20 bg-white text-[#D94F70] focus:ring-[#D94F70] focus:ring-offset-[#F9E6E6]" /><span>Lembrar meu acesso</span>
-              </label>
-              <button type="submit" disabled={isSubmitting} className="bhon-login-action min-h-12 w-full rounded-full px-6 py-3 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{isSubmitting ? 'Entrando…' : 'Entrar na clínica'}</button>
+              <div>
+                <label htmlFor="login-password" className="sr-only">Senha</label>
+                <div className="flex h-[46px] items-center gap-4 rounded-lg border border-[#e0e2e9] px-5 transition focus-within:border-[#00b894] focus-within:ring-4 focus-within:ring-[#00b894]/10">
+                  <KeyRound size={19} className="shrink-0 text-[#969ab8]" aria-hidden="true" />
+                  <input id="login-password" name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua senha" autoComplete="current-password" required aria-invalid={error ? true : undefined} aria-describedby={error ? 'login-error' : undefined} className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#969ab8]" />
+                  <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} className="text-[#969ab8] transition hover:text-[#0f1115]">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
+                </div>
+              </div>
+              <button type="submit" disabled={isSubmitting} className="min-h-[48px] w-full rounded-lg bg-[#0f1115] px-6 py-3 text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#00a98b] hover:shadow-lg disabled:cursor-wait disabled:opacity-60">{isSubmitting ? 'Entrando…' : 'Entrar'}</button>
+              <div className="flex items-center justify-between gap-4 pt-1 text-xs">
+                <label htmlFor="remember-access" className="flex cursor-pointer items-center gap-2 text-[#697080]"><input id="remember-access" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded border-[#d8dbe4] text-[#00b894] focus:ring-[#00b894]" />Lembrar meu acesso</label>
+                <span className="font-semibold text-[#00a98b]">Esqueci minha senha</span>
+              </div>
             </form>
           </div>
         </section>
 
-        <aside className="bhon-login-visual relative hidden min-h-[100dvh] items-center justify-center overflow-hidden p-12 lg:flex" aria-label="Organização clínica inteligente">
-          <div aria-hidden="true" className="absolute inset-10 rounded-[3rem] bg-white/28 shadow-[0_32px_100px_rgba(117,69,84,0.12)] backdrop-blur-sm" />
-          <img src="/figma-login-illustration.png" alt="Organização clínica inteligente" className="relative z-10 h-auto w-full max-w-[720px] object-contain drop-shadow-[0_30px_45px_rgba(117,69,84,0.14)]" />
+        <aside className="relative hidden min-h-[100dvh] overflow-hidden bg-[#f7f7f7] lg:block" aria-label="Ambiente clínico minimalista">
+          <img src="/figma-login-office.jpg" alt="Ambiente clínico minimalista" className="absolute inset-0 h-full w-full object-cover object-center" />
+          <div className="absolute left-0 top-[12%] flex max-w-[610px] items-start gap-0">
+            <img src="/figma-login-asset-2.png" alt="BHON" width="400" height="400" className="h-[108px] w-[108px] shrink-0 object-cover shadow-[0_14px_40px_rgba(15,17,21,0.08)]" />
+            <blockquote className="relative pt-7 text-[#3a424a]">
+              <span aria-hidden="true" className="absolute -left-2 -top-7 font-serif text-[110px] leading-none text-[#dce0e3]">“</span>
+              <p className="relative font-display text-[clamp(1.2rem,1.75vw,1.75rem)] leading-[1.55] tracking-[-0.02em]">Acreditar no futuro da saúde é transformar a gestão em um ato de cuidado.</p>
+              <footer className="mt-1 text-right font-display text-lg font-medium">— Roberto Amarante</footer>
+            </blockquote>
+          </div>
         </aside>
       </main>
     </div>

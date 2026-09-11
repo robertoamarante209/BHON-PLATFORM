@@ -20,6 +20,7 @@ describe('LoginPage', () => {
     render(<LoginPage />);
 
     expect(screen.getByTestId('brand-intro')).toBeVisible();
+    act(() => screen.getByRole('button', { name: /entrar na bhon/i }).click());
     act(() => vi.advanceTimersByTime(3999));
     expect(screen.getByTestId('brand-intro')).toBeVisible();
     act(() => vi.advanceTimersByTime(1));

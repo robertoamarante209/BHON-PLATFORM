@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, KeyRound, UserRound } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, UserRound, Volume2 } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
 
@@ -45,11 +45,9 @@ const playIntroSound = () => {
       oscillator.stop(context.currentTime + 3.85);
     });
   };
-  void context.resume().then(play).catch(() => undefined);
-  const resumeOnInteraction = () => { void context.resume().then(play).catch(() => undefined); };
-  window.addEventListener('pointerdown', resumeOnInteraction, { once: true });
+  play();
+  void context.resume().catch(() => undefined);
   return () => {
-    window.removeEventListener('pointerdown', resumeOnInteraction);
     void context.close().catch(() => undefined);
   };
 };
@@ -58,23 +56,29 @@ export const LoginPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const { login, loginWithGoogle } = useAuth();
   const googleButtonRef = useRef<HTMLDivElement>(null);
+  const introSoundCleanupRef = useRef<() => void>(() => undefined);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showIntro, setShowIntro] = useState(shouldShowBrandIntro);
+  const [introStarted, setIntroStarted] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
   useEffect(() => {
-    if (!showIntro) return;
-    const stopSound = playIntroSound();
+    if (!showIntro || !introStarted) return;
     const timer = window.setTimeout(() => {
       setShowIntro(false);
     }, 4000);
-    return () => { window.clearTimeout(timer); stopSound(); };
-  }, [showIntro]);
+    return () => { window.clearTimeout(timer); introSoundCleanupRef.current(); };
+  }, [showIntro, introStarted]);
+
+  const handleStartIntro = () => {
+    introSoundCleanupRef.current = playIntroSound();
+    setIntroStarted(true);
+  };
 
   useEffect(() => {
     if (!googleClientId || !googleButtonRef.current) return;
@@ -122,8 +126,15 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="bhon-login-shell min-h-[100dvh] overflow-hidden bg-white text-[#171725]">
       {showIntro && (
-        <div data-testid="brand-intro" aria-hidden="true" className="bhon-brand-intro fixed inset-0 z-50 grid place-items-center bg-[#f8f7f4]">
-          <img src="/figma-login-symbol.png" alt="" className="bhon-brand-intro-logo w-[min(32vw,160px)]" />
+        <div data-testid="brand-intro" className={`${introStarted ? 'bhon-brand-intro' : ''} fixed inset-0 z-50 grid place-items-center bg-[#f8f7f4]`}>
+          <div className="flex flex-col items-center gap-8">
+            <img src="/figma-login-symbol.png" alt="BHON" className={`${introStarted ? 'bhon-brand-intro-logo' : ''} w-[min(32vw,160px)]`} />
+            {!introStarted && (
+              <button type="button" onClick={handleStartIntro} className="flex items-center gap-2 rounded-full bg-[#0f1115] px-6 py-3 text-sm font-semibold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-[#00a98b]">
+                <Volume2 size={17} aria-hidden="true" /> Entrar na BHON
+              </button>
+            )}
+          </div>
         </div>
       )}
 

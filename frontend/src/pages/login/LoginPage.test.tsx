@@ -1,6 +1,6 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginPage, GOOGLE_BUTTON_OPTIONS } from './LoginPage';
 
 vi.mock('../../context/AuthContext', () => ({
@@ -8,6 +8,28 @@ vi.mock('../../context/AuthContext', () => ({
 }));
 
 describe('LoginPage', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    vi.useRealTimers();
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }));
+  });
+
+  it('exibe a abertura da marca uma vez e libera o formulário automaticamente', () => {
+    vi.useFakeTimers();
+    render(<LoginPage />);
+
+    expect(screen.getByTestId('brand-intro')).toBeVisible();
+    act(() => vi.advanceTimersByTime(1500));
+    expect(screen.queryByTestId('brand-intro')).not.toBeInTheDocument();
+    expect(sessionStorage.getItem('bhon-brand-intro-seen')).toBe('true');
+  });
+
+  it('não anima a abertura quando o usuário prefere movimento reduzido', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }));
+    render(<LoginPage />);
+    expect(screen.queryByTestId('brand-intro')).not.toBeInTheDocument();
+  });
+
   it('inicia o campo de e-mail vazio para não expor o acesso administrativo', () => {
     render(<LoginPage />);
 
@@ -17,8 +39,9 @@ describe('LoginPage', () => {
   it('apresenta a marca clara aprimorada sobre a entrada', () => {
     render(<LoginPage />);
 
-    expect(screen.getByRole('img', { name: 'BHON' })).toHaveAttribute('src', '/logo-bhon-light.svg');
-    expect(screen.getByRole('heading', { name: /acesse sua clínica/i })).toBeVisible();
+    expect(screen.getByRole('img', { name: 'BHON' })).toHaveAttribute('src', '/logo-bhon-dark.svg');
+    expect(screen.getByRole('heading', { name: /oi, seja bem - vindo/i })).toBeVisible();
+    expect(screen.getByRole('img', { name: /organização clínica inteligente/i })).toHaveAttribute('src', '/figma-login-illustration.png');
   });
 
   it('mantém somente as informações essenciais para entrar', () => {

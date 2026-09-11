@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
-  BarChart3, CalendarDays, CircleDollarSign, ClipboardCheck,
+  BarChart3, Boxes, CalendarDays, CircleDollarSign, ClipboardCheck, FileText,
   Clock3, LayoutDashboard, LogOut, Menu, Settings, ShieldAlert, Sparkles,
-  Stethoscope, Target, UserCheck, Users, X,
+  MessageCircle, PlugZap, Stethoscope, Target, UserCheck, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,11 +18,15 @@ const sections = [
     { label: 'Oportunidades', path: '/clinic/opportunities', icon: Target },
     { label: 'Acompanhamentos', path: '/clinic/follow-ups', icon: Clock3 },
     { label: 'Orçamentos', path: '/clinic/budgets', icon: ClipboardCheck },
+    { label: 'WhatsApp', path: '/clinic/whatsapp', icon: MessageCircle },
   ] },
   { label: 'Gestão', items: [
     { label: 'Financeiro', path: '/clinic/finance', icon: CircleDollarSign },
     { label: 'Equipe', path: '/clinic/team', icon: UserCheck },
     { label: 'Indicadores', path: '/clinic/indicators', icon: BarChart3 },
+    { label: 'Estoque', path: '/clinic/inventory', icon: Boxes },
+    { label: 'Documentos', path: '/clinic/documents', icon: FileText },
+    { label: 'Integrações', path: '/clinic/integrations', icon: PlugZap },
     { label: 'Configurações', path: '/clinic/settings', icon: Settings },
   ] },
 ];

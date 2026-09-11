@@ -22,6 +22,10 @@ const FinancePage = lazy(() => import('./pages/clinic/FinancePage').then((module
 const TeamPage = lazy(() => import('./pages/clinic/TeamPage').then((module) => ({ default: module.TeamPage })));
 const IndicatorsPage = lazy(() => import('./pages/clinic/IndicatorsPage').then((module) => ({ default: module.IndicatorsPage })));
 const SettingsPage = lazy(() => import('./pages/clinic/SettingsPage').then((module) => ({ default: module.SettingsPage })));
+const WhatsAppPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.WhatsAppPage })));
+const InventoryPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.InventoryPage })));
+const DocumentsPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.DocumentsPage })));
+const IntegrationsPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.IntegrationsPage })));
 
 const PlatformUnavailablePage = lazy(() => import('./pages/platform/PlatformUnavailablePage').then((module) => ({ default: module.PlatformUnavailablePage })));
 
@@ -94,6 +98,10 @@ const AppRoutes: React.FC = () => {
               <Route path="/clinic/finance" component={FinancePage} />
               <Route path="/clinic/team" component={TeamPage} />
               <Route path="/clinic/indicators" component={IndicatorsPage} />
+              <Route path="/clinic/whatsapp" component={WhatsAppPage} />
+              <Route path="/clinic/inventory" component={InventoryPage} />
+              <Route path="/clinic/documents" component={DocumentsPage} />
+              <Route path="/clinic/integrations" component={IntegrationsPage} />
               <Route path="/clinic/settings" component={SettingsPage} />
               <Route>
                 <Redirect to="/clinic/overview" />

@@ -11,7 +11,6 @@ type GoogleIdentity = { accounts: { id: {
 declare global { interface Window { google?: GoogleIdentity } }
 
 const GOOGLE_SCRIPT_ID = 'bhon-google-identity-script';
-const BRAND_INTRO_KEY = 'bhon-brand-intro-seen';
 
 export const GOOGLE_BUTTON_OPTIONS = {
   type: 'standard', theme: 'filled_black', size: 'large', text: 'continue_with',
@@ -20,8 +19,39 @@ export const GOOGLE_BUTTON_OPTIONS = {
 
 const shouldShowBrandIntro = () => {
   if (typeof window === 'undefined') return false;
-  return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    && sessionStorage.getItem(BRAND_INTRO_KEY) !== 'true';
+  return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+};
+
+const playIntroSound = () => {
+  if (!window.AudioContext) return () => undefined;
+  const context = new window.AudioContext();
+  let scheduled = false;
+  const play = () => {
+    if (scheduled) return;
+    scheduled = true;
+    const master = context.createGain();
+    master.gain.setValueAtTime(0.0001, context.currentTime);
+    master.gain.exponentialRampToValueAtTime(0.05, context.currentTime + 0.45);
+    master.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 3.8);
+    master.connect(context.destination);
+    [261.63, 329.63, 392, 523.25].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+      gain.gain.value = index === 3 ? 0.34 : 0.2;
+      oscillator.connect(gain).connect(master);
+      oscillator.start(context.currentTime + index * 0.18);
+      oscillator.stop(context.currentTime + 3.85);
+    });
+  };
+  void context.resume().then(play).catch(() => undefined);
+  const resumeOnInteraction = () => { void context.resume().then(play).catch(() => undefined); };
+  window.addEventListener('pointerdown', resumeOnInteraction, { once: true });
+  return () => {
+    window.removeEventListener('pointerdown', resumeOnInteraction);
+    void context.close().catch(() => undefined);
+  };
 };
 
 export const LoginPage: React.FC = () => {
@@ -39,11 +69,11 @@ export const LoginPage: React.FC = () => {
 
   useEffect(() => {
     if (!showIntro) return;
+    const stopSound = playIntroSound();
     const timer = window.setTimeout(() => {
-      sessionStorage.setItem(BRAND_INTRO_KEY, 'true');
       setShowIntro(false);
-    }, 1400);
-    return () => window.clearTimeout(timer);
+    }, 4000);
+    return () => { window.clearTimeout(timer); stopSound(); };
   }, [showIntro]);
 
   useEffect(() => {

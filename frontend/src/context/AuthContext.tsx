@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User, Tenant } from '../types';
 
 interface AuthContextType {
@@ -22,6 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentClinic, setCurrentClinic] = useState<Tenant>(EMPTY_CLINIC);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const authRevision = useRef(0);
 
   const applySession = useCallback((user: User & { tenant?: Tenant }) => {
     setCurrentUser(user);
@@ -30,12 +31,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const refreshSession = useCallback(async () => {
+    const revision = authRevision.current;
     try {
       const response = await fetch('/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } });
+      if (revision !== authRevision.current) return;
       if (!response.ok) {
         setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); return;
       }
       const data = await response.json();
+      if (revision !== authRevision.current) return;
       if (data.user) applySession(data.user);
       else { setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); }
     } catch {
@@ -48,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { void refreshSession(); }, [refreshSession]);
 
   const login = useCallback(async (email: string, password: string, rememberMe = true): Promise<User | null> => {
+    authRevision.current += 1;
     try {
       const response = await fetch('/auth/login', {
         method: 'POST', credentials: 'include',
@@ -63,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [applySession]);
 
   const loginWithGoogle = useCallback(async (credential: string, rememberMe = true): Promise<User | null> => {
+    authRevision.current += 1;
     try {
       const response = await fetch('/auth/google', {
         method: 'POST', credentials: 'include',

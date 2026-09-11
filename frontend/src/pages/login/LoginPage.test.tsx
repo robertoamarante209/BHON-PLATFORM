@@ -14,14 +14,16 @@ describe('LoginPage', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }));
   });
 
-  it('exibe a abertura da marca uma vez e libera o formulário automaticamente', () => {
+  it('exibe a abertura por quatro segundos em todas as visitas', () => {
     vi.useFakeTimers();
+    sessionStorage.setItem('bhon-brand-intro-seen', 'true');
     render(<LoginPage />);
 
     expect(screen.getByTestId('brand-intro')).toBeVisible();
-    act(() => vi.advanceTimersByTime(1500));
+    act(() => vi.advanceTimersByTime(3999));
+    expect(screen.getByTestId('brand-intro')).toBeVisible();
+    act(() => vi.advanceTimersByTime(1));
     expect(screen.queryByTestId('brand-intro')).not.toBeInTheDocument();
-    expect(sessionStorage.getItem('bhon-brand-intro-seen')).toBe('true');
   });
 
   it('não anima a abertura quando o usuário prefere movimento reduzido', () => {

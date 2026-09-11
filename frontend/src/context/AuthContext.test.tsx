@@ -18,8 +18,8 @@ const Harness = () => {
 
 describe('AuthProvider', () => {
   it('não deixa a verificação inicial atrasada desfazer um login concluído', async () => {
-    let finishInitial!: (response: Response) => void;
-    const initial = new Promise<Response>((resolve) => { finishInitial = resolve; });
+    let failInitial!: (reason: Error) => void;
+    const initial = new Promise<Response>((_resolve, reject) => { failInitial = reject; });
     vi.stubGlobal('fetch', vi.fn()
       .mockReturnValueOnce(initial)
       .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), {
@@ -30,7 +30,7 @@ describe('AuthProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'entrar' }));
     expect(await screen.findByText('autenticado')).toBeVisible();
 
-    await act(async () => finishInitial(new Response('', { status: 401 })));
+    await act(async () => failInitial(new Error('falha de rede tardia')));
     expect(screen.getByText('autenticado')).toBeVisible();
   });
 });

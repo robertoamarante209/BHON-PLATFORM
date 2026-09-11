@@ -43,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user) applySession(data.user);
       else { setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); }
     } catch {
+      if (revision !== authRevision.current) return;
       setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
     } finally {
       setIsLoadingAuth(false);

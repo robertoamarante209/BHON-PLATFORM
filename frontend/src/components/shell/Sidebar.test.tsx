@@ -17,9 +17,16 @@ vi.mock('../../context/AuthContext', () => ({
 }));
 
 describe('Sidebar', () => {
-  it('usa o novo símbolo da BHON na navegação principal', () => {
+  it('usa a identidade oficial transparente da BHON na navegação principal', () => {
     render(<Sidebar />);
-    expect(screen.getByRole('img', { name: 'BHON' })).toHaveAttribute('src', '/bhon-symbol.svg');
+    expect(screen.getByRole('img', { name: 'BHON' })).toHaveAttribute('src', '/logo-bhon-dark.svg');
+  });
+
+  it('destaca recuperação de orçamentos na navegação clínica', () => {
+    render(<Sidebar />);
+    expect(screen.getAllByRole('link', { name: 'Recuperar orçamentos' })).toEqual(
+      expect.arrayContaining([expect.objectContaining({ href: expect.stringContaining('/clinic/follow-ups?category=ORCAMENTO') })]),
+    );
   });
 
   it('abre navegação móvel completa e fecha com Escape', async () => {

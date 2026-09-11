@@ -8,19 +8,19 @@ export default {
     extend: {
       colors: {
         bhon: {
-          navy: '#0F1115',
-          'navy-hover': '#202329',
-          teal: '#00B894',
-          'teal-dark': '#00A383',
-          'teal-subtle': '#12342F',
+          navy: 'var(--color-navy)',
+          'navy-hover': 'var(--color-navy-hover)',
+          teal: 'var(--color-teal)',
+          'teal-dark': 'var(--color-teal-dark)',
+          'teal-subtle': 'var(--color-teal-subtle)',
           gold: '#B79A63',
           ivory: '#F8F9F7',
-          bg: '#0F1115',
-          surface: '#181A1F',
-          text: '#F8F9F7',
-          muted: '#9CA3AF',
-          border: '#2A2D32',
-          'border-strong': '#3A3E45',
+          bg: 'var(--color-bg)',
+          surface: 'var(--color-surface)',
+          text: 'var(--color-text)',
+          muted: 'var(--color-muted)',
+          border: 'var(--color-border)',
+          'border-strong': 'var(--color-border-strong)',
           
           // Status semafóricos operacionais estritos
           critical: '#D9383A',

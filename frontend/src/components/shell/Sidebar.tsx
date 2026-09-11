@@ -15,6 +15,7 @@ const sections = [
     { label: 'Tratamentos', path: '/clinic/treatments', icon: Stethoscope },
   ] },
   { label: 'Relacionamento', items: [
+    { label: 'Recuperar orçamentos', path: '/clinic/follow-ups?category=ORCAMENTO', icon: Sparkles },
     { label: 'Oportunidades', path: '/clinic/opportunities', icon: Target },
     { label: 'Acompanhamentos', path: '/clinic/follow-ups', icon: Clock3 },
     { label: 'Orçamentos', path: '/clinic/budgets', icon: ClipboardCheck },
@@ -31,7 +32,7 @@ const sections = [
   ] },
 ];
 
-const mobilePrimaryItems = sections[0].items.slice(0, 3);
+const mobilePrimaryItems = [sections[0].items[1], sections[0].items[0], sections[1].items[0]];
 
 export const Sidebar: React.FC = () => {
   const [location] = useLocation();
@@ -51,13 +52,13 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      <aside className="relative z-40 hidden min-h-screen w-20 flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06] bg-[#0B0D10] text-white sm:flex">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_20%_0%,rgba(24,168,150,0.18),transparent_62%)]" />
+      <aside className="relative z-40 hidden min-h-screen w-[76px] flex-shrink-0 flex-col overflow-hidden border-r border-bhon-border bg-white text-bhon-text sm:flex lg:w-[248px]">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_20%_0%,rgba(0,184,148,0.09),transparent_62%)]" />
 
         <div className="relative px-3 pb-6 pt-5">
-          <Link href="/clinic/overview" aria-label="Ir para a visão do dia" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.035] transition-colors hover:bg-white/[0.07]">
-            <span className="block h-8 w-8">
-              <img src="/bhon-symbol.svg" alt="BHON" width="120" height="120" className="h-full w-full object-contain" />
+          <Link href="/clinic/overview" aria-label="Ir para a visão do dia" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-colors hover:bg-bhon-bg lg:h-auto lg:w-full lg:justify-start lg:px-2 lg:py-2">
+            <span className="block h-8 w-8 lg:h-auto lg:w-[176px]">
+              <img src="/logo-bhon-dark.svg" alt="BHON" width="620" height="190" className="h-full w-full object-contain" />
             </span>
           </Link>
         </div>
@@ -71,11 +72,11 @@ export const Sidebar: React.FC = () => {
                   const Icon = item.icon;
                   const active = isActive(item.path);
                   return (
-                    <Link key={item.path} href={item.path} title={item.label} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`group relative flex min-h-11 items-center justify-center rounded-xl px-3 transition-[color,background-color,box-shadow] duration-200 ${active ? 'bg-bhon-teal/15 text-bhon-teal shadow-[inset_0_0_0_1px_rgba(0,184,148,0.14)]' : 'text-slate-500 hover:bg-white/[0.05] hover:text-white'}`}>
+                    <Link key={item.path} href={item.path} title={item.label} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`group relative flex min-h-11 items-center justify-center rounded-xl px-3 transition-[color,background-color,box-shadow] duration-200 lg:justify-start ${active ? 'bg-bhon-teal/10 text-bhon-teal-dark shadow-[inset_0_0_0_1px_rgba(0,184,148,0.12)]' : 'text-bhon-muted hover:bg-bhon-bg hover:text-bhon-text'}`}>
                       {active ? <span aria-hidden="true" className="absolute -left-3 h-5 w-0.5 rounded-r-full bg-bhon-teal" /> : null}
                       <div className="flex items-center gap-3">
                         <Icon aria-hidden="true" className={`h-[18px] w-[18px] ${active ? 'text-bhon-teal-dark' : 'text-slate-500 group-hover:text-bhon-teal'}`} />
-                        <span className="sr-only">{item.label}</span>
+                        <span className="sr-only lg:not-sr-only lg:text-xs lg:font-semibold">{item.label}</span>
                       </div>
                     </Link>
                   );
@@ -92,21 +93,21 @@ export const Sidebar: React.FC = () => {
           ) : null}
         </nav>
 
-        <div className="relative border-t border-white/[0.06] p-2">
+        <div className="relative border-t border-bhon-border p-2">
           <div className="flex flex-col items-center justify-center gap-1 rounded-xl p-2">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-bhon-teal/30 bg-bhon-teal/10 text-sm font-semibold text-bhon-teal">{currentUser.name.charAt(0)}</div>
-            <div className="sr-only">
-              <p className="truncate text-xs font-semibold text-white">{currentUser.name}</p>
+            <div className="sr-only lg:not-sr-only lg:min-w-0 lg:flex-1">
+              <p className="truncate text-xs font-semibold text-bhon-text">{currentUser.name}</p>
               <p className="mt-0.5 flex items-center gap-1 text-[9px] uppercase tracking-[0.12em] text-slate-500"><Sparkles aria-hidden="true" className="h-2.5 w-2.5" /> Operação clínica</p>
             </div>
-            <button type="button" onClick={logout} aria-label="Sair do sistema" title="Sair do sistema" className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-white/10 hover:text-white">
+            <button type="button" onClick={logout} aria-label="Sair do sistema" title="Sair do sistema" className="rounded-lg p-2 text-bhon-muted transition-colors hover:bg-bhon-bg hover:text-bhon-text">
               <LogOut aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
         </div>
       </aside>
 
-      <nav aria-label="Atalhos clínicos" className="fixed inset-x-3 bottom-3 z-50 grid h-16 grid-cols-4 rounded-2xl border border-white/10 bg-bhon-navy/95 px-2 text-white shadow-[0_18px_50px_rgba(18,27,42,0.3)] backdrop-blur-xl sm:hidden">
+      <nav aria-label="Atalhos clínicos" className="fixed inset-x-3 bottom-3 z-50 grid h-16 grid-cols-4 rounded-2xl border border-bhon-border bg-white/95 px-2 text-bhon-text shadow-[0_18px_50px_rgba(18,27,42,0.16)] backdrop-blur-xl sm:hidden">
         {mobilePrimaryItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -118,7 +119,7 @@ export const Sidebar: React.FC = () => {
           );
         })}
         <button type="button" onClick={() => setIsMobileOpen(true)} aria-label="Abrir menu" aria-expanded={isMobileOpen} className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold text-slate-300">
-          <Menu aria-hidden="true" className="h-5 w-5" />
+          <Menu aria-hidden="true" className="h-5 w-5 text-bhon-navy" />
           <span>Mais</span>
         </button>
       </nav>

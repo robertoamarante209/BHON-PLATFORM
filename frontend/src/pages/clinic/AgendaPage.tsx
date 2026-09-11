@@ -199,7 +199,16 @@ export const AgendaPage: React.FC = () => {
         </section>
       ) : null}
 
-      {!loading && rooms.length > 0 ? <div className="bhon-panel overflow-x-auto rounded-2xl">
+      {!loading && rooms.length > 0 ? <div className="space-y-3">
+        <section aria-label="Agenda do dia no celular" className="space-y-2 sm:hidden">
+          {visibleAppointments.length === 0 ? <div className="bhon-panel rounded-2xl p-8 text-center text-sm text-bhon-muted">Nenhum atendimento para este filtro.</div> : visibleAppointments.map((apt) => (
+            <button key={apt.id} type="button" onClick={() => setSelectedApt(apt)} className="bhon-panel flex w-full items-start gap-3 rounded-2xl p-4 text-left">
+              <span className="rounded-xl bg-bhon-teal-subtle px-2.5 py-2 font-mono-data text-xs font-bold text-bhon-teal-dark">{apt.time}</span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-bhon-text">{apt.patientName}</span><span className="mt-1 block truncate text-xs text-bhon-muted">{apt.procedureName} · {apt.professionalName}</span><span className="mt-2 flex items-center gap-2"><StatusBadge status={apt.status} size="sm" /><span className="truncate text-[10px] text-bhon-muted">{apt.roomName}</span></span></span>
+            </button>
+          ))}
+        </section>
+        <div className="bhon-panel hidden overflow-x-auto rounded-2xl sm:block">
         {/* Cabeçalho das Colunas de Consultórios */}
         <div style={{ gridTemplateColumns: `86px repeat(${Math.max(rooms.length, 1)}, minmax(240px, 1fr))` }} className="sticky top-0 z-10 grid min-w-max border-b border-bhon-border bg-[#F8F5EF] text-[10px] font-bold uppercase tracking-[0.15em] text-bhon-text">
           <div className="border-r border-bhon-border p-4 text-center font-mono-data text-bhon-muted">
@@ -300,6 +309,7 @@ export const AgendaPage: React.FC = () => {
               </div>
             );
           })}
+        </div>
         </div>
       </div> : null}
 

@@ -5,12 +5,16 @@
 @layer base {
   :root {
     --color-navy: #0F1115;
+    --color-navy-hover: #202329;
     --color-teal: #00B894;
+    --color-teal-dark: #008F79;
+    --color-teal-subtle: #DDF7F1;
     --color-bg: #0F1115;
     --color-surface: #181A1F;
     --color-text: #F8F9F7;
     --color-muted: #9CA3AF;
     --color-border: #2A2D32;
+    --color-border-strong: #3A3E45;
   }
 
   body {
@@ -71,6 +75,52 @@
 
 .bhon-login-form {
   animation: bhon-login-content 720ms 140ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bhon-clinic-theme {
+  --color-navy: #132238;
+  --color-navy-hover: #203653;
+  --color-teal: #00A98F;
+  --color-teal-dark: #007E6D;
+  --color-teal-subtle: #DDF7F1;
+  --color-bg: #F4F7F6;
+  --color-surface: #FFFFFF;
+  --color-text: #1B2A3A;
+  --color-muted: #667786;
+  --color-border: #DCE6E3;
+  --color-border-strong: #C8D7D3;
+  color-scheme: light;
+}
+
+.bhon-clinic-theme .bhon-ambient-bg {
+  background-image:
+    radial-gradient(circle at 88% 4%, rgba(0, 169, 143, 0.11), transparent 26rem),
+    radial-gradient(circle at 18% 90%, rgba(19, 34, 56, 0.035), transparent 22rem);
+}
+
+.bhon-clinic-theme .bhon-panel {
+  border-color: var(--color-border);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 36px rgba(26, 48, 62, 0.07);
+}
+
+.bhon-clinic-theme .bhon-table th {
+  background-color: #F0F5F3;
+  color: #667786;
+  border-bottom-color: var(--color-border);
+}
+
+.bhon-clinic-theme .bhon-table td {
+  border-bottom-color: #E7EEEC;
+  color: var(--color-text);
+}
+
+.bhon-clinic-theme .bhon-table tr:hover td { background-color: #F7FAF9; }
+
+.bhon-clinic-theme input,
+.bhon-clinic-theme select,
+.bhon-clinic-theme textarea {
+  color-scheme: light;
 }
 
 .bhon-login-visual {

@@ -89,29 +89,29 @@ export const OverviewPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#14161A] px-5 py-6 text-white shadow-[0_24px_70px_rgba(0,0,0,0.2)] sm:px-7 lg:px-8">
-        <div aria-hidden="true" className="absolute -right-24 -top-32 h-72 w-72 rounded-full bg-bhon-teal/10 blur-3xl" />
+      <section className="relative overflow-hidden rounded-3xl border border-bhon-border bg-gradient-to-br from-white via-white to-[#E8F7F3] px-5 py-6 text-bhon-text shadow-[0_18px_55px_rgba(30,64,75,0.08)] sm:px-7 lg:px-8">
+        <div aria-hidden="true" className="absolute -right-24 -top-32 h-72 w-72 rounded-full bg-bhon-teal/15 blur-3xl" />
         <div className="relative grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
           <div>
             <p className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-bhon-teal"><Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Operação de hoje</p>
             <h2 className="max-w-2xl text-balance font-display text-2xl font-semibold leading-tight sm:text-3xl">
               Sua clínica, <span className="text-bhon-teal">em movimento.</span>
             </h2>
-            <p className="mt-3 max-w-xl text-pretty text-xs leading-relaxed text-slate-400 sm:text-sm">
+            <p className="mt-3 max-w-xl text-pretty text-xs leading-relaxed text-bhon-muted sm:text-sm">
               {loadingAgenda ? 'Preparando a jornada clínica do dia…' : `${totalPatientsToday} pacientes compõem a jornada de hoje em ${rooms.length} ambiente${rooms.length === 1 ? '' : 's'} clínico${rooms.length === 1 ? '' : 's'}.`}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-5 backdrop-blur-sm">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-400">Próximo gesto de cuidado</p>
+          <div className="rounded-2xl border border-bhon-border bg-white/80 p-5 shadow-sm backdrop-blur-sm">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-bhon-muted">Próximo atendimento</p>
             {nextAppointment ? (
               <div className="mt-4">
                 <div className="flex items-baseline justify-between gap-4"><p className="font-display text-lg font-semibold">{nextAppointment.patientName}</p><span className="font-mono-data text-sm text-bhon-teal">{nextAppointment.time}</span></div>
-                <p className="mt-1 truncate text-[11px] text-slate-400">{nextAppointment.procedureName} · {nextAppointment.roomName}</p>
+                <p className="mt-1 truncate text-[11px] text-bhon-muted">{nextAppointment.procedureName} · {nextAppointment.roomName}</p>
               </div>
             ) : <p className="mt-4 font-display text-xl text-slate-300">Agenda em ordem.</p>}
             <Link href="/clinic/agenda">
-              <div className="mt-5 flex cursor-pointer items-center justify-between border-t border-white/10 pt-4 text-[11px] font-semibold text-white transition-colors hover:text-bhon-teal">
+              <div className="mt-5 flex cursor-pointer items-center justify-between border-t border-bhon-border pt-4 text-[11px] font-semibold text-bhon-navy transition-colors hover:text-bhon-teal-dark">
                 Abrir agenda clínica <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </div>
             </Link>
@@ -132,7 +132,7 @@ export const OverviewPage: React.FC = () => {
             { label: 'Atenções', value: missedCount, detail: 'faltas registradas', icon: CalendarDays, tone: missedCount > 0 ? 'text-rose-400' : 'text-bhon-muted' },
           ].map((metric) => {
             const Icon = metric.icon;
-            return <div key={metric.label} className="min-w-0 rounded-2xl border border-white/[0.07] bg-bhon-surface p-4 shadow-[0_14px_36px_rgba(0,0,0,0.14)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-bhon-muted">{metric.label}</p><Icon aria-hidden="true" className={`h-4 w-4 ${metric.tone}`} /></div><p className={`mt-4 font-display text-3xl font-semibold ${metric.tone}`}>{metric.value}</p><p className="mt-1 text-[10px] text-bhon-muted">{metric.detail}</p></div>;
+            return <div key={metric.label} className="min-w-0 rounded-2xl border border-bhon-border bg-bhon-surface p-4 shadow-[0_10px_30px_rgba(30,64,75,0.055)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-bhon-muted">{metric.label}</p><Icon aria-hidden="true" className={`h-4 w-4 ${metric.tone}`} /></div><p className={`mt-4 font-display text-3xl font-semibold ${metric.tone}`}>{metric.value}</p><p className="mt-1 text-[10px] text-bhon-muted">{metric.detail}</p></div>;
           })}
         </div>
       </section>

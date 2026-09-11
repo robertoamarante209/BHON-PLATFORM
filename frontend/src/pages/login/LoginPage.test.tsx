@@ -39,7 +39,7 @@ describe('LoginPage', () => {
   it('reproduz a composição editorial do protótipo aprovado', () => {
     render(<LoginPage />);
 
-    expect(screen.getAllByRole('img', { name: 'BHON' })[0]).toHaveAttribute('src', '/figma-login-asset-2.png');
+    expect(screen.getAllByRole('img', { name: 'BHON' })[0]).toHaveAttribute('src', '/figma-login-symbol.svg');
     expect(screen.getByRole('heading', { name: /^login$/i })).toBeVisible();
     expect(screen.getByText(/acreditar no futuro da saúde/i)).toBeVisible();
     expect(screen.getByRole('img', { name: /ambiente clínico minimalista/i })).toHaveAttribute('src', '/figma-login-office.jpg');

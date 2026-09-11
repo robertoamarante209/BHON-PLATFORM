@@ -93,14 +93,14 @@ export const LoginPage: React.FC = () => {
     <div className="bhon-login-shell min-h-[100dvh] overflow-hidden bg-white text-[#171725]">
       {showIntro && (
         <div data-testid="brand-intro" aria-hidden="true" className="bhon-brand-intro fixed inset-0 z-50 grid place-items-center bg-[#f8f7f4]">
-          <img src="/figma-login-asset-2.png" alt="" className="bhon-brand-intro-logo w-[min(32vw,160px)] rounded-2xl" />
+          <img src="/figma-login-symbol.svg" alt="" className="bhon-brand-intro-logo w-[min(32vw,160px)]" />
         </div>
       )}
 
       <main className="grid min-h-[100dvh] w-full lg:grid-cols-[44%_56%]">
         <section className="bhon-login-form relative z-10 flex min-h-[100dvh] items-center bg-white px-6 py-10 sm:px-12 lg:px-[clamp(4rem,8.5vw,8rem)]" aria-labelledby="login-title">
           <div className="w-full max-w-[403px]">
-            <img src="/figma-login-asset-2.png" alt="BHON" width="400" height="400" className="mb-8 h-16 w-16 rounded-xl object-cover lg:hidden" />
+            <img src="/figma-login-symbol.svg" alt="BHON" width="120" height="120" className="mb-8 h-16 w-16 lg:hidden" />
             <h1 id="login-title" className="font-display text-[30px] font-semibold tracking-[0.1px]">Login</h1>
             {error && <div id="login-error" role="alert" aria-live="polite" className="mt-6 rounded-2xl border border-[#D94F70]/25 bg-white/55 px-4 py-3 text-sm text-[#8E2641]">{error}</div>}
 
@@ -132,7 +132,7 @@ export const LoginPage: React.FC = () => {
         <aside className="relative hidden min-h-[100dvh] overflow-hidden bg-[#f7f7f7] lg:block" aria-label="Ambiente clínico minimalista">
           <img src="/figma-login-office.jpg" alt="Ambiente clínico minimalista" className="absolute inset-0 h-full w-full object-cover object-center" />
           <div className="absolute left-0 top-[12%] flex max-w-[610px] items-start gap-0">
-            <img src="/figma-login-asset-2.png" alt="BHON" width="400" height="400" className="h-[108px] w-[108px] shrink-0 object-cover shadow-[0_14px_40px_rgba(15,17,21,0.08)]" />
+            <img src="/figma-login-symbol.svg" alt="BHON" width="120" height="120" className="h-[108px] w-[108px] shrink-0 drop-shadow-[0_14px_24px_rgba(15,17,21,0.10)]" />
             <blockquote className="relative pt-7 text-[#3a424a]">
               <span aria-hidden="true" className="absolute -left-2 -top-7 font-serif text-[110px] leading-none text-[#dce0e3]">“</span>
               <p className="relative font-display text-[clamp(1.2rem,1.75vw,1.75rem)] leading-[1.55] tracking-[-0.02em]">Acreditar no futuro da saúde é transformar a gestão em um ato de cuidado.</p>

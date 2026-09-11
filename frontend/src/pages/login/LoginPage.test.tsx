@@ -27,6 +27,11 @@ describe('LoginPage', () => {
     expect(screen.queryByTestId('brand-intro')).not.toBeInTheDocument();
   });
 
+  it('mantém o convite de entrada sem ícone de som', () => {
+    render(<LoginPage />);
+    expect(screen.getByRole('button', { name: /entrar na bhon/i }).querySelector('svg')).toBeNull();
+  });
+
   it('não anima a abertura quando o usuário prefere movimento reduzido', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }));
     render(<LoginPage />);

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, KeyRound, UserRound, Volume2 } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, UserRound } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
 
@@ -131,7 +131,7 @@ export const LoginPage: React.FC = () => {
             <img src="/figma-login-symbol.png" alt="BHON" className={`${introStarted ? 'bhon-brand-intro-logo' : ''} w-[min(32vw,160px)]`} />
             {!introStarted && (
               <button type="button" onClick={handleStartIntro} className="flex items-center gap-2 rounded-full bg-[#0f1115] px-6 py-3 text-sm font-semibold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-[#00a98b]">
-                <Volume2 size={17} aria-hidden="true" /> Entrar na BHON
+                Entrar na BHON
               </button>
             )}
           </div>

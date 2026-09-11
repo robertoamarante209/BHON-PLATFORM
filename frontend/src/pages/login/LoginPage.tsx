@@ -98,8 +98,8 @@ export const LoginPage: React.FC = () => {
       )}
 
       <main className="mx-auto grid min-h-[100dvh] w-full max-w-[1440px] lg:grid-cols-[minmax(430px,0.78fr)_1.22fr]">
-        <section className="bhon-login-form flex min-h-[100dvh] flex-col px-6 py-8 sm:px-12 lg:px-16 xl:px-24" aria-labelledby="login-title">
-          <img src="/logo-bhon-dark.svg" alt="BHON" width="620" height="190" className="h-auto w-[142px] object-contain" />
+        <section className="bhon-login-form relative flex min-h-[100dvh] flex-col px-6 py-8 sm:px-12 lg:px-16 xl:px-24" aria-labelledby="login-title">
+          <img src="/logo-bhon-dark.svg" alt="BHON" width="620" height="190" className="h-auto w-[142px] object-contain lg:absolute lg:right-10 lg:top-7 lg:w-[122px] xl:right-14" />
           <div className="my-auto w-full max-w-[430px] py-10">
             <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#D94F70]">Área segura</p>
             <h1 id="login-title" className="mt-4 font-display text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">

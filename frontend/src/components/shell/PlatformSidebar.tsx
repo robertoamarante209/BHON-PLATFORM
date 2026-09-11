@@ -41,9 +41,9 @@ export const PlatformSidebar: React.FC = () => {
         Logo oficial BHON única no topo esquerdo.
       */}
       <div className="p-5 pb-4 border-b border-slate-800/80 bg-slate-900/50">
-        <Link href="/platform/overview" aria-label="Ir para a visão geral da plataforma" className="block rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+        <Link href="/platform/overview" aria-label="Ir para a visão geral da plataforma" className="block rounded-xl border border-white/10 bg-white p-3 shadow-sm">
           <span className="block w-full">
-            <img src="/logo-bhon-light.svg" alt="BHON" width="620" height="190" className="h-auto w-full" />
+            <img src="/logo-bhon-dark.svg" alt="BHON" width="620" height="190" className="h-auto w-full" />
           </span>
         </Link>
 

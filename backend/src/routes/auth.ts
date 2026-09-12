@@ -257,12 +257,18 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "A clínica está indisponível para operação.", code: "TENANT_UNAVAILABLE" });
     }
 
-    await prisma.$executeRaw`
+    const linkedUserCount = await prisma.$executeRaw`
       UPDATE users
       SET google_subject = ${googleSubject}, google_email = ${googleEmail}, updated_at = NOW()
       WHERE id = ${userRow.id}
+        AND tenant_id = ${userRow.tenant_id}
         AND (google_subject IS NULL OR google_subject = ${googleSubject})
     `;
+
+    if (linkedUserCount !== 1) {
+      request.log.warn({ code: "GOOGLE_LINK_CONFLICT", role: userRow.role }, "Google authentication rejected: identity link changed concurrently");
+      return reply.code(409).send({ error: "Não foi possível vincular esta conta Google. Tente novamente.", code: "GOOGLE_LINK_CONFLICT" });
+    }
 
     request.log.info({ code: "GOOGLE_AUTHENTICATED", role: userRow.role }, "Google authentication accepted");
     return createAuthenticatedSession(reply, request, mapGoogleUserRowToSessionUser({

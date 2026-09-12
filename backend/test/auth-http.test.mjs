@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
+import { OAuth2Client } from 'google-auth-library';
 import { hashPassword } from '../src/lib/auth.ts';
 
 process.env.DATABASE_URL ||= 'postgresql://bhon:bhon@localhost:5432/bhon';
@@ -26,6 +27,11 @@ async function withPrismaStubs(stubs, run) {
   const originals = [];
   for (const [delegateName, methods] of Object.entries(stubs)) {
     const delegate = prisma[delegateName];
+    if (typeof methods === 'function') {
+      originals.push([prisma, delegateName, delegate]);
+      prisma[delegateName] = methods;
+      continue;
+    }
     for (const [methodName, implementation] of Object.entries(methods)) {
       originals.push([delegate, methodName, delegate[methodName]]);
       delegate[methodName] = implementation;
@@ -37,6 +43,126 @@ async function withPrismaStubs(stubs, run) {
     for (const [delegate, methodName, implementation] of originals) delegate[methodName] = implementation;
   }
 }
+
+async function withGoogleIdentity(payload, run) {
+  const originalVerifyIdToken = OAuth2Client.prototype.verifyIdToken;
+  const originalClientId = process.env.GOOGLE_CLIENT_ID;
+  process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
+  OAuth2Client.prototype.verifyIdToken = async () => ({ getPayload: () => payload });
+  try {
+    return await run();
+  } finally {
+    OAuth2Client.prototype.verifyIdToken = originalVerifyIdToken;
+    if (originalClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = originalClientId;
+  }
+}
+
+const googleCredential = 'g'.repeat(100);
+const googlePayload = { sub: 'google-subject-a', email: 'google@bhon.test', email_verified: true };
+const googleUser = {
+  id: 'google-user-a', tenant_id: 'tenant-a', name: 'Pessoa Google', email: 'google@bhon.test',
+  role: 'DENTIST', status: 'ACTIVE', specialty: null, cro: null, phone: null, avatar_url: null,
+  google_subject: 'google-subject-a', google_email: 'google@bhon.test',
+};
+
+test('login Google rejeita tenant inativo sem criar sessão', async () => {
+  let sessionsCreated = 0;
+
+  await withGoogleIdentity(googlePayload, async () => {
+    await withPrismaStubs({
+      $queryRaw: async () => [googleUser],
+      tenant: { findUnique: async () => ({ ...activeTenant, status: 'SUSPENDED' }) },
+      session: { create: async () => { sessionsCreated += 1; } },
+    }, async () => {
+      const response = await app.inject({
+        method: 'POST', url: '/auth/google', headers: { origin: 'https://app.bhon.test' },
+        payload: { credential: googleCredential },
+      });
+
+      assert.equal(response.statusCode, 403);
+      assert.equal(response.json().code, 'TENANT_UNAVAILABLE');
+      assert.equal(sessionsCreated, 0);
+    });
+  });
+});
+
+test('login Google rejeita tenant excluído sem criar sessão', async () => {
+  let sessionsCreated = 0;
+
+  await withGoogleIdentity(googlePayload, async () => {
+    await withPrismaStubs({
+      $queryRaw: async () => [googleUser],
+      tenant: { findUnique: async () => ({ ...activeTenant, deletedAt: new Date('2026-09-10T00:00:00Z') }) },
+      session: { create: async () => { sessionsCreated += 1; } },
+    }, async () => {
+      const response = await app.inject({
+        method: 'POST', url: '/auth/google', headers: { origin: 'https://app.bhon.test' },
+        payload: { credential: googleCredential },
+      });
+
+      assert.equal(response.statusCode, 403);
+      assert.equal(response.json().code, 'TENANT_UNAVAILABLE');
+      assert.equal(sessionsCreated, 0);
+    });
+  });
+});
+
+test('login Google rejeita e-mail ambíguo sem vincular ou criar sessão', async () => {
+  let queryCount = 0;
+  let sessionsCreated = 0;
+  let linksAttempted = 0;
+  const secondUser = { ...googleUser, id: 'google-user-b', tenant_id: 'tenant-b', google_subject: null };
+
+  await withGoogleIdentity(googlePayload, async () => {
+    await withPrismaStubs({
+      $queryRaw: async () => queryCount++ === 0 ? [] : [{ ...googleUser, google_subject: null }, secondUser],
+      $executeRaw: async () => { linksAttempted += 1; return 1; },
+      session: { create: async () => { sessionsCreated += 1; } },
+    }, async () => {
+      const response = await app.inject({
+        method: 'POST', url: '/auth/google', headers: { origin: 'https://app.bhon.test' },
+        payload: { credential: googleCredential },
+      });
+
+      assert.equal(response.statusCode, 403);
+      assert.equal(response.json().code, 'GOOGLE_ACCOUNT_NOT_LINKED');
+      assert.equal(linksAttempted, 0);
+      assert.equal(sessionsCreated, 0);
+    });
+  });
+});
+
+test('login Google rejects a failed tenant-scoped identity link before creating a session', async () => {
+  let queryCount = 0;
+  let sessionsCreated = 0;
+  let userUpdated = 0;
+  let linkParameters;
+
+  await withGoogleIdentity(googlePayload, async () => {
+    await withPrismaStubs({
+      $queryRaw: async () => queryCount++ === 0 ? [] : [{ ...googleUser, google_subject: null }],
+      $executeRaw: async (strings, ...parameters) => {
+        linkParameters = parameters;
+        return 0;
+      },
+      tenant: { findUnique: async () => activeTenant },
+      session: { create: async () => { sessionsCreated += 1; } },
+      user: { update: async () => { userUpdated += 1; } },
+    }, async () => {
+      const response = await app.inject({
+        method: 'POST', url: '/auth/google', headers: { origin: 'https://app.bhon.test' },
+        payload: { credential: googleCredential },
+      });
+
+      assert.equal(response.statusCode, 409);
+      assert.equal(response.json().code, 'GOOGLE_LINK_CONFLICT');
+      assert.equal(linkParameters.includes('tenant-a'), true);
+      assert.equal(sessionsCreated, 0);
+      assert.equal(userUpdated, 0);
+    });
+  });
+});
 
 test('login por senha rejeita identidade ambígua com resposta genérica', async () => {
   const passwordHash = await hashPassword('senha-segura-123');

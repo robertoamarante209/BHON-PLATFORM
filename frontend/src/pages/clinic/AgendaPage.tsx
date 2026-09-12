@@ -16,6 +16,8 @@ import type { Appointment, AppointmentStatus, Patient, Room } from '../../types'
 import { appointmentTransitions, createAppointment, getSchedulingResources, listAppointments, listPatients, updateAppointmentStatus } from '../../lib/clinic';
 import type { ProfessionalOption } from '../../lib/clinic';
 import { clinicCalendarDate, zonedLocalDateTimeToIso } from '../../lib/datetime';
+import { canChangeAppointmentStatus, canManageAppointments } from '../../lib/clinicalPermissions';
+import { useAuth } from '../../context/AuthContext';
 
 function moveDate(value: string, days: number): string {
   const date = new Date(`${value}T12:00:00Z`);
@@ -25,6 +27,7 @@ function moveDate(value: string, days: number): string {
 
 export const AgendaPage: React.FC = () => {
   const [, setLocation] = useLocation();
+  const { currentUser } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalOption[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -161,10 +164,10 @@ export const AgendaPage: React.FC = () => {
             <option value="FALTA">Faltas</option>
           </select>
 
-          <button type="button" onClick={() => setIsNewAptOpen(true)} disabled={loading || rooms.length === 0 || professionals.length === 0 || patients.length === 0} className="flex h-11 items-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(18,27,42,0.2)] transition-[background-color,transform,opacity] hover:bg-bhon-navy-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45">
+          {canManageAppointments(currentUser.role) && <button type="button" onClick={() => setIsNewAptOpen(true)} disabled={loading || rooms.length === 0 || professionals.length === 0 || patients.length === 0} className="flex h-11 items-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(18,27,42,0.2)] transition-[background-color,transform,opacity] hover:bg-bhon-navy-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45">
             <Plus aria-hidden="true" className="h-4 w-4 text-bhon-teal" />
             <span>Novo agendamento</span>
-          </button>
+          </button>}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-bhon-border bg-[#F8F5EF] px-5 py-3 text-[10px] text-bhon-muted sm:px-6 lg:px-8">
@@ -352,6 +355,7 @@ export const AgendaPage: React.FC = () => {
               </div>
             </div>
 
+            {canChangeAppointmentStatus(currentUser.role) && <>
             {/* Ações Imediatas Requeridas pelo Master Prompt (Seção 16) */}
             <div>
               <p className="font-bold text-bhon-text uppercase tracking-wider text-[11px] mb-2">
@@ -430,6 +434,7 @@ export const AgendaPage: React.FC = () => {
                 </button>
               </div>
             </div>
+            </>}
 
             {/* Links Rápidos Navegáveis */}
             <div className="pt-3 border-t border-bhon-border space-y-2">

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { Route, Switch, Redirect } from 'wouter';
+import { Route, Switch, Redirect, useLocation, useSearch } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Layouts
@@ -41,8 +41,10 @@ const RouteLoading: React.FC = () => (
 // ============================================================
 // Guard: redireciona para /login se não autenticado
 // ============================================================
-const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoadingAuth } = useAuth();
+export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoadingAuth, sessionIssue, refreshSession, logout } = useAuth();
+  const [location] = useLocation();
+  const search = useSearch();
 
   if (isLoadingAuth) {
     return (
@@ -55,8 +57,39 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
 
+  if (sessionIssue) {
+    const isRecoverable = sessionIssue === 'SESSION_RECOVERY_FAILED';
+    const title = sessionIssue === 'TENANT_UNAVAILABLE'
+      ? 'Clínica indisponível'
+      : sessionIssue === 'USER_BLOCKED'
+        ? 'Acesso suspenso'
+        : 'Não foi possível confirmar sua sessão';
+    const description = sessionIssue === 'TENANT_UNAVAILABLE'
+      ? 'A clínica está temporariamente indisponível. Entre em contato com a administração para regularizar o acesso.'
+      : sessionIssue === 'USER_BLOCKED'
+        ? 'Seu acesso foi bloqueado. Entre em contato com a administração da clínica.'
+        : 'Sua sessão local foi preservada. Verifique sua conexão e tente novamente.';
+
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F8FAFB] px-4">
+        <section aria-labelledby="session-status-title" className="w-full max-w-md rounded border border-bhon-border bg-white p-6 text-center shadow-sm">
+          <h1 id="session-status-title" className="text-lg font-bold text-bhon-text">{title}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-bhon-muted">{description}</p>
+          <button
+            type="button"
+            onClick={() => void (isRecoverable ? refreshSession() : logout())}
+            className="mt-5 min-h-11 w-full rounded bg-bhon-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-bhon-navy-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bhon-teal focus-visible:ring-offset-2"
+          >
+            {isRecoverable ? 'Tentar novamente' : 'Encerrar sessão'}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <Redirect to="/login" />;
+    const intendedLocation = `${location}${search ? `?${search}` : ''}`;
+    return <Redirect to={`/login?next=${encodeURIComponent(intendedLocation)}`} />;
   }
 
   return <>{children}</>;

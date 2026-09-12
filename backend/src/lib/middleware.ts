@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "./prisma.js";
 import { hashSessionToken } from "./auth.js";
 import type { Tenant, User, Session } from "./prisma-types.js";
+import { isTenantActiveForAuthentication } from "../domain/auth-policy.js";
 
 type AuthenticatedUser = Omit<User, "passwordHash" | "emailNormalized">;
 type AuthenticatedSession = Omit<Session, "tokenHash">;
@@ -74,7 +75,7 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
       return;
     }
 
-    if (session.user.role !== "PLATFORM_OWNER" && ["CANCELLED", "SUSPENDED"].includes(session.tenant.status)) {
+    if (!isTenantActiveForAuthentication(session.tenant)) {
       reply.code(403).send({ error: "A clínica está indisponível para operação.", code: "TENANT_UNAVAILABLE" });
       return;
     }

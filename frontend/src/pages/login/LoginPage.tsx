@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, KeyRound, UserRound } from 'lucide-react';
-import { useLocation } from 'wouter';
+import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
+import { resolvePostLoginPath } from '../../lib/authRedirect';
 
 type GoogleIdentity = { accounts: { id: {
   initialize: (config: { client_id: string; callback: (response: { credential: string }) => void }) => void;
@@ -53,7 +54,8 @@ const playIntroSound = () => {
 };
 
 export const LoginPage: React.FC = () => {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const search = useSearch();
   const { login, loginWithGoogle } = useAuth();
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const introSoundCleanupRef = useRef<() => void>(() => undefined);
@@ -94,7 +96,7 @@ export const LoginPage: React.FC = () => {
               setError('Não foi possível concluir o login com Google. A conta selecionada não está autorizada na BHON.');
               return;
             }
-            setLocation(user.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview');
+            setLocation(resolvePostLoginPath(user.role, `${location}${search ? `?${search}` : ''}`));
           } finally { setIsSubmitting(false); }
         },
       });
@@ -110,7 +112,7 @@ export const LoginPage: React.FC = () => {
     }
     script.addEventListener('load', initializeGoogle, { once: true });
     return () => script?.removeEventListener('load', initializeGoogle);
-  }, [googleClientId, loginWithGoogle, rememberMe, setLocation]);
+  }, [googleClientId, location, loginWithGoogle, rememberMe, search, setLocation]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault(); setError('');
@@ -119,7 +121,7 @@ export const LoginPage: React.FC = () => {
     try {
       const user = await login(email, password, rememberMe);
       if (!user) { setError('Não foi possível autenticar. Verifique suas credenciais ou contate o administrador.'); return; }
-      setLocation(user.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview');
+      setLocation(resolvePostLoginPath(user.role, `${location}${search ? `?${search}` : ''}`));
     } finally { setIsSubmitting(false); }
   };
 

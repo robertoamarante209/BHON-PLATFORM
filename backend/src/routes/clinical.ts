@@ -5,9 +5,9 @@ import { AppointmentStatus, PatientStatus, QuoteStatus, TreatmentStatus, Opportu
 import { intervalsOverlap, isAppointmentTransitionAllowed, parseAppointmentDuration } from "../domain/scheduling.js";
 import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgress, type StageState, type TreatmentState } from "../domain/treatment.js";
 import { zonedCalendarDayRange, zonedDayRange } from "../domain/time.js";
+import { APPOINTMENT_STATUS_ROLES, APPOINTMENT_WRITE_ROLES, CLINICAL_STAGE_WRITE_ROLES, PATIENT_WRITE_ROLES } from "../domain/clinical-permissions.js";
 
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
-const CLINIC_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
 const CLINIC_MANAGEMENT_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
 
 type SchedulingClient = Pick<typeof prisma, "appointment">;
@@ -294,7 +294,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.post("/patients", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requireRole(PATIENT_WRITE_ROLES),
     schema: {
       body: {
         type: "object",
@@ -347,7 +347,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.patch<{ Params: { id: string } }>("/patients/:id", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requireRole(PATIENT_WRITE_ROLES),
     schema: {
       body: {
         type: "object",
@@ -555,7 +555,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.post("/appointments", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requireRole(APPOINTMENT_WRITE_ROLES),
     schema: {
       body: {
         type: "object",
@@ -659,7 +659,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.patch<{ Params: { id: string } }>("/appointments/:id/reschedule", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requireRole(APPOINTMENT_WRITE_ROLES),
     schema: {
       body: {
         type: "object",
@@ -750,7 +750,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
 
   // WORKFLOW CRÍTICO CRUZADO DE STATUS DO AGENDAMENTO
   app.patch<{ Params: { id: string } }>("/appointments/:id/status", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requireRole(APPOINTMENT_STATUS_ROLES),
     schema: {
       body: {
         type: "object",
@@ -984,7 +984,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.patch<{ Params: { id: string } }>("/treatment-stages/:id/status", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requireRole(CLINICAL_STAGE_WRITE_ROLES),
     schema: {
       body: {
         type: "object",

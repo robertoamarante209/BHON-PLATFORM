@@ -6,6 +6,7 @@ import { requireAuth } from "../lib/middleware.js";
 import { SlidingWindowRateLimiter } from "../domain/security.js";
 import { revokeSession } from "../domain/session.js";
 import { normalizeGoogleEmail, mapGoogleUserRowToSessionUser } from "../domain/google-identity.js";
+import { isTenantActiveForAuthentication, resolveUniqueIdentity } from "../domain/auth-policy.js";
 
 const loginLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
 const googleClient = new OAuth2Client();
@@ -112,10 +113,14 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
-    const user = await prisma.user.findFirst({
+    const users = await prisma.user.findMany({
       where: { emailNormalized: normalized, deletedAt: null },
       include: { tenant: { include: { rooms: { where: { isActive: true }, select: { id: true } } } } },
+      take: 2,
     });
+
+    const identity = resolveUniqueIdentity(users);
+    const user = identity.kind === "unique" ? identity.identity : null;
 
     if (!user || !user.passwordHash) {
       loginLimiter.recordFailure(limiterKey);
@@ -131,6 +136,11 @@ export async function authRoutes(app: FastifyInstance) {
     if (user.status !== "ACTIVE") {
       loginLimiter.recordFailure(limiterKey);
       return reply.code(403).send({ error: "Este usuário está inativo ou bloqueado no sistema.", code: "USER_INACTIVE_OR_BLOCKED" });
+    }
+
+    if (!isTenantActiveForAuthentication(user.tenant)) {
+      loginLimiter.recordFailure(limiterKey);
+      return reply.code(403).send({ error: "A clínica está indisponível para operação.", code: "TENANT_UNAVAILABLE" });
     }
 
     loginLimiter.reset(limiterKey);
@@ -177,7 +187,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: "A conta Google precisa ter um e-mail verificado.", code: "GOOGLE_EMAIL_NOT_VERIFIED" });
     }
 
-    const rows = await prisma.$queryRaw<Array<{
+    type GoogleUserRow = {
       id: string;
       tenant_id: string;
       name: string;
@@ -190,27 +200,42 @@ export async function authRoutes(app: FastifyInstance) {
       avatar_url: string | null;
       google_subject: string | null;
       google_email: string | null;
-    }>>`
+    };
+
+    const subjectRows = await prisma.$queryRaw<Array<GoogleUserRow>>`
       SELECT id, tenant_id, name, email, role, status, specialty, cro, phone, avatar_url,
              google_subject, google_email
       FROM users
       WHERE deleted_at IS NULL
-        AND (
-          google_subject = ${googleSubject}
-          OR LOWER(TRIM(COALESCE(google_email, ''))) = ${googleEmail}
-          OR LOWER(TRIM(COALESCE(email, ''))) = ${googleEmail}
-        )
-      LIMIT 1
+        AND google_subject = ${googleSubject}
+      LIMIT 2
     `;
 
-    const userRow = rows[0];
-    if (!userRow) {
+    let identity = resolveUniqueIdentity(subjectRows);
+    if (identity.kind === "not_found") {
+      const emailRows = await prisma.$queryRaw<Array<GoogleUserRow>>`
+        SELECT id, tenant_id, name, email, role, status, specialty, cro, phone, avatar_url,
+               google_subject, google_email
+        FROM users
+        WHERE deleted_at IS NULL
+          AND google_subject IS NULL
+          AND (
+            LOWER(TRIM(COALESCE(google_email, ''))) = ${googleEmail}
+            OR LOWER(TRIM(COALESCE(email, ''))) = ${googleEmail}
+          )
+        LIMIT 2
+      `;
+      identity = resolveUniqueIdentity(emailRows);
+    }
+
+    if (identity.kind !== "unique") {
       request.log.warn({ code: "GOOGLE_ACCOUNT_NOT_LINKED" }, "Google authentication rejected: user not found in production database");
       return reply.code(403).send({
         error: "Esta conta Google ainda não está vinculada a um usuário BHON.",
         code: "GOOGLE_ACCOUNT_NOT_LINKED",
       });
     }
+    const userRow = identity.identity;
 
     if (userRow.status !== "ACTIVE") {
       request.log.warn({ code: "USER_INACTIVE_OR_BLOCKED", role: userRow.role }, "Google authentication rejected: user inactive or blocked");
@@ -222,22 +247,22 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Esta conta Google não corresponde à identidade vinculada.", code: "GOOGLE_IDENTITY_MISMATCH" });
     }
 
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: userRow.tenant_id },
+      include: { rooms: { where: { isActive: true }, select: { id: true } } },
+    });
+
+    if (!tenant || !isTenantActiveForAuthentication(tenant)) {
+      request.log.warn({ code: "TENANT_UNAVAILABLE", role: userRow.role }, "Google authentication rejected: tenant unavailable");
+      return reply.code(403).send({ error: "A clínica está indisponível para operação.", code: "TENANT_UNAVAILABLE" });
+    }
+
     await prisma.$executeRaw`
       UPDATE users
       SET google_subject = ${googleSubject}, google_email = ${googleEmail}, updated_at = NOW()
       WHERE id = ${userRow.id}
         AND (google_subject IS NULL OR google_subject = ${googleSubject})
     `;
-
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: userRow.tenant_id },
-      include: { rooms: { where: { isActive: true }, select: { id: true } } },
-    });
-
-    if (!tenant) {
-      request.log.error({ code: "TENANT_NOT_FOUND", role: userRow.role }, "Google authentication rejected: tenant not found");
-      return reply.code(403).send({ error: "Clínica do usuário não encontrada.", code: "TENANT_NOT_FOUND" });
-    }
 
     request.log.info({ code: "GOOGLE_AUTHENTICATED", role: userRow.role }, "Google authentication accepted");
     return createAuthenticatedSession(reply, request, mapGoogleUserRowToSessionUser({

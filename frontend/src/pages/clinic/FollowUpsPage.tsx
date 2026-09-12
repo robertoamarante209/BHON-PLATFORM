@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
-import { useLocation } from 'wouter';
+import { useLocation, useSearch } from 'wouter';
 import { Drawer } from '../../components/common/Drawer';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
@@ -21,14 +21,24 @@ const actionRoles = ['OWNER', 'ADMIN', 'MANAGER', 'DENTIST', 'RECEPTIONIST'];
 
 export const FollowUpsPage: React.FC = () => {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const focusId = params.get('focus') || '';
+  const categoryParam = params.get('category');
+  const selectedCategory = categories.find(({ code }) => code === categoryParam)?.code || 'ALL';
+  const setSelectedCategory = (category: FollowUpCategory | 'ALL') => {
+    const next = new URLSearchParams(search);
+    next.delete('focus');
+    if (category === 'ALL') next.delete('category');
+    else next.set('category', category);
+    setLocation(`/clinic/follow-ups${next.size ? `?${next}` : ''}`);
+  };
   const { currentUser } = useAuth();
-  const [focusId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('focus') || '');
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [assignees, setAssignees] = useState<FollowUpAssignee[]>([]);
   const [metrics, setMetrics] = useState<FollowUpMetrics>({ pendingToday: 0, categoryCounts: emptyCategoryCounts });
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<FollowUpCategory | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<FollowUpStatus | 'ALL'>('ALL');
   const [page, setPage] = useState(1);
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUp | null>(null);
@@ -42,16 +52,26 @@ export const FollowUpsPage: React.FC = () => {
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
 
+  useEffect(() => {
+    setPage(1);
+    setSearchTerm('');
+    setStatusFilter('ALL');
+    setSelectedFollowUp(null);
+    setNotes(''); setOutcome(''); setNewDeadline(''); setAssigneeId('');
+    setAction('LOG_CONTACT'); setFeedback('');
+  }, [search]);
+
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError('');
     try {
       const result = await listFollowUps({ search: searchTerm.trim() || undefined, category: selectedCategory === 'ALL' ? undefined : selectedCategory, status: statusFilter === 'ALL' ? undefined : statusFilter, focus: focusId || undefined, page, limit: 20 }, signal);
+      if (signal?.aborted) return;
       setFollowUps(result.data);
       setAssignees(result.assignees);
       setMetrics(result.metrics);
       setPagination(result.pagination);
-      setSelectedFollowUp((current) => current ? result.data.find((item) => item.id === current.id) || null : focusId ? result.data[0] || null : null);
+      setSelectedFollowUp((current) => focusId ? result.data.find((item) => item.id === focusId) || null : current ? result.data.find((item) => item.id === current.id) || null : null);
     } catch (loadError) {
       if ((loadError as Error).name !== 'AbortError') setError((loadError as Error).message || 'Não foi possível carregar os acompanhamentos.');
     } finally {
@@ -100,7 +120,7 @@ export const FollowUpsPage: React.FC = () => {
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-col justify-between gap-3 border-b border-bhon-border pb-3 sm:flex-row sm:items-center"><div><h1 className="text-lg font-bold uppercase tracking-wide text-bhon-text">Fila de Acompanhamentos Operacionais</h1><p className="mt-0.5 text-xs text-bhon-muted">Contatos e desfechos persistidos, priorizados e auditáveis.</p></div><span className="font-mono-data text-xs text-bhon-muted">{metrics.pendingToday} ações vencidas ou previstas até hoje</span></div>
 
-      {!focusId && <><div className="flex flex-col gap-3 sm:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-bhon-muted" /><input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setPage(1); }} placeholder="Buscar paciente, prontuário, motivo ou próxima ação…" className="w-full rounded border border-bhon-border bg-white py-1.5 pl-9 pr-3 text-xs focus:border-bhon-teal focus:outline-none" /></div><select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as FollowUpStatus | 'ALL'); setPage(1); }} className="rounded border border-bhon-border bg-white px-2.5 py-1.5 text-xs"><option value="ALL">Todos os status</option>{statuses.map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}</select></div><div className="flex select-none items-center gap-1.5 overflow-x-auto pb-1"><button type="button" onClick={() => { setSelectedCategory('ALL'); setPage(1); }} className={`whitespace-nowrap rounded px-3 py-1.5 text-xs font-semibold transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.97] ${selectedCategory === 'ALL' ? 'bg-bhon-navy text-white' : 'border border-bhon-border bg-white text-bhon-muted hover:text-bhon-text'}`}>Todas</button>{categories.map((category) => <button type="button" key={category.code} onClick={() => { setSelectedCategory(category.code); setPage(1); }} className={`flex items-center gap-1.5 whitespace-nowrap rounded px-3 py-1.5 text-xs font-semibold transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.97] ${selectedCategory === category.code ? 'bg-bhon-teal text-white' : 'border border-bhon-border bg-white text-bhon-muted hover:text-bhon-text'}`}><span>{category.label}</span><span className="font-mono-data text-[10px] opacity-80">({metrics.categoryCounts[category.code] || 0})</span></button>)}</div></>}
+      {!focusId && <><div className="flex flex-col gap-3 sm:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-bhon-muted" /><input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setPage(1); }} aria-label="Buscar acompanhamentos" placeholder="Buscar paciente, prontuário, motivo ou próxima ação…" className="w-full rounded border border-bhon-border bg-white py-1.5 pl-9 pr-3 text-xs focus:border-bhon-teal focus:outline-none" /></div><select aria-label="Filtrar por status" value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as FollowUpStatus | 'ALL'); setPage(1); }} className="rounded border border-bhon-border bg-white px-2.5 py-1.5 text-xs"><option value="ALL">Todos os status</option>{statuses.map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}</select></div><div className="flex select-none items-center gap-1.5 overflow-x-auto pb-1"><button type="button" aria-pressed={selectedCategory === 'ALL'} onClick={() => { setSelectedCategory('ALL'); setPage(1); }} className={`min-h-11 whitespace-nowrap rounded px-3 py-2 text-xs font-semibold transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.97] ${selectedCategory === 'ALL' ? 'bg-bhon-navy text-white' : 'border border-bhon-border bg-white text-bhon-muted hover:text-bhon-text'}`}>Todas</button>{categories.map((category) => <button type="button" key={category.code} aria-pressed={selectedCategory === category.code} onClick={() => { setSelectedCategory(category.code); setPage(1); }} className={`flex items-center gap-1.5 min-h-11 whitespace-nowrap rounded px-3 py-2 text-xs font-semibold transition-[color,background-color,transform] duration-150 ease-out active:scale-[0.97] ${selectedCategory === category.code ? 'bg-bhon-teal-dark text-white' : 'border border-bhon-border bg-white text-bhon-muted hover:text-bhon-text'}`}><span>{category.label}</span><span className="font-mono-data text-[10px] opacity-80">({metrics.categoryCounts[category.code] || 0})</span></button>)}</div></>}
 
       {feedback && <div role="status" className="border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">{feedback}</div>}
       {error && <div role="alert" className="flex items-center justify-between border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><span>{error}</span><button type="button" onClick={() => void load()} className="font-bold underline">Tentar novamente</button></div>}

@@ -14,9 +14,8 @@ export const ClinicLayout: React.FC<ClinicLayoutProps> = ({ children }) => {
       </a>
       <Sidebar />
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div aria-hidden="true" className="bhon-ambient-bg pointer-events-none absolute inset-0 opacity-70" />
         <TopHeader />
-        <main id="main-content" tabIndex={-1} className="relative flex-1 overflow-y-auto px-4 pb-24 pt-5 sm:px-6 sm:pb-6 lg:px-8 lg:py-7 2xl:px-10">
+        <main id="main-content" tabIndex={-1} className="relative flex-1 overflow-y-auto px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pb-6 lg:px-8 lg:py-7 2xl:px-10">
           {children}
         </main>
       </div>

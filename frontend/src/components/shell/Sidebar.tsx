@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useLocation, useSearch } from 'wouter';
 import {
   BarChart3, Boxes, CalendarDays, CircleDollarSign, ClipboardCheck, FileText,
   Clock3, LayoutDashboard, LogOut, Menu, Settings, ShieldAlert, Sparkles,
-  MessageCircle, PlugZap, Stethoscope, Target, UserCheck, Users, X,
+  MessageCircle, PlugZap, Stethoscope, Target, UserCheck, Users,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { MobileNavigationDialog } from './MobileNavigationDialog';
 
 const sections = [
   { label: 'Cuidado', items: [
@@ -36,24 +37,33 @@ const mobilePrimaryItems = [sections[0].items[1], sections[0].items[0], sections
 
 export const Sidebar: React.FC = () => {
   const [location] = useLocation();
+  const search = useSearch();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { currentUser, currentClinic, logout } = useAuth();
+  // Matches the API's finance read roles; other clinical areas allow all clinic roles to read.
+  const visibleSections = sections.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => item.path !== '/clinic/finance' || ['OWNER', 'ADMIN', 'MANAGER', 'FINANCIAL', 'VIEWER'].includes(currentUser.role)),
+  }));
 
-  const isActive = (path: string) => location === path || (path !== '/clinic/overview' && location.startsWith(path));
+  const closeMobileMenu = useCallback(() => setIsMobileOpen(false), []);
+  const isActive = (path: string) => {
+    const [pathname, query] = path.split('?');
+    if (location !== pathname && !location.startsWith(`${pathname}/`)) return false;
+    if (pathname === '/clinic/follow-ups') {
+      const recoveringBudgets = new URLSearchParams(search).get('category') === 'ORCAMENTO';
+      return query ? recoveringBudgets : !recoveringBudgets;
+    }
+    return true;
+  };
 
   useEffect(() => {
-    if (!isMobileOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsMobileOpen(false);
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [isMobileOpen]);
+    closeMobileMenu();
+  }, [location, search, closeMobileMenu]);
 
   return (
     <>
       <aside className="relative z-40 hidden min-h-screen w-[76px] flex-shrink-0 flex-col overflow-hidden border-r border-bhon-border bg-white text-bhon-text sm:flex lg:w-[248px]">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_20%_0%,rgba(0,184,148,0.09),transparent_62%)]" />
 
         <div className="relative px-3 pb-6 pt-5">
           <Link href="/clinic/overview" aria-label="Ir para a visão do dia" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-colors hover:bg-bhon-bg lg:h-auto lg:w-full lg:justify-start lg:px-2 lg:py-2">
@@ -64,7 +74,7 @@ export const Sidebar: React.FC = () => {
         </div>
 
         <nav aria-label="Navegação clínica" className="relative flex-1 overflow-y-auto px-3 pb-4">
-          {sections.map((section) => (
+          {visibleSections.map((section) => (
             <div key={section.label} className="mb-5">
               <p className="sr-only">{section.label}</p>
               <div className="space-y-1">
@@ -100,54 +110,43 @@ export const Sidebar: React.FC = () => {
               <p className="truncate text-xs font-semibold text-bhon-text">{currentUser.name}</p>
               <p className="mt-0.5 flex items-center gap-1 text-[9px] uppercase tracking-[0.12em] text-slate-500"><Sparkles aria-hidden="true" className="h-2.5 w-2.5" /> Operação clínica</p>
             </div>
-            <button type="button" onClick={logout} aria-label="Sair do sistema" title="Sair do sistema" className="rounded-lg p-2 text-bhon-muted transition-colors hover:bg-bhon-bg hover:text-bhon-text">
+            <button type="button" onClick={logout} aria-label="Sair do sistema" title="Sair do sistema" className="flex h-11 w-11 items-center justify-center rounded-lg text-bhon-muted transition-colors hover:bg-bhon-bg hover:text-bhon-text">
               <LogOut aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
         </div>
       </aside>
 
-      <nav aria-label="Atalhos clínicos" className="fixed inset-x-3 bottom-3 z-50 grid h-16 grid-cols-4 rounded-2xl border border-bhon-border bg-white/95 px-2 text-bhon-text shadow-[0_18px_50px_rgba(18,27,42,0.16)] backdrop-blur-xl sm:hidden">
+      <nav aria-label="Atalhos clínicos" className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 grid min-h-16 grid-cols-4 rounded-2xl border border-bhon-border bg-bhon-surface p-1 text-bhon-text shadow-sm sm:hidden">
         {mobilePrimaryItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
           return (
-            <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${active ? 'text-bhon-teal' : 'text-slate-300'}`}>
+            <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-xs font-semibold transition-colors ${active ? 'bg-bhon-teal/10 text-bhon-teal-dark' : 'text-bhon-muted hover:bg-bhon-bg'}`}>
               <Icon aria-hidden="true" className="h-5 w-5" />
-              <span>{item.label.replace(' clínica', '')}</span>
+              <span>{item.path.includes('?') ? 'Recuperar' : item.label.replace(' clínica', '')}</span>
             </Link>
           );
         })}
-        <button type="button" onClick={() => setIsMobileOpen(true)} aria-label="Abrir menu" aria-expanded={isMobileOpen} className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold text-slate-300">
+        <button type="button" onClick={() => setIsMobileOpen(true)} aria-label="Abrir menu" aria-haspopup="dialog" aria-expanded={isMobileOpen} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs font-semibold text-bhon-muted hover:bg-bhon-bg">
           <Menu aria-hidden="true" className="h-5 w-5 text-bhon-navy" />
           <span>Mais</span>
         </button>
       </nav>
 
       {isMobileOpen ? (
-        <div className="fixed inset-0 z-[70] sm:hidden">
-          <button type="button" onClick={() => setIsMobileOpen(false)} aria-label="Fechar menu" className="absolute inset-0 h-full w-full bg-bhon-navy/60 backdrop-blur-sm" />
-          <div role="dialog" aria-modal="true" aria-label="Navegação clínica" className="bhon-mobile-sheet absolute inset-x-3 bottom-3 max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl border border-white/10 bg-bhon-navy p-5 text-white shadow-2xl">
-            <div className="mb-5 flex items-center justify-between gap-4">
-              <div>
-                <p className="bhon-eyebrow !text-bhon-gold">{currentClinic.name}</p>
-                <h2 className="mt-1 text-lg font-bold">Navegação</h2>
-              </div>
-              <button type="button" onClick={() => setIsMobileOpen(false)} aria-label="Fechar navegação" className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white">
-                <X aria-hidden="true" className="h-5 w-5" />
-              </button>
-            </div>
-
-            {sections.map((section) => (
+        <MobileNavigationDialog clinicName={currentClinic.name} onClose={closeMobileMenu}>
+          <nav aria-label="Todas as áreas clínicas">
+            {visibleSections.map((section) => (
               <div key={section.label} className="mb-5">
-                <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{section.label}</p>
+                <p className="mb-2 px-1 text-xs font-semibold text-bhon-muted">{section.label}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {section.items.map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.path);
                     return (
-                      <Link key={item.path} href={item.path} onClick={() => setIsMobileOpen(false)} aria-current={active ? 'page' : undefined} className={`flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors ${active ? 'bg-white text-bhon-navy' : 'bg-white/[0.055] text-slate-200'}`}>
-                        <Icon aria-hidden="true" className={`h-4 w-4 ${active ? 'text-bhon-teal-dark' : 'text-bhon-teal'}`} />
+                      <Link key={item.path} href={item.path} onClick={closeMobileMenu} aria-current={active ? 'page' : undefined} className={`flex min-h-12 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${active ? 'bg-bhon-teal/10 text-bhon-teal-dark' : 'bg-bhon-bg text-bhon-text hover:bg-bhon-teal/10'}`}>
+                        <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-bhon-teal-dark" />
                         <span>{item.label}</span>
                       </Link>
                     );
@@ -155,12 +154,11 @@ export const Sidebar: React.FC = () => {
                 </div>
               </div>
             ))}
-
-            <button type="button" onClick={logout} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/10 text-sm font-semibold text-slate-300">
+          </nav>
+            <button type="button" onClick={logout} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-bhon-border text-sm font-semibold text-bhon-muted hover:bg-bhon-bg">
               <LogOut aria-hidden="true" className="h-4 w-4" /> Sair do sistema
             </button>
-          </div>
-        </div>
+        </MobileNavigationDialog>
       ) : null}
     </>
   );

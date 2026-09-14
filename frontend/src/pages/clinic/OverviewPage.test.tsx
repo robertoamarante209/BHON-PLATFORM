@@ -45,6 +45,17 @@ const appointment: Appointment = {
   delayMinutes: 0,
 };
 
+const secondAppointment: Appointment = {
+  ...appointment,
+  id: 'appointment-2',
+  patientId: 'patient-2',
+  patientName: 'Carlos Mendes',
+  patientRecordNumber: '#00002',
+  scheduledAt: '2026-09-14T19:00:00.000Z',
+  time: '16:00',
+  procedureName: 'Retorno',
+};
+
 describe('OverviewPage', () => {
   beforeEach(() => {
     api.listAppointments.mockReset();
@@ -71,6 +82,7 @@ describe('OverviewPage', () => {
     expect(api.updateAppointmentStatus).toHaveBeenCalledTimes(1);
 
     finishUpdate?.();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('permite tentar novamente quando a operação do dia falha ao carregar', async () => {
@@ -84,5 +96,25 @@ describe('OverviewPage', () => {
     expect(await screen.findByText('Mariana Costa')).toBeVisible();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(api.listAppointments).toHaveBeenCalledTimes(2);
+  });
+
+  it('mantém um atendimento mais recente aberto quando a ação anterior termina', async () => {
+    api.listAppointments.mockResolvedValue([appointment, secondAppointment]);
+    let finishUpdate: (() => void) | undefined;
+    api.updateAppointmentStatus.mockImplementation(() => new Promise<void>((resolve) => { finishUpdate = resolve; }));
+
+    render(<OverviewPage />);
+
+    await screen.findByText('Carlos Mendes');
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento de Mariana Costa' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar chegada' }));
+    await waitFor(() => expect(api.updateAppointmentStatus).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento de Carlos Mendes' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Carlos Mendes');
+
+    finishUpdate?.();
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('Carlos Mendes'));
   });
 });

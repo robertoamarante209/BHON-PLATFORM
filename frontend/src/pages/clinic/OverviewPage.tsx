@@ -14,7 +14,9 @@ export const OverviewPage: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -22,8 +24,13 @@ export const OverviewPage: React.FC = () => {
     const now = new Date();
     const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
     setLoading(true);
+    setError('');
+    setLoadFailed(false);
     void listAppointments(date, controller.signal).then(setAppointments).catch((reason) => {
-      if (!(reason instanceof DOMException && reason.name === 'AbortError')) setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o dia.');
+      if (!(reason instanceof DOMException && reason.name === 'AbortError')) {
+        setLoadFailed(true);
+        setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o dia.');
+      }
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [reload]);
@@ -37,14 +44,19 @@ export const OverviewPage: React.FC = () => {
   const nextAppointments = appointments.filter((item) => actionable.includes(item.status)).slice(0, 7);
 
   const changeStatus = async (status: AppointmentStatus) => {
-    if (!selected || !appointmentTransitions[selected.status].includes(status)) return;
+    if (!selected || actionLoading || !appointmentTransitions[selected.status].includes(status)) return;
+    const appointmentId = selected.id;
+    setActionLoading(true);
+    setLoadFailed(false);
     setError('');
     try {
-      await updateAppointmentStatus(selected.id, status);
-      setSelected(null);
+      await updateAppointmentStatus(appointmentId, status);
+      setSelected((current) => current?.id === appointmentId ? null : current);
       setReload((value) => value + 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível atualizar o atendimento.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -55,7 +67,7 @@ export const OverviewPage: React.FC = () => {
         <Link href="/clinic/agenda" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white">Abrir agenda <ArrowRight className="h-4 w-4 text-bhon-teal" aria-hidden="true" /></Link>
       </header>
 
-      {error ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">{error}</div> : null}
+      {error ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800"><span>{error}</span>{loadFailed ? <button type="button" onClick={() => setReload((value) => value + 1)} className="font-semibold underline underline-offset-2">Tentar novamente</button> : null}</div> : null}
 
       <section aria-label="Resumo do dia" className="flex gap-6 overflow-x-auto rounded-2xl border border-bhon-border bg-white px-5 py-4 shadow-[0_8px_28px_rgba(31,49,60,0.045)] sm:gap-10">
         {[
@@ -77,7 +89,7 @@ export const OverviewPage: React.FC = () => {
       </div>
 
       <Drawer isOpen={!!selected} onClose={() => setSelected(null)} title="Atendimento" subtitle={selected ? `${selected.time} · ${selected.patientName}` : ''}>
-        {selected ? <div className="space-y-5"><div className="rounded-2xl bg-bhon-bg p-4"><p className="text-sm font-semibold text-bhon-text">{selected.procedureName}</p><p className="mt-1 text-xs text-bhon-muted">{selected.professionalName} · {selected.roomName}</p><div className="mt-3"><StatusBadge status={selected.status} /></div></div><div className="grid gap-2">{([['NA_RECEPCAO', 'Confirmar chegada'], ['EM_ATENDIMENTO', 'Iniciar atendimento'], ['CONCLUIDO', 'Concluir atendimento'], ['FALTA', 'Registrar falta']] as [AppointmentStatus, string][]).map(([status, label]) => <button key={status} type="button" disabled={!appointmentTransitions[selected.status].includes(status)} onClick={() => void changeStatus(status)} className="min-h-11 rounded-xl border border-bhon-border px-4 text-left text-sm font-semibold text-bhon-text transition-colors hover:border-bhon-teal hover:bg-bhon-teal-subtle disabled:cursor-not-allowed disabled:opacity-35">{label}</button>)}</div><button type="button" onClick={() => setLocation(`/clinic/patients/${selected.patientId}`)} className="text-xs font-semibold text-bhon-teal-dark">Abrir perfil do paciente →</button></div> : null}
+        {selected ? <div className="space-y-5"><div className="rounded-2xl bg-bhon-bg p-4"><p className="text-sm font-semibold text-bhon-text">{selected.procedureName}</p><p className="mt-1 text-xs text-bhon-muted">{selected.professionalName} · {selected.roomName}</p><div className="mt-3"><StatusBadge status={selected.status} /></div></div><div className="grid gap-2">{([['NA_RECEPCAO', 'Confirmar chegada'], ['EM_ATENDIMENTO', 'Iniciar atendimento'], ['CONCLUIDO', 'Concluir atendimento'], ['FALTA', 'Registrar falta']] as [AppointmentStatus, string][]).map(([status, label]) => <button key={status} type="button" disabled={actionLoading || !appointmentTransitions[selected.status].includes(status)} onClick={() => void changeStatus(status)} className="min-h-11 rounded-xl border border-bhon-border px-4 text-left text-sm font-semibold text-bhon-text transition-colors hover:border-bhon-teal hover:bg-bhon-teal-subtle disabled:cursor-not-allowed disabled:opacity-35">{label}</button>)}</div><button type="button" onClick={() => setLocation(`/clinic/patients/${selected.patientId}`)} className="text-xs font-semibold text-bhon-teal-dark">Abrir perfil do paciente →</button></div> : null}
       </Drawer>
     </main>
   );

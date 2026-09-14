@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Appointment } from '../../types';
 import { OverviewPage } from './OverviewPage';
@@ -65,7 +65,8 @@ describe('OverviewPage', () => {
 
   it('impede repetir uma transição enquanto a atualização do atendimento está em andamento', async () => {
     let finishUpdate: (() => void) | undefined;
-    api.updateAppointmentStatus.mockImplementation(() => new Promise<void>((resolve) => { finishUpdate = resolve; }));
+    const updatePromise = new Promise<void>((resolve) => { finishUpdate = resolve; });
+    api.updateAppointmentStatus.mockReturnValue(updatePromise);
 
     render(<OverviewPage />);
 
@@ -81,7 +82,10 @@ describe('OverviewPage', () => {
     fireEvent.click(arrivalButton);
     expect(api.updateAppointmentStatus).toHaveBeenCalledTimes(1);
 
-    finishUpdate?.();
+    await act(async () => {
+      finishUpdate?.();
+      await updatePromise;
+    });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
@@ -101,7 +105,8 @@ describe('OverviewPage', () => {
   it('mantém um atendimento mais recente aberto quando a ação anterior termina', async () => {
     api.listAppointments.mockResolvedValue([appointment, secondAppointment]);
     let finishUpdate: (() => void) | undefined;
-    api.updateAppointmentStatus.mockImplementation(() => new Promise<void>((resolve) => { finishUpdate = resolve; }));
+    const updatePromise = new Promise<void>((resolve) => { finishUpdate = resolve; });
+    api.updateAppointmentStatus.mockReturnValue(updatePromise);
 
     render(<OverviewPage />);
 
@@ -113,8 +118,11 @@ describe('OverviewPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento de Carlos Mendes' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('Carlos Mendes');
 
-    finishUpdate?.();
+    await act(async () => {
+      finishUpdate?.();
+      await updatePromise;
+    });
 
-    await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('Carlos Mendes'));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Carlos Mendes');
   });
 });

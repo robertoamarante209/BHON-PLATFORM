@@ -64,11 +64,11 @@ describe('tabelas clínicas acessíveis', () => {
 
   it('abre acompanhamento somente pelo botão sem tornar a linha clicável', async () => {
     render(<FollowUpsPage />);
-    const row = (await screen.findByText('Paciente Acompanhamento')).closest('tr');
-    expect(row).not.toBeNull();
-    fireEvent.click(row!);
+    const card = (await screen.findByText('Paciente Acompanhamento')).closest('article');
+    expect(card).not.toBeNull();
+    fireEvent.click(card!);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Tratar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar contato com Paciente Acompanhamento' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

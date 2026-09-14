@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
-  BarChart3, Boxes, CalendarDays, CircleDollarSign, ClipboardCheck, FileText,
+  BarChart3, Boxes, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck, FileText,
   Clock3, LayoutDashboard, LogOut, Menu, Settings, ShieldAlert, Sparkles,
   MessageCircle, PlugZap, Stethoscope, Target, UserCheck, Users, X,
 } from 'lucide-react';
@@ -33,10 +33,15 @@ const sections = [
 ];
 
 const mobilePrimaryItems = [sections[0].items[1], sections[0].items[0], sections[1].items[0]];
+const allItems = sections.flatMap((section) => section.items);
+const primaryPaths = new Set(['/clinic/overview', '/clinic/agenda', '/clinic/patients', '/clinic/follow-ups?category=ORCAMENTO', '/clinic/team']);
+const primaryItems = allItems.filter((item) => primaryPaths.has(item.path));
+const toolItems = allItems.filter((item) => !primaryPaths.has(item.path));
 
 export const Sidebar: React.FC = () => {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [areToolsOpen, setAreToolsOpen] = useState(false);
   const { currentUser, currentClinic, logout } = useAuth();
 
   const isActive = (path: string) => location === path || (path !== '/clinic/overview' && location.startsWith(path));
@@ -64,11 +69,8 @@ export const Sidebar: React.FC = () => {
         </div>
 
         <nav aria-label="Navegação clínica" className="relative flex-1 overflow-y-auto px-3 pb-4">
-          {sections.map((section) => (
-            <div key={section.label} className="mb-5">
-              <p className="sr-only">{section.label}</p>
-              <div className="space-y-1">
-                {section.items.map((item) => {
+          <div className="space-y-1">
+            {primaryItems.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.path);
                   return (
@@ -80,10 +82,20 @@ export const Sidebar: React.FC = () => {
                       </div>
                     </Link>
                   );
-                })}
-              </div>
-            </div>
-          ))}
+            })}
+          </div>
+
+          <div className="my-5 border-t border-bhon-border pt-4">
+            <button type="button" onClick={() => setAreToolsOpen((value) => !value)} aria-expanded={areToolsOpen} aria-label={areToolsOpen ? 'Ocultar ferramentas de gestão' : 'Mostrar ferramentas de gestão'} className="flex min-h-10 w-full items-center justify-center rounded-xl px-3 text-bhon-muted hover:bg-bhon-bg hover:text-bhon-text lg:justify-between">
+              <span className="sr-only lg:not-sr-only lg:text-[10px] lg:font-bold lg:uppercase lg:tracking-[0.14em]">Ferramentas</span>
+              <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${areToolsOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {areToolsOpen ? <div className="mt-2 space-y-1">{toolItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return <Link key={item.path} href={item.path} title={item.label} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`group flex min-h-10 items-center justify-center rounded-xl px-3 transition-colors lg:justify-start ${active ? 'bg-bhon-teal/10 text-bhon-teal-dark' : 'text-bhon-muted hover:bg-bhon-bg hover:text-bhon-text'}`}><div className="flex items-center gap-3"><Icon aria-hidden="true" className="h-[17px] w-[17px]" /><span className="sr-only lg:not-sr-only lg:text-xs lg:font-medium">{item.label}</span></div></Link>;
+            })}</div> : null}
+          </div>
 
           {currentUser.role === 'PLATFORM_OWNER' ? (
             <Link href="/platform/overview" aria-label="Ambiente da plataforma" className="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-bhon-gold/30 bg-bhon-gold/10 px-3 text-bhon-gold">

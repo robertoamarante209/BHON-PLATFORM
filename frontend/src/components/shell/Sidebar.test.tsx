@@ -29,6 +29,15 @@ describe('Sidebar', () => {
     );
   });
 
+  it('mantém a navegação diária curta e revela ferramentas sob demanda', async () => {
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    const desktopNavigation = screen.getByRole('navigation', { name: 'Navegação clínica' });
+    expect(within(desktopNavigation).queryByRole('link', { name: 'Configurações' })).not.toBeInTheDocument();
+    await user.click(within(desktopNavigation).getByRole('button', { name: 'Mostrar ferramentas de gestão' }));
+    expect(within(desktopNavigation).getByRole('link', { name: 'Configurações' })).toBeInTheDocument();
+  });
+
   it('abre navegação móvel completa e fecha com Escape', async () => {
     const user = userEvent.setup();
     render(<Sidebar />);

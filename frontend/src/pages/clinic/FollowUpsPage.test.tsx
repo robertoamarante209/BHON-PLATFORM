@@ -5,8 +5,9 @@ import { FollowUpsPage } from './FollowUpsPage';
 import type { FollowUp } from '../../types';
 
 const api = vi.hoisted(() => ({ listFollowUps: vi.fn(), executeFollowUpAction: vi.fn() }));
+const auth = vi.hoisted(() => ({ currentUser: { role: 'VIEWER' } }));
 vi.mock('../../lib/clinic', () => api);
-vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ currentUser: { role: 'VIEWER' } }) }));
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ currentUser: auth.currentUser }) }));
 const records: FollowUp[] = [
   { id: 'first', tenantId: 'clinic-1', patientId: 'patient-1', patientName: 'Ana', patientRecordNumber: '001', category: 'ORCAMENTO', reason: 'Recuperar orçamento', priority: 'HIGH', status: 'PENDENTE', deadlineAt: '2026-09-12T12:00:00Z', createdAt: '2026-09-11T12:00:00Z' },
   { id: 'second', tenantId: 'clinic-1', patientId: 'patient-2', patientName: 'Bia', patientRecordNumber: '002', category: 'RETORNO', reason: 'Agendar retorno', priority: 'HIGH', status: 'PENDENTE', deadlineAt: '2026-09-12T12:00:00Z', createdAt: '2026-09-11T12:00:00Z' },
@@ -14,6 +15,7 @@ const records: FollowUp[] = [
 
 describe('FollowUpsPage query navigation', () => {
   beforeEach(() => {
+    auth.currentUser = { role: 'VIEWER' };
     window.history.replaceState(null, '', '/clinic/follow-ups?category=ORCAMENTO');
     api.listFollowUps.mockImplementation(async ({ category, focus }) => ({
       data: records.filter((item) => (!focus || item.id === focus) && (!category || item.category === category)),
@@ -104,5 +106,26 @@ describe('FollowUpsPage query navigation', () => {
 
     expect(screen.getByText('Ana')).toBeInTheDocument();
     expect(screen.queryByText('Bia')).not.toBeInTheDocument();
+  });
+
+  it('keeps the navigated query when a pending action resolves', async () => {
+    let resolveAction: (() => void) | undefined;
+    auth.currentUser = { role: 'MANAGER' };
+    api.executeFollowUpAction.mockImplementation(() => new Promise<void>((resolve) => { resolveAction = resolve; }));
+    render(<FollowUpsPage />);
+    const user = userEvent.setup();
+    expect(await screen.findByText('Ana')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Tratar' }));
+    await user.type(screen.getByLabelText('Registro do contato'), 'Contato realizado');
+    await user.click(screen.getByRole('button', { name: 'Confirmar ação' }));
+    await waitFor(() => expect(resolveAction).toBeDefined());
+
+    act(() => window.history.pushState(null, '', '/clinic/follow-ups?category=RETORNO'));
+    expect(await screen.findByText('Bia')).toBeInTheDocument();
+    await act(async () => { resolveAction?.(); });
+
+    await waitFor(() => expect(screen.getByText('Bia')).toBeInTheDocument());
+    expect(screen.queryByText('Ana')).not.toBeInTheDocument();
   });
 });

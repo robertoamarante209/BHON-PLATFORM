@@ -123,6 +123,7 @@ export const FollowUpsPage: React.FC = () => {
     if (action === 'COMPLETE' && !outcome) { setError('Selecione o desfecho do acompanhamento.'); return; }
     if (action === 'POSTPONE' && (!newDeadline || new Date(newDeadline) <= new Date())) { setError('Informe um novo prazo futuro.'); return; }
     if (action === 'REASSIGN' && !assigneeId) { setError('Selecione o novo responsável.'); return; }
+    const viewGeneration = requestGeneration.current;
     setSaving(true); setError('');
     try {
       if (action === 'COMPLETE') await executeFollowUpAction(selectedFollowUp.id, { action, notes: notes.trim(), outcome: outcome as Outcome });
@@ -131,7 +132,7 @@ export const FollowUpsPage: React.FC = () => {
       else await executeFollowUpAction(selectedFollowUp.id, { action, assigneeId, notes: notes.trim() || undefined });
       setFeedback(action === 'COMPLETE' ? 'Acompanhamento concluído e registrado na timeline.' : 'Acompanhamento atualizado com sucesso.');
       setSelectedFollowUp(null);
-      await load();
+      if (requestGeneration.current === viewGeneration) await load();
     } catch (saveError) {
       setError((saveError as Error).message || 'Não foi possível atualizar o acompanhamento.');
     } finally { setSaving(false); }

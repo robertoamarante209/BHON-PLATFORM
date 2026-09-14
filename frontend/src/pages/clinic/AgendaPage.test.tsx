@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   listPatients: vi.fn(),
   updateAppointmentStatus: vi.fn(),
 }));
+const auth = vi.hoisted(() => ({ currentUser: { role: 'OWNER', permissions: [] as string[] } }));
 
 vi.mock('wouter', () => ({ useLocation: () => ['/clinic/agenda', vi.fn()] }));
 vi.mock('../../lib/clinic', () => ({
@@ -18,9 +19,11 @@ vi.mock('../../lib/clinic', () => ({
     CONFIRMADO: ['NA_RECEPCAO', 'CANCELADO', 'FALTA', 'ENCAIXE'],
   },
 }));
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => auth }));
 
 describe('AgendaPage', () => {
   beforeEach(() => {
+    auth.currentUser = { role: 'OWNER', permissions: [] };
     api.listAppointments.mockResolvedValue([]);
     api.getSchedulingResources.mockResolvedValue({
       rooms: [{ id: 'room-1', tenantId: 'tenant-1', name: 'Consultório 01', orderIndex: 1, isActive: true }],
@@ -61,5 +64,29 @@ describe('AgendaPage', () => {
 
     expect(await screen.findByRole('columnheader', { name: /Profissional/ })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /Profissional/ })).toHaveTextContent('Profissional');
+  });
+
+  it('não oferece novo agendamento para acesso somente leitura', async () => {
+    auth.currentUser = { role: 'VIEWER', permissions: ['agenda.view'] };
+    render(<AgendaPage />);
+
+    expect(await screen.findByRole('columnheader', { name: /Profissional/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Novo agendamento' })).not.toBeInTheDocument();
+  });
+
+  it('oferece cancelamento somente a quem recebeu essa permissão', async () => {
+    auth.currentUser = { role: 'RECEPTIONIST', permissions: ['agenda.view', 'agenda.cancel'] };
+    api.listAppointments.mockResolvedValue([{
+      id: 'appointment-1', tenantId: 'tenant-1', patientId: 'patient-1', patientName: 'Paciente real', patientRecordNumber: '#00001',
+      professionalId: 'user-1', professionalName: 'Profissional', roomId: 'room-1', roomName: 'Sala 1', scheduledAt: '2026-09-14T14:30:00.000Z',
+      time: '14:30', durationMinutes: 30, procedureName: 'Avaliação inicial', status: 'CONFIRMADO', delayMinutes: 0,
+    }]);
+    render(<AgendaPage />);
+
+    const appointmentCards = await screen.findAllByRole('button', { name: /Paciente real/ });
+    fireEvent.click(appointmentCards[0]);
+
+    expect(screen.getByRole('button', { name: 'Cancelar agendamento' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Confirmar Presença/ })).not.toBeInTheDocument();
   });
 });

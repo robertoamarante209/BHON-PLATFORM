@@ -6,43 +6,51 @@ import {
   MessageCircle, PlugZap, Stethoscope, Target, UserCheck, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { hasClinicPermission, type ClinicPermission } from '../../lib/permissions';
 
-const sections = [
+type NavigationItem = { label: string; path: string; icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>; permission?: ClinicPermission };
+type NavigationSection = { label: string; items: NavigationItem[] };
+
+const sections: NavigationSection[] = [
   { label: 'Cuidado', items: [
     { label: 'Visão do dia', path: '/clinic/overview', icon: LayoutDashboard },
-    { label: 'Agenda clínica', path: '/clinic/agenda', icon: CalendarDays },
-    { label: 'Pacientes', path: '/clinic/patients', icon: Users },
-    { label: 'Tratamentos', path: '/clinic/treatments', icon: Stethoscope },
+    { label: 'Agenda clínica', path: '/clinic/agenda', icon: CalendarDays, permission: 'agenda.view' },
+    { label: 'Pacientes', path: '/clinic/patients', icon: Users, permission: 'patients.view' },
+    { label: 'Tratamentos', path: '/clinic/treatments', icon: Stethoscope, permission: 'patients.view' },
   ] },
   { label: 'Relacionamento', items: [
-    { label: 'Recuperar orçamentos', path: '/clinic/follow-ups?category=ORCAMENTO', icon: Sparkles },
-    { label: 'Oportunidades', path: '/clinic/opportunities', icon: Target },
-    { label: 'Acompanhamentos', path: '/clinic/follow-ups', icon: Clock3 },
-    { label: 'Orçamentos', path: '/clinic/budgets', icon: ClipboardCheck },
-    { label: 'WhatsApp', path: '/clinic/whatsapp', icon: MessageCircle },
+    { label: 'Recuperar orçamentos', path: '/clinic/follow-ups?category=ORCAMENTO', icon: Sparkles, permission: 'recovery.view' },
+    { label: 'Oportunidades', path: '/clinic/opportunities', icon: Target, permission: 'recovery.view' },
+    { label: 'Acompanhamentos', path: '/clinic/follow-ups', icon: Clock3, permission: 'recovery.view' },
+    { label: 'Orçamentos', path: '/clinic/budgets', icon: ClipboardCheck, permission: 'recovery.view' },
+    { label: 'WhatsApp', path: '/clinic/whatsapp', icon: MessageCircle, permission: 'recovery.view' },
   ] },
   { label: 'Gestão', items: [
-    { label: 'Financeiro', path: '/clinic/finance', icon: CircleDollarSign },
-    { label: 'Equipe', path: '/clinic/team', icon: UserCheck },
-    { label: 'Indicadores', path: '/clinic/indicators', icon: BarChart3 },
-    { label: 'Estoque', path: '/clinic/inventory', icon: Boxes },
-    { label: 'Documentos', path: '/clinic/documents', icon: FileText },
-    { label: 'Integrações', path: '/clinic/integrations', icon: PlugZap },
-    { label: 'Configurações', path: '/clinic/settings', icon: Settings },
+    { label: 'Financeiro', path: '/clinic/finance', icon: CircleDollarSign, permission: 'finance.view' },
+    { label: 'Equipe', path: '/clinic/team', icon: UserCheck, permission: 'team.view' },
+    { label: 'Indicadores', path: '/clinic/indicators', icon: BarChart3, permission: 'finance.view' },
+    { label: 'Estoque', path: '/clinic/inventory', icon: Boxes, permission: 'team.manage' },
+    { label: 'Documentos', path: '/clinic/documents', icon: FileText, permission: 'patients.view' },
+    { label: 'Integrações', path: '/clinic/integrations', icon: PlugZap, permission: 'team.manage' },
+    { label: 'Configurações', path: '/clinic/settings', icon: Settings, permission: 'team.manage' },
   ] },
 ];
 
-const mobilePrimaryItems = [sections[0].items[1], sections[0].items[0], sections[1].items[0]];
-const allItems = sections.flatMap((section) => section.items);
 const primaryPaths = new Set(['/clinic/overview', '/clinic/agenda', '/clinic/patients', '/clinic/follow-ups?category=ORCAMENTO', '/clinic/team']);
-const primaryItems = allItems.filter((item) => primaryPaths.has(item.path));
-const toolItems = allItems.filter((item) => !primaryPaths.has(item.path));
+const mobilePrimaryPaths = ['/clinic/agenda', '/clinic/overview', '/clinic/follow-ups?category=ORCAMENTO'];
 
 export const Sidebar: React.FC = () => {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [areToolsOpen, setAreToolsOpen] = useState(false);
   const { currentUser, currentClinic, logout } = useAuth();
+  const visibleSections = sections
+    .map((section) => ({ ...section, items: section.items.filter((item) => !item.permission || hasClinicPermission(currentUser, item.permission)) }))
+    .filter((section) => section.items.length > 0);
+  const visibleItems = visibleSections.flatMap((section) => section.items);
+  const primaryItems = visibleItems.filter((item) => primaryPaths.has(item.path));
+  const toolItems = visibleItems.filter((item) => !primaryPaths.has(item.path));
+  const mobilePrimaryItems = mobilePrimaryPaths.flatMap((path) => visibleItems.filter((item) => item.path === path));
 
   const isActive = (path: string) => location === path || (path !== '/clinic/overview' && location.startsWith(path));
 
@@ -85,7 +93,7 @@ export const Sidebar: React.FC = () => {
             })}
           </div>
 
-          <div className="my-5 border-t border-bhon-border pt-4">
+          {toolItems.length > 0 ? <div className="my-5 border-t border-bhon-border pt-4">
             <button type="button" onClick={() => setAreToolsOpen((value) => !value)} aria-expanded={areToolsOpen} aria-label={areToolsOpen ? 'Ocultar ferramentas de gestão' : 'Mostrar ferramentas de gestão'} className="flex min-h-10 w-full items-center justify-center rounded-xl px-3 text-bhon-muted hover:bg-bhon-bg hover:text-bhon-text lg:justify-between">
               <span className="sr-only lg:not-sr-only lg:text-[10px] lg:font-bold lg:uppercase lg:tracking-[0.14em]">Ferramentas</span>
               <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${areToolsOpen ? 'rotate-180' : ''}`} />
@@ -95,7 +103,7 @@ export const Sidebar: React.FC = () => {
               const active = isActive(item.path);
               return <Link key={item.path} href={item.path} title={item.label} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`group flex min-h-10 items-center justify-center rounded-xl px-3 transition-colors lg:justify-start ${active ? 'bg-bhon-teal/10 text-bhon-teal-dark' : 'text-bhon-muted hover:bg-bhon-bg hover:text-bhon-text'}`}><div className="flex items-center gap-3"><Icon aria-hidden="true" className="h-[17px] w-[17px]" /><span className="sr-only lg:not-sr-only lg:text-xs lg:font-medium">{item.label}</span></div></Link>;
             })}</div> : null}
-          </div>
+          </div> : null}
 
           {currentUser.role === 'PLATFORM_OWNER' ? (
             <Link href="/platform/overview" aria-label="Ambiente da plataforma" className="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-bhon-gold/30 bg-bhon-gold/10 px-3 text-bhon-gold">
@@ -119,7 +127,7 @@ export const Sidebar: React.FC = () => {
         </div>
       </aside>
 
-      <nav aria-label="Atalhos clínicos" className="fixed inset-x-3 bottom-3 z-50 grid h-16 grid-cols-4 rounded-2xl border border-bhon-border bg-white/95 px-2 text-bhon-text shadow-[0_18px_50px_rgba(18,27,42,0.16)] backdrop-blur-xl sm:hidden">
+      <nav aria-label="Atalhos clínicos" style={{ gridTemplateColumns: `repeat(${mobilePrimaryItems.length + 1}, minmax(0, 1fr))` }} className="fixed inset-x-3 bottom-3 z-50 grid h-16 rounded-2xl border border-bhon-border bg-white/95 px-2 text-bhon-text shadow-[0_18px_50px_rgba(18,27,42,0.16)] backdrop-blur-xl sm:hidden">
         {mobilePrimaryItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -150,7 +158,7 @@ export const Sidebar: React.FC = () => {
               </button>
             </div>
 
-            {sections.map((section) => (
+            {visibleSections.map((section) => (
               <div key={section.label} className="mb-5">
                 <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{section.label}</p>
                 <div className="grid grid-cols-2 gap-2">

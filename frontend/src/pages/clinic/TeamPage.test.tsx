@@ -4,10 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamPage } from './TeamPage';
 
 const api = vi.hoisted(() => ({ createTeamMember: vi.fn(), listTeam: vi.fn() }));
+const auth = vi.hoisted(() => ({ currentUser: { role: 'OWNER', permissions: [] as string[] } }));
 vi.mock('../../lib/clinic', () => api);
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => auth }));
 
 describe('TeamPage', () => {
   beforeEach(() => {
+    auth.currentUser = { role: 'OWNER', permissions: [] };
     api.listTeam.mockResolvedValue({ data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 1 }, metrics: { activeCount: 0, inAttendanceCount: 0, todayAppointmentsCount: 0, averageWorkloadHours: null } });
     api.createTeamMember.mockResolvedValue({ id: 'u1' });
   });
@@ -24,5 +27,13 @@ describe('TeamPage', () => {
     await waitFor(() => expect(api.createTeamMember).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Ana Souza', email: 'ana.souza', permissions: ['agenda.view'],
     })));
+  });
+
+  it('mantém a equipe em consulta sem expor criação de acessos', async () => {
+    auth.currentUser = { role: 'VIEWER', permissions: ['team.view'] };
+    render(<TeamPage />);
+
+    expect(await screen.findByRole('region', { name: 'Lista da equipe' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Novo acesso' })).not.toBeInTheDocument();
   });
 });

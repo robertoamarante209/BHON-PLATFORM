@@ -16,6 +16,8 @@ import type { Appointment, AppointmentStatus, Patient, Room } from '../../types'
 import { appointmentTransitions, createAppointment, getSchedulingResources, listAppointments, listPatients, updateAppointmentStatus } from '../../lib/clinic';
 import type { ProfessionalOption } from '../../lib/clinic';
 import { clinicCalendarDate, zonedLocalDateTimeToIso } from '../../lib/datetime';
+import { useAuth } from '../../context/AuthContext';
+import { hasClinicPermission } from '../../lib/permissions';
 
 function moveDate(value: string, days: number): string {
   const date = new Date(`${value}T12:00:00Z`);
@@ -25,6 +27,11 @@ function moveDate(value: string, days: number): string {
 
 export const AgendaPage: React.FC = () => {
   const [, setLocation] = useLocation();
+  const { currentUser } = useAuth();
+  const canCreateAppointment = hasClinicPermission(currentUser, 'agenda.create') && hasClinicPermission(currentUser, 'patients.view');
+  const canEditAgenda = hasClinicPermission(currentUser, 'agenda.edit');
+  const canCancelAppointment = hasClinicPermission(currentUser, 'agenda.cancel');
+  const canOpenPatient = hasClinicPermission(currentUser, 'patients.view');
   const [rooms, setRooms] = useState<Room[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalOption[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -37,6 +44,7 @@ export const AgendaPage: React.FC = () => {
   const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
   const [isNewAptOpen, setIsNewAptOpen] = useState(false);
   const [confirmFaltaId, setConfirmFaltaId] = useState<string | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
 
   // Filtros operacionais
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -63,7 +71,9 @@ export const AgendaPage: React.FC = () => {
     void Promise.all([
       listAppointments(selectedDate, controller.signal),
       getSchedulingResources(controller.signal),
-      listPatients({ status: 'ACTIVE', limit: 50 }, controller.signal),
+      canCreateAppointment
+        ? listPatients({ status: 'ACTIVE', limit: 50 }, controller.signal)
+        : Promise.resolve({ data: [] as Patient[], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }),
     ]).then(([appointmentData, resources, patientData]) => {
       setAppointments(appointmentData);
       setRooms(resources.rooms);
@@ -79,7 +89,7 @@ export const AgendaPage: React.FC = () => {
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, [selectedDate, reloadKey]);
+  }, [canCreateAppointment, selectedDate, reloadKey]);
 
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(`${selectedDate}T12:00:00`)), [selectedDate]);
   const appointmentsBySlot = useMemo(() => new Map(appointments.map((appointment) => [`${appointment.professionalId}-${appointment.time}`, appointment])), [appointments]);
@@ -88,6 +98,7 @@ export const AgendaPage: React.FC = () => {
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreateAppointment) return;
     const patient = patients.find(p => p.id === newPatientId);
     const room = rooms.find(r => r.id === newRoomId);
     const professional = professionals.find(value => value.id === newProfessionalId);
@@ -115,6 +126,8 @@ export const AgendaPage: React.FC = () => {
 
   const changeStatus = async (appointment: Appointment, status: AppointmentStatus, delayMinutes?: number) => {
     if (actionLoading) return;
+    const permitted = status === 'CANCELADO' ? canCancelAppointment : canEditAgenda;
+    if (!permitted) { setError('Seu acesso não permite executar esta ação.'); return; }
     setActionLoading(true);
     setError('');
     try {
@@ -134,6 +147,14 @@ export const AgendaPage: React.FC = () => {
       if (appointment) await changeStatus(appointment, 'FALTA');
       setConfirmFaltaId(null);
     }
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!confirmCancelId) return;
+    const appointment = appointments.find((value) => value.id === confirmCancelId) || (selectedApt?.id === confirmCancelId ? selectedApt : null);
+    if (appointment) await changeStatus(appointment, 'CANCELADO');
+    setConfirmCancelId(null);
+    setSelectedApt(null);
   };
 
   return (
@@ -161,10 +182,10 @@ export const AgendaPage: React.FC = () => {
             <option value="FALTA">Faltas</option>
           </select>
 
-          <button type="button" onClick={() => setIsNewAptOpen(true)} disabled={loading || rooms.length === 0 || professionals.length === 0 || patients.length === 0} className="flex h-11 items-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(18,27,42,0.2)] transition-[background-color,transform,opacity] hover:bg-bhon-navy-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45">
+          {canCreateAppointment ? <button type="button" onClick={() => setIsNewAptOpen(true)} disabled={loading || rooms.length === 0 || professionals.length === 0 || patients.length === 0} className="flex h-11 items-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(18,27,42,0.2)] transition-[background-color,transform,opacity] hover:bg-bhon-navy-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45">
             <Plus aria-hidden="true" className="h-4 w-4 text-bhon-teal" />
             <span>Novo agendamento</span>
-          </button>
+          </button> : null}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-bhon-border bg-[#F8F5EF] px-5 py-3 text-[10px] text-bhon-muted sm:px-6 lg:px-8">
@@ -320,7 +341,7 @@ export const AgendaPage: React.FC = () => {
       <Drawer
         isOpen={!!selectedApt}
         onClose={() => setSelectedApt(null)}
-        title="Controle de Atendimento da Agenda"
+        title="Detalhes do atendimento"
         subtitle={selectedApt ? `${selectedApt.time} • ${selectedApt.patientName} (${selectedApt.patientRecordNumber})` : ''}
       >
         {selectedApt && (
@@ -328,35 +349,35 @@ export const AgendaPage: React.FC = () => {
             {/* Detalhes Clínicos da Consulta */}
             <div className="p-3 bg-slate-50 border border-bhon-border rounded space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Procedimento:</span>
+                <span className="text-bhon-muted">Tipo de atendimento:</span>
                 <span className="font-bold text-bhon-text">{selectedApt.procedureName}</span>
               </div>
               {selectedApt.treatmentStageTitle && (
                 <div className="flex items-center justify-between">
-                  <span className="text-bhon-muted">Etapa Clínica:</span>
+                  <span className="text-bhon-muted">Etapa do cuidado:</span>
                   <span className="font-mono-data text-bhon-teal-dark font-semibold">
                     {selectedApt.treatmentStageTitle}
                   </span>
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Profissional Responsável:</span>
+                <span className="text-bhon-muted">Profissional:</span>
                 <span className="font-semibold text-bhon-text">{selectedApt.professionalName}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Consultório Designado:</span>
+                <span className="text-bhon-muted">Ambiente:</span>
                 <span className="font-mono-data text-bhon-text">{selectedApt.roomName}</span>
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-bhon-border">
-                <span className="text-bhon-muted">Status Operacional:</span>
+                <span className="text-bhon-muted">Status:</span>
                 <StatusBadge status={selectedApt.status} />
               </div>
             </div>
 
             {/* Ações Imediatas Requeridas pelo Master Prompt (Seção 16) */}
-            <div>
+            {canEditAgenda ? <div>
               <p className="font-bold text-bhon-text uppercase tracking-wider text-[11px] mb-2">
-                Ações Operacionais de Execução
+                Atualizar atendimento
               </p>
 
               <div className="grid grid-cols-2 gap-2">
@@ -377,7 +398,7 @@ export const AgendaPage: React.FC = () => {
                   className="p-2.5 text-left rounded border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
                 >
                   <p className="font-bold text-teal-950">Chamar Paciente</p>
-                  <p className="text-[10px] text-teal-700">Iniciar no consultório</p>
+                  <p className="text-[10px] text-teal-700">Iniciar atendimento</p>
                 </button>
 
                 <button
@@ -400,10 +421,10 @@ export const AgendaPage: React.FC = () => {
                   <p className="text-[10px] text-rose-700">Gera follow-up imediato</p>
                 </button>
               </div>
-            </div>
+            </div> : null}
 
             {/* Informar Atraso */}
-            <div className="pt-3 border-t border-bhon-border">
+            {canEditAgenda ? <div className="pt-3 border-t border-bhon-border">
               <label className="block font-bold text-bhon-text uppercase tracking-wider text-[11px] mb-1.5">
                 Registrar Atraso de Consulta
               </label>
@@ -430,11 +451,20 @@ export const AgendaPage: React.FC = () => {
                   +30 min
                 </button>
               </div>
-            </div>
+            </div> : null}
+
+            {canCancelAppointment && canTransition(selectedApt, 'CANCELADO') ? <button
+              type="button"
+              aria-label="Cancelar agendamento"
+              onClick={() => setConfirmCancelId(selectedApt.id)}
+              className="min-h-11 w-full rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-semibold text-rose-800 transition-colors hover:bg-rose-100"
+            >
+              Cancelar agendamento
+            </button> : null}
 
             {/* Links Rápidos Navegáveis */}
             <div className="pt-3 border-t border-bhon-border space-y-2">
-              <button
+              {canOpenPatient ? <button
                 onClick={() => {
                   setLocation(`/clinic/patients/${selectedApt.patientId}`);
                   setSelectedApt(null);
@@ -443,9 +473,9 @@ export const AgendaPage: React.FC = () => {
               >
                 <span>Abrir Prontuário do Paciente</span>
                 <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
+              </button> : null}
 
-              <button
+              {canOpenPatient ? <button
                 onClick={() => {
                   setLocation('/clinic/treatments');
                   setSelectedApt(null);
@@ -453,7 +483,7 @@ export const AgendaPage: React.FC = () => {
                 className="w-full py-2 border border-bhon-border text-bhon-text text-xs font-semibold rounded hover:bg-slate-50 transition-colors"
               >
                 Ver Tratamento e Etapas
-              </button>
+              </button> : null}
             </div>
           </div>
         )}
@@ -463,7 +493,7 @@ export const AgendaPage: React.FC = () => {
           DRAWER DE NOVO AGENDAMENTO
           ============================================================ */}
       <Drawer
-        isOpen={isNewAptOpen}
+        isOpen={canCreateAppointment && isNewAptOpen}
         onClose={() => setIsNewAptOpen(false)}
         title="Novo Agendamento Clínico"
         subtitle="Vincule paciente, sala e tipo de atendimento"
@@ -545,7 +575,7 @@ export const AgendaPage: React.FC = () => {
               type="text"
               value={newProcedure}
               onChange={(e) => setNewProcedure(e.target.value)}
-              placeholder="Ex: Consulta de Avaliação Inicial / Ajuste Oclusal"
+              placeholder="Ex: Avaliação inicial ou sessão de acompanhamento"
               required
               className="w-full px-2.5 py-2 border border-bhon-border rounded text-bhon-text"
             />
@@ -569,6 +599,16 @@ export const AgendaPage: React.FC = () => {
         title="Registrar Falta de Paciente"
         description="A consulta será mantida no slot de horário com o status de FALTA. Automaticamente, um chamado de retorno será aberto na fila de acompanhamentos da recepção e a ausência constará na linha do tempo do prontuário."
         confirmText="Confirmar Falta"
+        isDestructive={true}
+      />
+
+      <ConfirmationDialog
+        isOpen={!!confirmCancelId}
+        onClose={() => setConfirmCancelId(null)}
+        onConfirm={handleCancelConfirm}
+        title="Cancelar agendamento"
+        description="O horário será marcado como cancelado e continuará registrado no histórico do paciente."
+        confirmText="Cancelar agendamento"
         isDestructive={true}
       />
     </div>

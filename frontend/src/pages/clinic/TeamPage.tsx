@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, KeyRound, Loader2, Plus, Search, Users } fro
 import { Drawer } from '../../components/common/Drawer';
 import { createTeamMember, listTeam, type Pagination, type TeamMetrics } from '../../lib/clinic';
 import type { TeamMember, UserRole, UserStatus } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { hasClinicPermission } from '../../lib/permissions';
 
 const roles: Array<{ value: UserRole; label: string }> = [
   { value: 'OWNER', label: 'Proprietário' }, { value: 'ADMIN', label: 'Administrador' },
@@ -26,6 +28,8 @@ function OperationalStatus({ status }: { status: TeamMember['status'] }) {
 }
 
 export const TeamPage: React.FC = () => {
+  const { currentUser } = useAuth();
+  const canManageTeam = hasClinicPermission(currentUser, 'team.manage');
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [metrics, setMetrics] = useState<TeamMetrics>(emptyMetrics);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 1 });
@@ -80,7 +84,7 @@ export const TeamPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-semibold text-bhon-teal-dark">Gestão de acessos</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-bhon-text">Equipe</h1><p className="mt-1 text-sm text-bhon-muted">Organize profissionais e defina exatamente o que cada pessoa pode acessar.</p></div><button type="button" onClick={() => setIsCreateOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-bhon-navy px-4 text-sm font-semibold text-white shadow-sm hover:bg-bhon-navy-hover"><Plus className="h-4 w-4" /> Novo acesso</button></div>
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-semibold text-bhon-teal-dark">Gestão de acessos</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-bhon-text">Equipe</h1><p className="mt-1 text-sm text-bhon-muted">Organize profissionais e defina exatamente o que cada pessoa pode acessar.</p></div>{canManageTeam ? <button type="button" onClick={() => setIsCreateOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-bhon-navy px-4 text-sm font-semibold text-white shadow-sm hover:bg-bhon-navy-hover"><Plus className="h-4 w-4" /> Novo acesso</button> : null}</div>
 
       <section aria-label="Resumo da equipe" className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-2xl border border-bhon-border bg-white px-5 py-4 text-xs shadow-[0_8px_28px_rgba(31,49,60,0.04)]"><p><strong className="mr-2 font-mono-data text-lg text-bhon-navy">{metrics.activeCount}</strong><span className="text-bhon-muted">pessoas ativas</span></p><p><strong className="mr-2 font-mono-data text-lg text-bhon-teal-dark">{metrics.inAttendanceCount}</strong><span className="text-bhon-muted">em atendimento</span></p><p><strong className="mr-2 font-mono-data text-lg text-bhon-navy">{metrics.todayAppointmentsCount}</strong><span className="text-bhon-muted">atendimentos hoje</span></p></section>
 
@@ -93,7 +97,7 @@ export const TeamPage: React.FC = () => {
 
       {pagination.totalPages > 1 && <div className="flex items-center justify-end gap-2 text-xs text-bhon-muted"><button type="button" aria-label="Página anterior" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)} className="rounded border border-bhon-border p-1.5 transition-transform duration-150 active:scale-[0.97] disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button><span>Página {page} de {pagination.totalPages}</span><button type="button" aria-label="Próxima página" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)} className="rounded border border-bhon-border p-1.5 transition-transform duration-150 active:scale-[0.97] disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div>}
 
-      <Drawer isOpen={isCreateOpen} onClose={() => !saving && setIsCreateOpen(false)} title="Criar acesso" subtitle="Dados de entrada e permissões individuais" width="max-w-2xl">
+      <Drawer isOpen={canManageTeam && isCreateOpen} onClose={() => !saving && setIsCreateOpen(false)} title="Criar acesso" subtitle="Dados de entrada e permissões individuais" width="max-w-2xl">
         <form onSubmit={handleCreate} className="space-y-6">
           <section className="space-y-3"><div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-bhon-teal-dark" /><h2 className="text-sm font-semibold">Dados do funcionário</h2></div><div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-xs font-semibold">Nome<input aria-label="Nome" required value={name} onChange={(event) => setName(event.target.value)} className="min-h-11 w-full rounded-xl border border-bhon-border px-3 text-sm font-normal" /></label>

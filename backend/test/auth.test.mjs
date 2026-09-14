@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { revokeSession } from "../src/domain/session.ts";
+import * as sessionModule from "../src/domain/session.ts";
+
+const { revokeSession } = sessionModule;
 
 test("revogar a mesma sessão duas vezes permanece idempotente", async () => {
   const sessions = [{ id: "session-1", revokedAt: null }];
@@ -22,4 +24,39 @@ test("revogar a mesma sessão duas vezes permanece idempotente", async () => {
   assert.equal(first, true);
   assert.equal(second, false);
   assert.equal(sessions[0].revokedAt, revokedAt);
+});
+
+test("sessão pública entrega status e permissões sem campos internos", () => {
+  const user = {
+    id: "user-1",
+    tenantId: "tenant-1",
+    name: "Ana",
+    email: "ana",
+    role: "RECEPTIONIST",
+    status: "ACTIVE",
+    permissions: ["agenda.view"],
+    passwordHash: "segredo",
+    emailNormalized: "ana",
+    specialty: null,
+    cro: null,
+    phone: null,
+    avatarUrl: null,
+  };
+  const tenant = {
+    id: "tenant-1",
+    name: "Clínica Exemplo",
+    tradeName: null,
+    slug: "clinica-exemplo",
+    status: "ACTIVE",
+    planCode: "PRO",
+    createdAt: new Date("2026-09-14T12:00:00.000Z"),
+  };
+
+  const result = sessionModule.presentSessionUser?.(user, tenant, 2);
+
+  assert.equal(result?.status, "ACTIVE");
+  assert.deepEqual(result?.permissions, ["agenda.view"]);
+  assert.equal(result?.tenant.activeRoomsCount, 2);
+  assert.equal("passwordHash" in (result || {}), false);
+  assert.equal("emailNormalized" in (result || {}), false);
 });

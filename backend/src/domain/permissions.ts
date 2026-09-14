@@ -32,3 +32,11 @@ export function hasPermission(
   if (!Array.isArray(user.permissions)) return legacyDefaults[user.role]?.includes(permission) === true;
   return user.permissions.includes(permission);
 }
+
+export function permissionForAppointmentStatus(status: string): typeof CLINIC_PERMISSIONS[number] {
+  return status === 'CANCELADO' ? 'agenda.cancel' : 'agenda.edit';
+}
+
+export function permissionForRecoveryAction(action: string): typeof CLINIC_PERMISSIONS[number] {
+  return action === 'LOG_CONTACT' ? 'recovery.contact' : 'recovery.manage';
+}

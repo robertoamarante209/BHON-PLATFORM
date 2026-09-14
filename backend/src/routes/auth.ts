@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { verifyPassword, generateSessionToken, hashSessionToken } from "../lib/auth.js";
 import { requireAuth } from "../lib/middleware.js";
 import { SlidingWindowRateLimiter } from "../domain/security.js";
-import { revokeSession } from "../domain/session.js";
+import { presentSessionUser, revokeSession } from "../domain/session.js";
 import { normalizeGoogleEmail, mapGoogleUserRowToSessionUser } from "../domain/google-identity.js";
 
 const loginLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
@@ -52,29 +52,7 @@ async function createAuthenticatedSession(reply: any, request: any, user: any, r
     expires: expiresAt,
   });
 
-  return reply.send({
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      tenantId: user.tenantId,
-      specialty: user.specialty,
-      cro: user.cro,
-      phone: user.phone,
-      avatarUrl: user.avatarUrl,
-      tenant: {
-        id: user.tenant.id,
-        name: user.tenant.name,
-        tradeName: user.tenant.tradeName,
-        slug: user.tenant.slug,
-        status: user.tenant.status,
-        planCode: user.tenant.planCode,
-        createdAt: user.tenant.createdAt,
-        activeRoomsCount: user.tenant.rooms.length,
-      },
-    },
-  });
+  return reply.send({ user: presentSessionUser(user, user.tenant, user.tenant.rooms.length) });
 }
 
 export async function authRoutes(app: FastifyInstance) {
@@ -188,10 +166,11 @@ export async function authRoutes(app: FastifyInstance) {
       cro: string | null;
       phone: string | null;
       avatar_url: string | null;
+      permissions: unknown;
       google_subject: string | null;
       google_email: string | null;
     }>>`
-      SELECT id, tenant_id, name, email, role, status, specialty, cro, phone, avatar_url,
+      SELECT id, tenant_id, name, email, role, status, specialty, cro, phone, avatar_url, permissions,
              google_subject, google_email
       FROM users
       WHERE deleted_at IS NULL
@@ -252,29 +231,7 @@ export async function authRoutes(app: FastifyInstance) {
     const tenant = request.tenant!;
     const activeRoomsCount = await prisma.room.count({ where: { tenantId: tenant.id, isActive: true } });
 
-    return reply.send({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        tenantId: user.tenantId,
-        specialty: user.specialty,
-        cro: user.cro,
-        phone: user.phone,
-        avatarUrl: user.avatarUrl,
-        tenant: {
-          id: tenant.id,
-          name: tenant.name,
-          tradeName: tenant.tradeName,
-          slug: tenant.slug,
-          status: tenant.status,
-          planCode: tenant.planCode,
-          createdAt: tenant.createdAt,
-          activeRoomsCount,
-        },
-      },
-    });
+    return reply.send({ user: presentSessionUser(user, tenant, activeRoomsCount) });
   });
 
   app.post("/auth/logout", { preHandler: [requireAuth] }, async (request, reply) => {

@@ -16,6 +16,7 @@ import {
   sortRecoveryItems,
   type RecoveryItem,
 } from "../domain/recovery.js";
+import { hasPermission, permissionForRecoveryAction } from "../domain/permissions.js";
 
 const OPEN_FOLLOW_UP_STATUSES = [FollowUpStatus.PENDENTE, FollowUpStatus.EM_ANDAMENTO, FollowUpStatus.ADIADO];
 const OPEN_OPPORTUNITY_STATUSES = [
@@ -291,7 +292,6 @@ export async function recoveryRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string }; Body: FollowUpActionBody }>(
     "/recovery/follow-ups/:id",
     {
-      preHandler: requirePermission('recovery.contact'),
       schema: {
         body: {
           type: "object",
@@ -312,6 +312,11 @@ export async function recoveryRoutes(app: FastifyInstance) {
       const actor = request.user!;
       const { id } = request.params;
       const body = request.body;
+
+      const requiredPermission = permissionForRecoveryAction(body.action);
+      if (!hasPermission(actor, requiredPermission)) {
+        return reply.code(403).send({ error: "Você não possui esta permissão.", code: "PERMISSION_REQUIRED" });
+      }
 
       const followUp = await prisma.followUp.findFirst({
         where: { id, tenantId },

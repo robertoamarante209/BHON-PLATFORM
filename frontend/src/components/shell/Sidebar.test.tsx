@@ -1,8 +1,12 @@
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Sidebar } from './Sidebar';
+
+const auth = vi.hoisted(() => ({
+  currentUser: { name: 'Ana', role: 'OWNER', permissions: [] as string[] },
+}));
 
 vi.mock('wouter', () => ({
   Link: ({ href, children, ...props }: React.ComponentProps<'a'> & { href: string }) => <a href={href} {...props}>{children}</a>,
@@ -10,13 +14,17 @@ vi.mock('wouter', () => ({
 }));
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
-    currentUser: { name: 'Ana', role: 'OWNER' },
+    currentUser: auth.currentUser,
     currentClinic: { name: 'BHON', activeRoomsCount: 0 },
     logout: vi.fn(),
   }),
 }));
 
 describe('Sidebar', () => {
+  beforeEach(() => {
+    auth.currentUser = { name: 'Ana', role: 'OWNER', permissions: [] };
+  });
+
   it('usa a identidade oficial transparente da BHON na navegação principal', () => {
     render(<Sidebar />);
     expect(screen.getByRole('img', { name: 'BHON' })).toHaveAttribute('src', '/logo-bhon-dark.svg');
@@ -51,5 +59,22 @@ describe('Sidebar', () => {
     expect(within(dialog).getByRole('link', { name: 'Integrações' })).toHaveAttribute('href', '/clinic/integrations');
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Navegação clínica' })).not.toBeInTheDocument();
+  });
+
+  it('mostra somente áreas autorizadas para cada acesso individual', async () => {
+    auth.currentUser = { name: 'Bia', role: 'RECEPTIONIST', permissions: ['agenda.view'] };
+    const user = userEvent.setup();
+    render(<Sidebar />);
+
+    const desktopNavigation = screen.getByRole('navigation', { name: 'Navegação clínica' });
+    expect(within(desktopNavigation).getByRole('link', { name: 'Agenda clínica' })).toBeInTheDocument();
+    expect(within(desktopNavigation).queryByRole('link', { name: 'Pacientes' })).not.toBeInTheDocument();
+    expect(within(desktopNavigation).queryByRole('link', { name: 'Recuperar orçamentos' })).not.toBeInTheDocument();
+    expect(within(desktopNavigation).queryByRole('link', { name: 'Equipe' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
+    const dialog = screen.getByRole('dialog', { name: 'Navegação clínica' });
+    expect(within(dialog).getByRole('link', { name: 'Agenda clínica' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('link', { name: 'Pacientes' })).not.toBeInTheDocument();
   });
 });

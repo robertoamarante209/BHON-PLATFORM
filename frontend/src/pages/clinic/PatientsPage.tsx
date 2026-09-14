@@ -5,9 +5,13 @@ import { Drawer } from '../../components/common/Drawer';
 import { AlertTriangle, ArrowRight, Plus, RefreshCw, Search } from 'lucide-react';
 import type { Patient, PatientStatus } from '../../types';
 import { createPatient, listPatients } from '../../lib/clinic';
+import { useAuth } from '../../context/AuthContext';
+import { hasClinicPermission } from '../../lib/permissions';
 
 export const PatientsPage: React.FC = () => {
   const [, setLocation] = useLocation();
+  const { currentUser } = useAuth();
+  const canCreatePatient = hasClinicPermission(currentUser, 'patients.create');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [totalPatients, setTotalPatients] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -81,14 +85,14 @@ export const PatientsPage: React.FC = () => {
           <p className="mt-1 text-sm text-bhon-muted">Encontre rapidamente informações, histórico e próximos passos.</p>
         </div>
 
-        <button
+        {canCreatePatient ? <button
           onClick={() => setIsNewPatientOpen(true)}
           aria-label="Novo paciente"
           className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl bg-bhon-navy px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-bhon-navy-hover sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Novo paciente</span>
-        </button>
+        </button> : null}
       </div>
 
       {error && (
@@ -188,7 +192,7 @@ export const PatientsPage: React.FC = () => {
 
       {/* Drawer de Cadastro de Novo Paciente */}
       <Drawer
-        isOpen={isNewPatientOpen}
+        isOpen={canCreatePatient && isNewPatientOpen}
         onClose={() => setIsNewPatientOpen(false)}
         title="Novo paciente"
         subtitle="Comece pelo essencial. Os demais dados podem ser preenchidos depois."

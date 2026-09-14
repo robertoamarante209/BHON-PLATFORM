@@ -5,6 +5,7 @@ import { AppointmentStatus, PatientStatus, QuoteStatus, TreatmentStatus, Opportu
 import { intervalsOverlap, isAppointmentTransitionAllowed, parseAppointmentDuration } from "../domain/scheduling.js";
 import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgress, type StageState, type TreatmentState } from "../domain/treatment.js";
 import { zonedCalendarDayRange, zonedDayRange } from "../domain/time.js";
+import { hasPermission, permissionForAppointmentStatus } from "../domain/permissions.js";
 
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const CLINIC_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
@@ -750,7 +751,6 @@ export async function clinicalRoutes(app: FastifyInstance) {
 
   // WORKFLOW CRÍTICO CRUZADO DE STATUS DO AGENDAMENTO
   app.patch<{ Params: { id: string } }>("/appointments/:id/status", {
-    preHandler: requirePermission('agenda.edit'),
     schema: {
       body: {
         type: "object",
@@ -768,6 +768,11 @@ export async function clinicalRoutes(app: FastifyInstance) {
     const user = request.user!;
     const { id } = request.params;
     const body = request.body as { status: AppointmentStatus; delayMinutes?: number; notes?: string };
+
+    const requiredPermission = permissionForAppointmentStatus(body.status);
+    if (!hasPermission(user, requiredPermission)) {
+      return reply.code(403).send({ error: "Você não possui esta permissão.", code: "PERMISSION_REQUIRED" });
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))`;

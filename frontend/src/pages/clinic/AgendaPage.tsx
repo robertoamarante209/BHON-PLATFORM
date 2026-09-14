@@ -194,7 +194,7 @@ export const AgendaPage: React.FC = () => {
             <Building2 aria-hidden="true" className="h-5 w-5" />
           </span>
           <h2 id="empty-rooms-title" className="mt-5 font-display text-2xl text-bhon-navy">Prepare os ambientes da clínica</h2>
-          <p className="mx-auto mt-2 max-w-lg text-pretty text-xs leading-relaxed text-bhon-muted">A agenda está conectada e pronta para uso. Cadastre ao menos um consultório ou sala clínica para liberar os horários e novos agendamentos.</p>
+          <p className="mx-auto mt-2 max-w-lg text-pretty text-xs leading-relaxed text-bhon-muted">A agenda está conectada e pronta para uso. Cadastre ao menos uma sala de atendimento para liberar os horários e novos agendamentos.</p>
           <p className="mt-5 font-mono-data text-[10px] uppercase tracking-[0.14em] text-bhon-muted">Nenhum dado demonstrativo foi inserido</p>
         </section>
       ) : null}
@@ -466,7 +466,7 @@ export const AgendaPage: React.FC = () => {
         isOpen={isNewAptOpen}
         onClose={() => setIsNewAptOpen(false)}
         title="Novo Agendamento Clínico"
-        subtitle="Vincule paciente, consultório e procedimento"
+        subtitle="Vincule paciente, sala e tipo de atendimento"
       >
         <form onSubmit={handleCreateAppointment} className="space-y-4 text-xs">
           <div>
@@ -505,7 +505,7 @@ export const AgendaPage: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="new-appointment-room" className="block font-semibold text-bhon-text mb-1">Consultório</label>
+              <label htmlFor="new-appointment-room" className="block font-semibold text-bhon-text mb-1">Sala</label>
               <select
                 id="new-appointment-room"
                 name="roomId"
@@ -538,7 +538,7 @@ export const AgendaPage: React.FC = () => {
           </div>
 
           <div>
-            <label htmlFor="new-appointment-procedure" className="block font-semibold text-bhon-text mb-1">Procedimento clínico</label>
+            <label htmlFor="new-appointment-procedure" className="block font-semibold text-bhon-text mb-1">Tipo de atendimento</label>
             <input
               id="new-appointment-procedure"
               name="procedureName"

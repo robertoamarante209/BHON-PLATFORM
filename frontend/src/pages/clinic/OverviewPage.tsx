@@ -1,363 +1,84 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { StatusBadge } from '../../components/common/StatusBadge';
+import { ArrowRight, CalendarDays, Check, Clock3, MoreHorizontal, Users } from 'lucide-react';
 import { Drawer } from '../../components/common/Drawer';
+import { StatusBadge } from '../../components/common/StatusBadge';
 import { RecoveryQueue } from '../../components/recovery/RecoveryQueue';
-import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Sparkles, Users } from 'lucide-react';
-import type { Appointment, AppointmentStatus, Room } from '../../types';
-import { appointmentTransitions, getSchedulingResources, listAppointments, rescheduleAppointment, updateAppointmentStatus } from '../../lib/clinic';
+import type { Appointment, AppointmentStatus } from '../../types';
+import { appointmentTransitions, listAppointments, updateAppointmentStatus } from '../../lib/clinic';
+
+const actionable: AppointmentStatus[] = ['AGUARDANDO_CONFIRMACAO', 'CONFIRMADO', 'NA_RECEPCAO', 'ENCAIXE', 'EM_ATENDIMENTO'];
 
 export const OverviewPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingAgenda, setLoadingAgenda] = useState(true);
-  const [agendaError, setAgendaError] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
-  const [agendaReload, setAgendaReload] = useState(0);
-  // Estado para Drawer de Ação Rápida em Consulta
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [rescheduleTime, setRescheduleTime] = useState('17:00');
-  const [rescheduleRoom, setRescheduleRoom] = useState('');
+  const [selected, setSelected] = useState<Appointment | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     const now = new Date();
     const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    setLoadingAgenda(true);
-    setAgendaError('');
-    void Promise.all([listAppointments(date, controller.signal), getSchedulingResources(controller.signal)])
-      .then(([appointmentData, resources]) => {
-        setAppointments(appointmentData);
-        setRooms(resources.rooms);
-        setRescheduleRoom((current) => current || resources.rooms[0]?.id || '');
-      })
-      .catch((requestError) => {
-        if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
-        setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar a operação de hoje.');
-      })
-      .finally(() => { if (!controller.signal.aborted) setLoadingAgenda(false); });
+    setLoading(true);
+    void listAppointments(date, controller.signal).then(setAppointments).catch((reason) => {
+      if (!(reason instanceof DOMException && reason.name === 'AbortError')) setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o dia.');
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [agendaReload]);
+  }, [reload]);
 
-  // Cálculos da Operação de Hoje baseados nos dados reais
-  const todayAppointments = appointments;
-  const totalPatientsToday = todayAppointments.length;
-  const completedCount = todayAppointments.filter(a => a.status === 'CONCLUIDO').length;
-  const inProgressCount = todayAppointments.filter(a => a.status === 'EM_ATENDIMENTO').length;
-  const missedCount = todayAppointments.filter(a => a.status === 'FALTA').length;
-  const upcomingCount = todayAppointments.filter(
-    a => a.status === 'CONFIRMADO' || a.status === 'AGUARDANDO_CONFIRMACAO' || a.status === 'NA_RECEPCAO' || a.status === 'ENCAIXE'
-  ).length;
-  const completionRate = Math.round((completedCount / Math.max(1, totalPatientsToday)) * 100);
-  const nextAppointment = todayAppointments.find((appointment) =>
-    ['CONFIRMADO', 'AGUARDANDO_CONFIRMACAO', 'NA_RECEPCAO', 'ENCAIXE'].includes(appointment.status)
-  );
+  const summary = useMemo(() => ({
+    total: appointments.length,
+    waiting: appointments.filter((item) => ['NA_RECEPCAO', 'AGUARDANDO_CONFIRMACAO'].includes(item.status)).length,
+    inProgress: appointments.filter((item) => item.status === 'EM_ATENDIMENTO').length,
+    completed: appointments.filter((item) => item.status === 'CONCLUIDO').length,
+  }), [appointments]);
+  const nextAppointments = appointments.filter((item) => actionable.includes(item.status)).slice(0, 7);
 
-  const handleStatusChange = async (appointment: Appointment, status: AppointmentStatus) => {
-    if (actionLoading || !appointmentTransitions[appointment.status].includes(status)) return;
-    setActionLoading(true);
-    setAgendaError('');
+  const changeStatus = async (status: AppointmentStatus) => {
+    if (!selected || !appointmentTransitions[selected.status].includes(status)) return;
+    setError('');
     try {
-      await updateAppointmentStatus(appointment.id, status);
-      setSelectedAppointment((current) => current?.id === appointment.id ? { ...current, status } : current);
-      setAgendaReload((value) => value + 1);
-    } catch (requestError) {
-      setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível atualizar o atendimento.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRescheduleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAppointment || !rescheduleRoom || actionLoading) return;
-    const now = new Date();
-    const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    setActionLoading(true);
-    setAgendaError('');
-    try {
-      await rescheduleAppointment(selectedAppointment.id, { scheduledAt: new Date(`${date}T${rescheduleTime}:00`).toISOString(), roomId: rescheduleRoom });
-      setSelectedAppointment(null);
-      setAgendaReload((value) => value + 1);
-    } catch (requestError) {
-      setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível reagendar a consulta.');
-    } finally {
-      setActionLoading(false);
+      await updateAppointmentStatus(selected.id, status);
+      setSelected(null);
+      setReload((value) => value + 1);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível atualizar o atendimento.');
     }
   };
 
   return (
-    <div className="mx-auto max-w-[1480px] space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-bhon-border bg-gradient-to-br from-white via-white to-[#E8F7F3] px-5 py-6 text-bhon-text shadow-[0_18px_55px_rgba(30,64,75,0.08)] sm:px-7 lg:px-8">
-        <div aria-hidden="true" className="absolute -right-24 -top-32 h-72 w-72 rounded-full bg-bhon-teal/15 blur-3xl" />
-        <div className="relative grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
-          <div>
-            <p className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-bhon-teal"><Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Operação de hoje</p>
-            <h2 className="max-w-2xl text-balance font-display text-2xl font-semibold leading-tight sm:text-3xl">
-              Sua clínica, <span className="text-bhon-teal">em movimento.</span>
-            </h2>
-            <p className="mt-3 max-w-xl text-pretty text-xs leading-relaxed text-bhon-muted sm:text-sm">
-              {loadingAgenda ? 'Preparando a jornada clínica do dia…' : `${totalPatientsToday} pacientes compõem a jornada de hoje em ${rooms.length} ambiente${rooms.length === 1 ? '' : 's'} clínico${rooms.length === 1 ? '' : 's'}.`}
-            </p>
-          </div>
+    <main className="mx-auto max-w-[1320px] space-y-5" aria-label="Visão do dia">
+      <header className="flex flex-col gap-4 border-b border-bhon-border pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="bhon-eyebrow">Hoje na clínica</p><h1 className="mt-2 font-display text-3xl text-bhon-navy sm:text-4xl">O dia, sem ruído.</h1><p className="mt-2 max-w-xl text-sm text-bhon-muted">Veja quem chega agora, o que precisa de atenção e siga o atendimento sem perder contexto.</p></div>
+        <Link href="/clinic/agenda" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white">Abrir agenda <ArrowRight className="h-4 w-4 text-bhon-teal" aria-hidden="true" /></Link>
+      </header>
 
-          <div className="rounded-2xl border border-bhon-border bg-white/80 p-5 shadow-sm backdrop-blur-sm">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-bhon-muted">Próximo atendimento</p>
-            {nextAppointment ? (
-              <div className="mt-4">
-                <div className="flex items-baseline justify-between gap-4"><p className="font-display text-lg font-semibold">{nextAppointment.patientName}</p><span className="font-mono-data text-sm text-bhon-teal">{nextAppointment.time}</span></div>
-                <p className="mt-1 truncate text-[11px] text-bhon-muted">{nextAppointment.procedureName} · {nextAppointment.roomName}</p>
-              </div>
-            ) : <p className="mt-4 font-display text-xl text-slate-300">Agenda em ordem.</p>}
-            <Link href="/clinic/agenda">
-              <div className="mt-5 flex cursor-pointer items-center justify-between border-t border-bhon-border pt-4 text-[11px] font-semibold text-bhon-navy transition-colors hover:text-bhon-teal-dark">
-                Abrir agenda clínica <ArrowRight aria-hidden="true" className="h-4 w-4" />
-              </div>
-            </Link>
-          </div>
-        </div>
+      {error ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">{error}</div> : null}
+
+      <section aria-label="Resumo do dia" className="flex gap-6 overflow-x-auto rounded-2xl border border-bhon-border bg-white px-5 py-4 shadow-[0_8px_28px_rgba(31,49,60,0.045)] sm:gap-10">
+        {[
+          { label: 'Agendados', value: summary.total, icon: CalendarDays }, { label: 'Aguardando', value: summary.waiting, icon: Clock3 },
+          { label: 'Em atendimento', value: summary.inProgress, icon: Users }, { label: 'Concluídos', value: summary.completed, icon: Check },
+        ].map(({ label, value, icon: Icon }) => <div key={label} className="flex min-w-max items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-bhon-teal-subtle text-bhon-teal-dark"><Icon className="h-4 w-4" aria-hidden="true" /></span><div><p className="font-mono-data text-lg font-semibold text-bhon-navy">{value}</p><p className="text-[10px] font-medium text-bhon-muted">{label}</p></div></div>)}
       </section>
 
-      {agendaError ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-900" role="alert" aria-live="polite">{agendaError}</div> : null}
-
-      <section aria-labelledby="operation-title">
-        <div className="mb-3 flex items-center justify-between"><h2 id="operation-title" className="text-sm font-semibold text-bhon-text">Ritmo da operação</h2><span className="font-mono-data text-[10px] text-bhon-muted">{loadingAgenda ? 'Atualizando…' : `${completionRate}% concluída`}</span></div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {[
-            { label: 'Pacientes hoje', value: totalPatientsToday, detail: 'jornada prevista', icon: Users, tone: 'text-bhon-text' },
-            { label: 'Concluídos', value: completedCount, detail: `${completionRate}% do dia`, icon: CheckCircle2, tone: 'text-emerald-400' },
-            { label: 'Em atendimento', value: inProgressCount, detail: 'cuidado em curso', icon: Sparkles, tone: 'text-bhon-teal-dark' },
-            { label: 'Próximos', value: upcomingCount, detail: 'recepção & agenda', icon: Clock3, tone: 'text-sky-400' },
-            { label: 'Atenções', value: missedCount, detail: 'faltas registradas', icon: CalendarDays, tone: missedCount > 0 ? 'text-rose-400' : 'text-bhon-muted' },
-          ].map((metric) => {
-            const Icon = metric.icon;
-            return <div key={metric.label} className="min-w-0 rounded-2xl border border-bhon-border bg-bhon-surface p-4 shadow-[0_10px_30px_rgba(30,64,75,0.055)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-bhon-muted">{metric.label}</p><Icon aria-hidden="true" className={`h-4 w-4 ${metric.tone}`} /></div><p className={`mt-4 font-display text-3xl font-semibold ${metric.tone}`}>{metric.value}</p><p className="mt-1 text-[10px] text-bhon-muted">{metric.detail}</p></div>;
-          })}
-        </div>
-      </section>
-
-      {/* ============================================================
-          3. TABELA OPERACIONAL DE ATENDIMENTOS DE HOJE
-          ============================================================ */}
-      <section className="bhon-panel overflow-hidden rounded-2xl">
-        <div className="flex items-center justify-between border-b border-bhon-border px-5 py-4 sm:px-6">
-          <div>
-            <p className="bhon-eyebrow">Linha de cuidado</p>
-            <h3 className="mt-1 font-display text-xl text-bhon-navy">Agenda do dia</h3>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,.75fr)]">
+        <section aria-labelledby="next-title" className="bhon-panel overflow-hidden rounded-2xl">
+          <div className="flex items-center justify-between border-b border-bhon-border px-5 py-4"><div><p className="bhon-eyebrow">Fluxo de atendimento</p><h2 id="next-title" className="mt-1 font-display text-xl text-bhon-navy">Próximos atendimentos</h2></div><span className="font-mono-data text-[10px] text-bhon-muted">{nextAppointments.length} em andamento</span></div>
+          <div className="divide-y divide-bhon-border">
+            {loading ? <p className="p-8 text-center text-sm text-bhon-muted">Organizando o dia…</p> : null}
+            {!loading && nextAppointments.length === 0 ? <div className="p-8 text-center"><p className="font-medium text-bhon-text">Tudo em ordem por aqui.</p><p className="mt-1 text-xs text-bhon-muted">Os próximos atendimentos aparecerão nesta lista.</p></div> : null}
+            {nextAppointments.map((appointment) => <article key={appointment.id} className="grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3.5 sm:grid-cols-[64px_minmax(0,1fr)_150px_auto] sm:px-5"><time className="font-mono-data text-sm font-semibold text-bhon-navy">{appointment.time}</time><div className="min-w-0"><p className="truncate text-sm font-semibold text-bhon-text">{appointment.patientName}</p><p className="mt-0.5 truncate text-[11px] text-bhon-muted">{appointment.procedureName} · {appointment.professionalName}</p></div><div className="hidden sm:block"><StatusBadge status={appointment.status} size="sm" /></div><button type="button" onClick={() => setSelected(appointment)} aria-label={`Abrir atendimento de ${appointment.patientName}`} className="flex h-10 w-10 items-center justify-center rounded-full text-bhon-muted hover:bg-bhon-bg hover:text-bhon-navy"><MoreHorizontal className="h-5 w-5" aria-hidden="true" /></button></article>)}
           </div>
-          <span className="font-mono-data text-xs text-bhon-muted">
-            {todayAppointments.length} consultas registradas
-          </span>
-        </div>
+        </section>
+        <aside className="min-w-0"><RecoveryQueue onNavigate={setLocation} /></aside>
+      </div>
 
-        <div className="overflow-x-auto">
-          <table className="bhon-table">
-            <thead>
-              <tr>
-                <th>Horário</th>
-                <th>Paciente</th>
-                <th>Prontuário</th>
-                <th>Procedimento Clínico</th>
-                <th>Profissional</th>
-                <th>Consultório</th>
-                <th>Status</th>
-                <th className="text-right">Ação Imediata</th>
-              </tr>
-            </thead>
-            <tbody className="bhon-long-list">
-              {loadingAgenda && todayAppointments.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Carregando agenda de hoje…</td></tr>}
-              {!loadingAgenda && todayAppointments.length === 0 && !agendaError && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Nenhum atendimento agendado para hoje.</td></tr>}
-              {todayAppointments.map((apt) => (
-                <tr key={apt.id}>
-                  <td className="font-mono-data font-bold text-bhon-text whitespace-nowrap">
-                    {apt.time}
-                    {apt.delayMinutes > 0 ? (
-                      <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded font-mono-data">
-                        +{apt.delayMinutes}m
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="font-semibold text-bhon-text whitespace-nowrap">
-                    {apt.patientName}
-                  </td>
-                  <td className="font-mono-data text-bhon-muted">
-                    {apt.patientRecordNumber}
-                  </td>
-                  <td className="max-w-xs truncate" title={apt.procedureName}>
-                    {apt.procedureName}
-                  </td>
-                  <td className="text-bhon-muted whitespace-nowrap">
-                    {apt.professionalName}
-                  </td>
-                  <td className="font-mono-data text-xs whitespace-nowrap">
-                    {apt.roomName}
-                  </td>
-                  <td className="whitespace-nowrap">
-                    <StatusBadge status={apt.status} />
-                  </td>
-                  <td className="text-right whitespace-nowrap">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedAppointment(apt);
-                      }}
-                      className="px-2.5 py-1 text-[11px] font-semibold text-bhon-navy bg-slate-100 hover:bg-bhon-navy hover:text-white rounded border border-bhon-border transition-colors"
-                    >
-                      Comando
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <RecoveryQueue onNavigate={setLocation} />
-
-      {/* ============================================================
-          DRAWER DE COMANDOS OPERACIONAIS NA CONSULTA
-          ============================================================ */}
-      <Drawer
-        isOpen={!!selectedAppointment}
-        onClose={() => setSelectedAppointment(null)}
-        title="Comando Operacional de Atendimento"
-        subtitle={selectedAppointment ? `${selectedAppointment.time} • ${selectedAppointment.patientName} (${selectedAppointment.patientRecordNumber})` : ''}
-      >
-        {selectedAppointment && (
-          <div className="space-y-4">
-            {/* Resumo do Atendimento */}
-            <div className="p-3 bg-slate-50 border border-bhon-border rounded space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Procedimento:</span>
-                <span className="font-bold text-bhon-text">{selectedAppointment.procedureName}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Profissional:</span>
-                <span className="font-semibold text-bhon-text">{selectedAppointment.professionalName}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Consultório:</span>
-                <span className="font-mono-data text-bhon-text">{selectedAppointment.roomName}</span>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-bhon-border">
-                <span className="text-bhon-muted">Status Atual:</span>
-                <StatusBadge status={selectedAppointment.status} />
-              </div>
-            </div>
-
-            {/* Ações Imediatas de Fluxo de Atendimento */}
-            <div>
-              <label className="block font-bold text-bhon-text uppercase tracking-wider text-[11px] mb-2">
-                Ações Imediatas de Fluxo
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('NA_RECEPCAO')}
-                  onClick={() => void handleStatusChange(selectedAppointment, 'NA_RECEPCAO')}
-                  className="p-2 text-left rounded border border-blue-200 bg-blue-50/60 hover:bg-blue-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
-                >
-                  <p className="font-bold text-blue-950">Confirmar Presença</p>
-                  <p className="text-[10px] text-blue-700">Mover para Recepção</p>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('EM_ATENDIMENTO')}
-                  onClick={() => void handleStatusChange(selectedAppointment, 'EM_ATENDIMENTO')}
-                  className="p-2 text-left rounded border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
-                >
-                  <p className="font-bold text-teal-950">Chamar Paciente</p>
-                  <p className="text-[10px] text-teal-700">Iniciar no Consultório</p>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('CONCLUIDO')}
-                  onClick={() => void handleStatusChange(selectedAppointment, 'CONCLUIDO')}
-                  className="p-2 text-left rounded border border-slate-300 bg-slate-100 hover:bg-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
-                >
-                  <p className="font-bold text-slate-800">Concluir Sessão</p>
-                  <p className="text-[10px] text-slate-600">Avançar Tratamento</p>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('FALTA')}
-                  onClick={() => void handleStatusChange(selectedAppointment, 'FALTA')}
-                  className="p-2 text-left rounded border border-rose-300 bg-rose-50 hover:bg-rose-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
-                >
-                  <p className="font-bold text-rose-950">Registrar Falta</p>
-                  <p className="text-[10px] text-rose-700">Abrir Fila de Exceção</p>
-                </button>
-              </div>
-            </div>
-
-            {/* Reagendamento Rápido */}
-            <form onSubmit={handleRescheduleSubmit} className="pt-3 border-t border-bhon-border space-y-3">
-              <label className="block font-bold text-bhon-text uppercase tracking-wider text-[11px]">
-                Reagendar Horário
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-bhon-muted block mb-1">Novo Horário</label>
-                  <input
-                    type="time"
-                    value={rescheduleTime}
-                    onChange={(e) => setRescheduleTime(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border border-bhon-border rounded font-mono-data text-xs text-bhon-text"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-bhon-muted block mb-1">Consultório</label>
-                  <select
-                    value={rescheduleRoom}
-                    onChange={(e) => setRescheduleRoom(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-bhon-border rounded text-xs text-bhon-text bg-white"
-                  >
-                    {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={actionLoading || !rescheduleRoom}
-                className="w-full py-2 bg-bhon-navy hover:bg-bhon-navy-hover text-white text-xs font-semibold rounded transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
-              >
-                {actionLoading ? 'Salvando…' : 'Salvar Reagendamento'}
-              </button>
-            </form>
-
-            {/* Links Rápidos */}
-            <div className="pt-3 border-t border-bhon-border flex items-center justify-between text-xs">
-              <button
-                onClick={() => {
-                  setLocation(`/clinic/patients/${selectedAppointment.patientId}`);
-                  setSelectedAppointment(null);
-                }}
-                className="text-bhon-teal hover:underline font-semibold"
-              >
-                Abrir Prontuário do Paciente →
-              </button>
-              <button
-                onClick={() => {
-                  setLocation('/clinic/treatments');
-                  setSelectedAppointment(null);
-                }}
-                className="text-bhon-muted hover:text-bhon-text"
-              >
-                Ver Tratamento
-              </button>
-            </div>
-          </div>
-        )}
+      <Drawer isOpen={!!selected} onClose={() => setSelected(null)} title="Atendimento" subtitle={selected ? `${selected.time} · ${selected.patientName}` : ''}>
+        {selected ? <div className="space-y-5"><div className="rounded-2xl bg-bhon-bg p-4"><p className="text-sm font-semibold text-bhon-text">{selected.procedureName}</p><p className="mt-1 text-xs text-bhon-muted">{selected.professionalName} · {selected.roomName}</p><div className="mt-3"><StatusBadge status={selected.status} /></div></div><div className="grid gap-2">{([['NA_RECEPCAO', 'Confirmar chegada'], ['EM_ATENDIMENTO', 'Iniciar atendimento'], ['CONCLUIDO', 'Concluir atendimento'], ['FALTA', 'Registrar falta']] as [AppointmentStatus, string][]).map(([status, label]) => <button key={status} type="button" disabled={!appointmentTransitions[selected.status].includes(status)} onClick={() => void changeStatus(status)} className="min-h-11 rounded-xl border border-bhon-border px-4 text-left text-sm font-semibold text-bhon-text transition-colors hover:border-bhon-teal hover:bg-bhon-teal-subtle disabled:cursor-not-allowed disabled:opacity-35">{label}</button>)}</div><button type="button" onClick={() => setLocation(`/clinic/patients/${selected.patientId}`)} className="text-xs font-semibold text-bhon-teal-dark">Abrir perfil do paciente →</button></div> : null}
       </Drawer>
-    </div>
+    </main>
   );
 };
-

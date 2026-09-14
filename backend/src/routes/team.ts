@@ -2,14 +2,12 @@ import type { FastifyInstance } from "fastify";
 import { AppointmentStatus, UserRole, UserStatus } from "../lib/prisma-types.js";
 import { zonedDayRange } from "../domain/time.js";
 import { prisma } from "../lib/prisma.js";
-import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
+import { requireAuth, requirePermission, requireTenant } from "../lib/middleware.js";
 import { hashPassword } from "../lib/auth.js";
 import { sanitizePermissions } from "../domain/permissions.js";
 
-const TEAM_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
-const TEAM_MANAGE_ROLES = ["OWNER", "ADMIN"] as const;
 const ROLE_LABELS: Record<string, string> = {
-  OWNER: "Proprietário", ADMIN: "Administrador", MANAGER: "Gestor", DENTIST: "Cirurgião-dentista",
+  OWNER: "Proprietário", ADMIN: "Administrador", MANAGER: "Gestor", DENTIST: "Profissional de saúde",
   RECEPTIONIST: "Recepção", FINANCIAL: "Financeiro", VIEWER: "Consulta",
 };
 
@@ -18,7 +16,7 @@ export async function teamRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireTenant);
 
   app.post<{ Body: { name: string; email: string; password: string; role: UserRole; specialty?: string; phone?: string; permissions: string[] } }>("/team", {
-    preHandler: requireRole(TEAM_MANAGE_ROLES),
+    preHandler: requirePermission('team.manage'),
     schema: { body: { type: "object", additionalProperties: false, required: ["name", "email", "password", "role", "permissions"], properties: {
       name: { type: "string", minLength: 2, maxLength: 120 }, email: { type: "string", minLength: 3, maxLength: 320 },
       password: { type: "string", minLength: 8, maxLength: 200 },
@@ -45,7 +43,7 @@ export async function teamRoutes(app: FastifyInstance) {
   });
 
   app.get<{ Querystring: { search?: string; role?: string; status?: string; page?: string; limit?: string } }>("/team", {
-    preHandler: requireRole(TEAM_READ_ROLES),
+    preHandler: requirePermission('team.view'),
     schema: {
       querystring: {
         type: "object", additionalProperties: false,

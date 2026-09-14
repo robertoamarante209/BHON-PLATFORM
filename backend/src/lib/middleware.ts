@@ -2,6 +2,8 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "./prisma.js";
 import { hashSessionToken } from "./auth.js";
 import type { Tenant, User, Session } from "./prisma-types.js";
+import { hasPermission } from "../domain/permissions.js";
+import type { CLINIC_PERMISSIONS } from "../domain/permissions.js";
 
 type AuthenticatedUser = Omit<User, "passwordHash" | "emailNormalized">;
 type AuthenticatedSession = Omit<Session, "tokenHash">;
@@ -101,6 +103,18 @@ export function requireRole(allowedRoles: readonly string[]) {
         error: "Acesso negado. Seu perfil não tem permissão para realizar esta operação.",
         code: "FORBIDDEN",
       });
+    }
+  };
+}
+
+export function requirePermission(permission: typeof CLINIC_PERMISSIONS[number]) {
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    if (!request.user) {
+      reply.code(401).send({ error: "Usuário não autenticado.", code: "UNAUTHORIZED" });
+      return;
+    }
+    if (!hasPermission(request.user, permission)) {
+      reply.code(403).send({ error: "Você não possui esta permissão.", code: "PERMISSION_REQUIRED" });
     }
   };
 }

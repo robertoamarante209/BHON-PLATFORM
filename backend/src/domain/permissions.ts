@@ -15,3 +15,12 @@ export function sanitizePermissions(input: unknown): string[] {
   }
   return values as string[];
 }
+
+export function hasPermission(
+  user: { role: string; permissions?: unknown },
+  permission: typeof CLINIC_PERMISSIONS[number],
+): boolean {
+  if (user.role === 'OWNER' || user.role === 'PLATFORM_OWNER') return true;
+  if (!Array.isArray(user.permissions)) return user.role === 'ADMIN';
+  return user.permissions.includes(permission);
+}

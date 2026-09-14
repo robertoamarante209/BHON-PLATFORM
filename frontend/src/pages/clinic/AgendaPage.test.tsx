@@ -41,9 +41,9 @@ describe('AgendaPage', () => {
 
     expect(screen.getByRole('dialog', { name: 'Novo Agendamento Clínico' })).toBeInTheDocument();
     expect(screen.getByLabelText('Paciente')).toHaveValue('patient-1');
-    expect(screen.getByLabelText('Consultório')).toHaveValue('room-1');
+    expect(screen.getByLabelText('Sala')).toHaveValue('room-1');
     expect(screen.getByLabelText('Profissional')).toHaveValue('user-1');
-    fireEvent.change(screen.getByLabelText('Procedimento clínico'), { target: { value: 'Avaliação inicial' } });
+    fireEvent.change(screen.getByLabelText('Tipo de atendimento'), { target: { value: 'Avaliação inicial' } });
     fireEvent.click(screen.getByRole('button', { name: /confirmar e inserir na agenda/i }));
 
     await waitFor(() => expect(api.createAppointment).toHaveBeenCalledWith(expect.objectContaining({

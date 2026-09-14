@@ -14,6 +14,7 @@ export const OverviewPage: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selected, setSelected] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
 
@@ -37,7 +38,8 @@ export const OverviewPage: React.FC = () => {
   const nextAppointments = appointments.filter((item) => actionable.includes(item.status)).slice(0, 7);
 
   const changeStatus = async (status: AppointmentStatus) => {
-    if (!selected || !appointmentTransitions[selected.status].includes(status)) return;
+    if (!selected || actionLoading || !appointmentTransitions[selected.status].includes(status)) return;
+    setActionLoading(true);
     setError('');
     try {
       await updateAppointmentStatus(selected.id, status);
@@ -45,6 +47,8 @@ export const OverviewPage: React.FC = () => {
       setReload((value) => value + 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível atualizar o atendimento.');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -77,7 +81,7 @@ export const OverviewPage: React.FC = () => {
       </div>
 
       <Drawer isOpen={!!selected} onClose={() => setSelected(null)} title="Atendimento" subtitle={selected ? `${selected.time} · ${selected.patientName}` : ''}>
-        {selected ? <div className="space-y-5"><div className="rounded-2xl bg-bhon-bg p-4"><p className="text-sm font-semibold text-bhon-text">{selected.procedureName}</p><p className="mt-1 text-xs text-bhon-muted">{selected.professionalName} · {selected.roomName}</p><div className="mt-3"><StatusBadge status={selected.status} /></div></div><div className="grid gap-2">{([['NA_RECEPCAO', 'Confirmar chegada'], ['EM_ATENDIMENTO', 'Iniciar atendimento'], ['CONCLUIDO', 'Concluir atendimento'], ['FALTA', 'Registrar falta']] as [AppointmentStatus, string][]).map(([status, label]) => <button key={status} type="button" disabled={!appointmentTransitions[selected.status].includes(status)} onClick={() => void changeStatus(status)} className="min-h-11 rounded-xl border border-bhon-border px-4 text-left text-sm font-semibold text-bhon-text transition-colors hover:border-bhon-teal hover:bg-bhon-teal-subtle disabled:cursor-not-allowed disabled:opacity-35">{label}</button>)}</div><button type="button" onClick={() => setLocation(`/clinic/patients/${selected.patientId}`)} className="text-xs font-semibold text-bhon-teal-dark">Abrir perfil do paciente →</button></div> : null}
+        {selected ? <div className="space-y-5"><div className="rounded-2xl bg-bhon-bg p-4"><p className="text-sm font-semibold text-bhon-text">{selected.procedureName}</p><p className="mt-1 text-xs text-bhon-muted">{selected.professionalName} · {selected.roomName}</p><div className="mt-3"><StatusBadge status={selected.status} /></div></div><div className="grid gap-2">{([['NA_RECEPCAO', 'Confirmar chegada'], ['EM_ATENDIMENTO', 'Iniciar atendimento'], ['CONCLUIDO', 'Concluir atendimento'], ['FALTA', 'Registrar falta']] as [AppointmentStatus, string][]).map(([status, label]) => <button key={status} type="button" disabled={actionLoading || !appointmentTransitions[selected.status].includes(status)} onClick={() => void changeStatus(status)} className="min-h-11 rounded-xl border border-bhon-border px-4 text-left text-sm font-semibold text-bhon-text transition-colors hover:border-bhon-teal hover:bg-bhon-teal-subtle disabled:cursor-not-allowed disabled:opacity-35">{label}</button>)}</div><button type="button" onClick={() => setLocation(`/clinic/patients/${selected.patientId}`)} className="text-xs font-semibold text-bhon-teal-dark">Abrir perfil do paciente →</button></div> : null}
       </Drawer>
     </main>
   );

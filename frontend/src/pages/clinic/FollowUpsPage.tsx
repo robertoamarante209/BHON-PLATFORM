@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
 import { useLocation, useSearch } from 'wouter';
 import { Drawer } from '../../components/common/Drawer';
@@ -51,39 +51,63 @@ export const FollowUpsPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [loadUnavailable, setLoadUnavailable] = useState(false);
+  const requestGeneration = useRef(0);
+  const activeLoadController = useRef<AbortController | null>(null);
+
+  const abortActiveLoad = useCallback(() => {
+    requestGeneration.current += 1;
+    activeLoadController.current?.abort();
+    activeLoadController.current = null;
+  }, []);
 
   useEffect(() => {
+    abortActiveLoad();
     setPage(1);
     setSearchTerm('');
     setStatusFilter('ALL');
     setSelectedFollowUp(null);
     setNotes(''); setOutcome(''); setNewDeadline(''); setAssigneeId('');
     setAction('LOG_CONTACT'); setFeedback('');
-  }, [search]);
+    setFollowUps([]); setAssignees([]); setMetrics({ pendingToday: 0, categoryCounts: emptyCategoryCounts });
+    setPagination({ page: 1, limit: 20, total: 0, totalPages: 0 });
+    setLoading(true); setError(''); setLoadUnavailable(false);
+  }, [abortActiveLoad, search]);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async () => {
+    const generation = requestGeneration.current + 1;
+    requestGeneration.current = generation;
+    activeLoadController.current?.abort();
+    const controller = new AbortController();
+    activeLoadController.current = controller;
+    const isCurrent = () => requestGeneration.current === generation && !controller.signal.aborted;
     setLoading(true);
     setError('');
+    setLoadUnavailable(false);
+    setFollowUps([]); setAssignees([]); setMetrics({ pendingToday: 0, categoryCounts: emptyCategoryCounts });
+    setPagination({ page: 1, limit: 20, total: 0, totalPages: 0 });
     try {
-      const result = await listFollowUps({ search: searchTerm.trim() || undefined, category: selectedCategory === 'ALL' ? undefined : selectedCategory, status: statusFilter === 'ALL' ? undefined : statusFilter, focus: focusId || undefined, page, limit: 20 }, signal);
-      if (signal?.aborted) return;
+      const result = await listFollowUps({ search: searchTerm.trim() || undefined, category: selectedCategory === 'ALL' ? undefined : selectedCategory, status: statusFilter === 'ALL' ? undefined : statusFilter, focus: focusId || undefined, page, limit: 20 }, controller.signal);
+      if (!isCurrent()) return;
       setFollowUps(result.data);
       setAssignees(result.assignees);
       setMetrics(result.metrics);
       setPagination(result.pagination);
       setSelectedFollowUp((current) => focusId ? result.data.find((item) => item.id === focusId) || null : current ? result.data.find((item) => item.id === current.id) || null : null);
     } catch (loadError) {
-      if ((loadError as Error).name !== 'AbortError') setError((loadError as Error).message || 'Não foi possível carregar os acompanhamentos.');
+      if (isCurrent() && (loadError as Error).name !== 'AbortError') {
+        setError((loadError as Error).message || 'Não foi possível carregar os acompanhamentos.');
+        setLoadUnavailable(true);
+      }
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [focusId, page, searchTerm, selectedCategory, statusFilter]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void load(controller.signal), 250);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [load]);
+    const timer = window.setTimeout(() => void load(), 250);
+    return () => { window.clearTimeout(timer); abortActiveLoad(); };
+  }, [abortActiveLoad, load]);
 
   const openFollowUp = (followUp: FollowUp) => {
     setSelectedFollowUp(followUp); setAction('LOG_CONTACT'); setNotes(''); setOutcome(''); setNewDeadline('');
@@ -125,7 +149,7 @@ export const FollowUpsPage: React.FC = () => {
       {feedback && <div role="status" className="border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">{feedback}</div>}
       {error && <div role="alert" className="flex items-center justify-between border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><span>{error}</span><button type="button" onClick={() => void load()} className="font-bold underline">Tentar novamente</button></div>}
 
-      <div className="overflow-hidden rounded border border-bhon-border bg-white shadow-sm">{loading ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-bhon-muted"><Loader2 className="h-4 w-4 animate-spin" /> Carregando acompanhamentos…</div> : followUps.length === 0 ? <div className="min-h-48 p-10 text-center"><p className="font-semibold text-bhon-text">Nenhum acompanhamento encontrado</p><p className="mt-1 text-xs text-bhon-muted">Não há itens para os filtros selecionados.</p></div> : <div className="overflow-x-auto"><table className="bhon-table"><thead><tr><th>Paciente</th><th>Categoria</th><th>Motivo</th><th>Responsável</th><th>Prazo</th><th>Último Contato</th><th>Próxima Ação</th><th>Status</th><th className="text-right">Ação</th></tr></thead><tbody>{followUps.map((followUp) => <tr key={followUp.id} className="transition-colors hover:bg-slate-50"><td className="whitespace-nowrap"><p className="font-bold">{followUp.patientName}</p><span className="font-mono-data text-[10px] text-bhon-muted">{followUp.patientRecordNumber}</span></td><td><span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono-data text-[10px] font-semibold">{followUp.category.replace(/_/g, ' ')}</span></td><td className="max-w-xs truncate text-xs font-semibold">{followUp.reason}</td><td className="whitespace-nowrap text-xs text-bhon-muted">{followUp.responsibleUserName || 'Não atribuído'}</td><td className="whitespace-nowrap font-mono-data text-xs">{new Date(followUp.deadlineAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td><td className="whitespace-nowrap font-mono-data text-xs text-bhon-muted">{followUp.lastContactAt ? new Date(followUp.lastContactAt).toLocaleDateString('pt-BR') : 'Nenhum'}</td><td className="max-w-xs truncate text-xs font-medium text-bhon-teal-dark">{followUp.nextAction || 'Registrar contato'}</td><td><StatusBadge status={followUp.status} /></td><td className="text-right"><button type="button" onClick={(event) => { event.stopPropagation(); openFollowUp(followUp); }} className="rounded border border-bhon-border bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-bhon-navy transition-[color,background-color,transform] duration-150 ease-out hover:bg-bhon-navy hover:text-white active:scale-[0.97]">{['CONCLUIDO', 'CANCELADO'].includes(followUp.status) ? 'Consultar' : 'Tratar'}</button></td></tr>)}</tbody></table></div>}</div>
+      <div className="overflow-hidden rounded border border-bhon-border bg-white shadow-sm">{loading ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-bhon-muted"><Loader2 className="h-4 w-4 animate-spin" /> Carregando acompanhamentos…</div> : loadUnavailable ? <div className="min-h-48 p-10 text-center"><p className="font-semibold text-bhon-text">Dados de acompanhamentos indisponíveis</p><p className="mt-1 text-xs text-bhon-muted">Tente atualizar a fila para consultar os itens mais recentes.</p></div> : followUps.length === 0 ? <div className="min-h-48 p-10 text-center"><p className="font-semibold text-bhon-text">Nenhum acompanhamento encontrado</p><p className="mt-1 text-xs text-bhon-muted">Não há itens para os filtros selecionados.</p></div> : <div className="overflow-x-auto"><table className="bhon-table"><thead><tr><th>Paciente</th><th>Categoria</th><th>Motivo</th><th>Responsável</th><th>Prazo</th><th>Último Contato</th><th>Próxima Ação</th><th>Status</th><th className="text-right">Ação</th></tr></thead><tbody>{followUps.map((followUp) => <tr key={followUp.id} className="transition-colors hover:bg-slate-50"><td className="whitespace-nowrap"><p className="font-bold">{followUp.patientName}</p><span className="font-mono-data text-[10px] text-bhon-muted">{followUp.patientRecordNumber}</span></td><td><span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono-data text-[10px] font-semibold">{followUp.category.replace(/_/g, ' ')}</span></td><td className="max-w-xs truncate text-xs font-semibold">{followUp.reason}</td><td className="whitespace-nowrap text-xs text-bhon-muted">{followUp.responsibleUserName || 'Não atribuído'}</td><td className="whitespace-nowrap font-mono-data text-xs">{new Date(followUp.deadlineAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td><td className="whitespace-nowrap font-mono-data text-xs text-bhon-muted">{followUp.lastContactAt ? new Date(followUp.lastContactAt).toLocaleDateString('pt-BR') : 'Nenhum'}</td><td className="max-w-xs truncate text-xs font-medium text-bhon-teal-dark">{followUp.nextAction || 'Registrar contato'}</td><td><StatusBadge status={followUp.status} /></td><td className="text-right"><button type="button" onClick={(event) => { event.stopPropagation(); openFollowUp(followUp); }} className="rounded border border-bhon-border bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-bhon-navy transition-[color,background-color,transform] duration-150 ease-out hover:bg-bhon-navy hover:text-white active:scale-[0.97]">{['CONCLUIDO', 'CANCELADO'].includes(followUp.status) ? 'Consultar' : 'Tratar'}</button></td></tr>)}</tbody></table></div>}</div>
 
       {!focusId && pagination.totalPages > 1 && <div className="flex items-center justify-end gap-2 text-xs text-bhon-muted"><button type="button" aria-label="Página anterior" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)} className="rounded border border-bhon-border p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button><span>Página {page} de {pagination.totalPages}</span><button type="button" aria-label="Próxima página" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)} className="rounded border border-bhon-border p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div>}
 

@@ -48,4 +48,61 @@ describe('FollowUpsPage query navigation', () => {
     expect(screen.getByText('Bia')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Confirmar ação' })).not.toBeInTheDocument();
   });
+
+  it('does not leave the previous category rows actionable when its replacement request fails', async () => {
+    api.listFollowUps.mockImplementation(async ({ category }) => {
+      if (category === 'RETORNO') throw new Error('Fila indisponível');
+      return {
+        data: records.filter((item) => item.category === category),
+        assignees: [], metrics: { pendingToday: 1, categoryCounts: { ORCAMENTO: 1, RETORNO: 0 } },
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      };
+    });
+    render(<FollowUpsPage />);
+    expect(await screen.findByText('Ana')).toBeInTheDocument();
+
+    act(() => window.history.pushState(null, '', '/clinic/follow-ups?category=RETORNO'));
+
+    expect(await screen.findByText('Fila indisponível')).toBeInTheDocument();
+    expect(screen.getByText('Dados de acompanhamentos indisponíveis')).toBeInTheDocument();
+    expect(screen.queryByText('Ana')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tratar' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the newest query result when a retry from an older query resolves late', async () => {
+    let resolveRetry: ((value: { data: FollowUp[]; assignees: []; metrics: { pendingToday: number; categoryCounts: Record<string, number> }; pagination: { page: number; limit: number; total: number; totalPages: number } }) => void) | undefined;
+    let retryStarted = false;
+    api.listFollowUps.mockImplementation(({ category }) => {
+      if (category === 'RETORNO' && !retryStarted) {
+        retryStarted = true;
+        return Promise.reject(new Error('Fila indisponível'));
+      }
+      if (category === 'RETORNO') return new Promise((resolve) => { resolveRetry = resolve; });
+      return Promise.resolve({
+        data: records.filter((item) => item.category === category),
+        assignees: [], metrics: { pendingToday: 1, categoryCounts: { ORCAMENTO: 1, RETORNO: 1 } },
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      });
+    });
+    const user = userEvent.setup();
+    render(<FollowUpsPage />);
+    expect(await screen.findByText('Ana')).toBeInTheDocument();
+
+    act(() => window.history.pushState(null, '', '/clinic/follow-ups?category=RETORNO'));
+    expect(await screen.findByText('Fila indisponível')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+    await waitFor(() => expect(resolveRetry).toBeDefined());
+
+    act(() => window.history.pushState(null, '', '/clinic/follow-ups?category=ORCAMENTO'));
+    expect(await screen.findByText('Ana')).toBeInTheDocument();
+    await act(async () => {
+      resolveRetry?.({
+        data: [records[1]], assignees: [], metrics: { pendingToday: 1, categoryCounts: { ORCAMENTO: 1, RETORNO: 1 } },
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      });
+    });
+
+    expect(screen.getByText('Ana')).toBeInTheDocument();
+    expect(screen.queryByText('Bia')).not.toBeInTheDocument();
+  });
 });

@@ -210,7 +210,7 @@ export async function financeRoutes(app: FastifyInstance) {
           patientId: payment.patientId,
           treatmentId: payment.treatmentId,
           type: "RECEITA",
-          category: payment.category || "TRATAMENTO_ODONTOLOGICO",
+          category: payment.category || "ATENDIMENTO_CLINICO",
           description: `Recebível do pagamento ${payment.id}`,
           amount: payment.amount,
           dueDate: payment.dueDate,

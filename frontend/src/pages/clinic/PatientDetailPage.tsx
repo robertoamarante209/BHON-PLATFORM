@@ -148,7 +148,7 @@ export const PatientDetailPage: React.FC = () => {
             className="px-3.5 py-1.5 bg-bhon-navy hover:bg-bhon-navy-hover text-white text-xs font-semibold rounded flex items-center gap-1.5 transition-colors"
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Agendar Próxima Consulta</span>
+            <span>Agendar atendimento</span>
           </button>
         </div>
       </div>
@@ -187,12 +187,12 @@ export const PatientDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Destaque Clínico e Alerta de Alergias */}
+          {/* Informações importantes para o cuidado */}
           {patient.allergies && (
             <div className="p-2.5 bg-rose-50 border border-rose-200 rounded text-xs flex items-start gap-2 max-w-sm">
               <AlertTriangle className="w-4 h-4 text-rose-700 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-rose-900">Alerta de Alergia / Condição:</p>
+                <p className="font-bold text-rose-900">Atenção antes do atendimento</p>
                 <p className="text-[11px] text-rose-800 mt-0.5 leading-tight font-medium">
                   {patient.allergies}
                 </p>
@@ -216,13 +216,13 @@ export const PatientDetailPage: React.FC = () => {
 
           <div className="p-3 bg-slate-50 border border-bhon-border rounded">
             <span className="text-[10px] font-bold text-bhon-muted uppercase tracking-wider block">
-              Estado Clínico Atual
+              Cuidado atual
             </span>
             <p className="text-xs font-semibold text-bhon-teal-dark mt-1">
               {patient.currentTreatment || 'Sem tratamento ativo'}
             </p>
             <p className="text-[10px] text-bhon-muted mt-0.5">
-              Resp: {patient.responsibleName || 'Dr. Roberto Carlos Fagundes'}
+              Responsável: {patient.responsibleName || 'Não atribuído'}
             </p>
           </div>
 
@@ -231,7 +231,7 @@ export const PatientDetailPage: React.FC = () => {
               Próxima Ação Prevista
             </span>
             <p className="text-xs font-bold text-bhon-text mt-1">
-              {patient.nextAction || 'Definir plano terapêutico'}
+              {patient.nextAction || 'Definir próximo passo'}
             </p>
           </div>
         </div>
@@ -240,7 +240,7 @@ export const PatientDetailPage: React.FC = () => {
       {/* Abas de Dossiê do Paciente */}
       <div className="border-b border-bhon-border flex items-center gap-6 text-xs font-semibold select-none overflow-x-auto">
         {[
-          { key: 'RESUMO', label: 'Resumo Clínico' },
+          { key: 'RESUMO', label: 'Resumo' },
           { key: 'HISTORICO', label: `Linha do Tempo (${patientAppointments.length + patientTimeline.length})` },
           { key: 'TRATAMENTOS', label: `Tratamentos (${patientTreatments.length})` },
           { key: 'ORCAMENTOS', label: `Orçamentos (${patientBudgets.length})` },
@@ -272,10 +272,10 @@ export const PatientDetailPage: React.FC = () => {
           <div className="md:col-span-2 space-y-4">
             <div className="bg-white border border-bhon-border rounded p-4">
               <h3 className="text-xs font-bold text-bhon-text uppercase tracking-wider mb-2">
-                Observações Clínicas e Anamnese
+                Observações importantes
               </h3>
               <p className="text-xs text-bhon-text leading-relaxed bg-slate-50 p-3 rounded border border-bhon-border font-mono-data">
-                {patient.observations || 'Nenhuma observação clínica adicional registrada.'}
+                {patient.observations || 'Nenhuma observação adicional registrada.'}
               </p>
             </div>
 
@@ -391,7 +391,7 @@ export const PatientDetailPage: React.FC = () => {
         <div className="bg-white border border-bhon-border rounded p-4 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-bhon-text uppercase tracking-wider">
-              Planos e Etapas Clínicas
+              Planos e etapas de cuidado
             </h3>
             <button
               onClick={() => setLocation('/clinic/treatments')}
@@ -523,7 +523,7 @@ export const PatientDetailPage: React.FC = () => {
       {activeTab === 'ACOMPANHAMENTOS' && (
         <div className="bg-white border border-bhon-border rounded p-4 space-y-3">
           <h3 className="text-xs font-bold text-bhon-text uppercase tracking-wider">
-            Filas de Acompanhamento (Pós-op, Retorno, Reativação)
+            Acompanhamentos, retornos e reativações
           </h3>
           {patientFollowUps.map((f) => (
             <div key={f.id} className="p-3 border border-bhon-border rounded bg-slate-50 text-xs">
@@ -543,8 +543,8 @@ export const PatientDetailPage: React.FC = () => {
       {activeTab === 'DOCUMENTOS' && (
         <div className="bg-white border border-bhon-border rounded p-6 text-center text-xs text-bhon-muted">
           <FileText className="w-8 h-8 mx-auto text-slate-400 mb-2" />
-          <p className="font-bold text-bhon-text">Repositório de Exames e Radiografias</p>
-          <p className="mt-1">Tomografias cone beam, radiografias panorâmicas e termos de consentimento assinados.</p>
+          <p className="font-bold text-bhon-text">Documentos do paciente</p>
+          <p className="mt-1">Exames, laudos, imagens e termos de consentimento ficam organizados aqui.</p>
         </div>
       )}
 
@@ -552,17 +552,17 @@ export const PatientDetailPage: React.FC = () => {
       <Drawer
         isOpen={isScheduleOpen}
         onClose={() => setIsScheduleOpen(false)}
-        title="Agendar Consulta para Paciente"
+        title="Agendar atendimento"
         subtitle={`${patient.name} (${patient.recordNumber})`}
       >
         <form onSubmit={handleScheduleSubmit} className="space-y-3.5 text-xs">
           <div>
-            <label className="block font-semibold text-bhon-text mb-1">Procedimento Clínico *</label>
+            <label className="block font-semibold text-bhon-text mb-1">Tipo de atendimento *</label>
             <input
               type="text"
               value={schedProcedure}
               onChange={(e) => setSchedProcedure(e.target.value)}
-              placeholder="Ex: Próxima Etapa de Implante / Prova Protética"
+              placeholder="Ex: Consulta de retorno"
               required
               className="w-full px-2.5 py-2 border border-bhon-border rounded text-bhon-text"
             />
@@ -591,7 +591,7 @@ export const PatientDetailPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block font-semibold text-bhon-text mb-1">Consultório</label>
+              <label className="block font-semibold text-bhon-text mb-1">Sala</label>
               <select
                 value={schedRoom}
                 onChange={(e) => setSchedRoom(e.target.value)}
@@ -621,7 +621,7 @@ export const PatientDetailPage: React.FC = () => {
             disabled={actionLoading || !schedRoom || !schedProfessional}
             className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
           >
-            {actionLoading ? 'Salvando agendamento…' : 'Confirmar e Inserir na Agenda'}
+            {actionLoading ? 'Salvando agendamento…' : 'Confirmar agendamento'}
           </button>
         </form>
       </Drawer>

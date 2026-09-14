@@ -143,48 +143,26 @@ export const PatientsPage: React.FC = () => {
             <thead>
               <tr>
                 <th>Paciente</th>
-                <th>Prontuário</th>
                 <th>Contato</th>
-                <th>Último Atendimento</th>
-                <th>Tratamento Atual</th>
-                <th>Responsável</th>
-                <th>Status</th>
+                <th>Cuidado atual</th>
                 <th>Próxima Ação</th>
                 <th className="text-right">Ação</th>
               </tr>
             </thead>
             <tbody>
               {loading && patients.length === 0 && (
-                <tr><td colSpan={9} className="py-10 text-center text-xs text-bhon-muted">Carregando prontuários…</td></tr>
+                <tr><td colSpan={5} className="py-10 text-center text-xs text-bhon-muted">Carregando prontuários…</td></tr>
               )}
               {!loading && patients.length === 0 && !error && (
-                <tr><td colSpan={9} className="py-10 text-center text-xs text-bhon-muted">Nenhum paciente encontrado para estes filtros.</td></tr>
+                <tr><td colSpan={5} className="py-10 text-center text-xs text-bhon-muted">Nenhum paciente encontrado para estes filtros.</td></tr>
               )}
               {patients.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="font-bold text-bhon-text whitespace-nowrap">
-                    {p.name}
-                  </td>
-                  <td className="font-mono-data text-bhon-muted whitespace-nowrap">
-                    {p.recordNumber}
-                  </td>
+                  <td className="whitespace-nowrap"><p className="font-bold text-bhon-text">{p.name}</p><span className="font-mono-data text-[10px] text-bhon-muted">{p.recordNumber}</span></td>
                   <td className="whitespace-nowrap font-mono-data text-xs text-bhon-text">
                     {p.phone || '—'}
                   </td>
-                  <td className="font-mono-data text-xs text-bhon-muted whitespace-nowrap">
-                    {p.lastAppointmentAt
-                      ? new Date(p.lastAppointmentAt).toLocaleDateString('pt-BR')
-                      : 'Sem registro'}
-                  </td>
-                  <td className="max-w-xs truncate text-xs font-medium text-bhon-text" title={p.currentTreatment}>
-                    {p.currentTreatment || 'Nenhum ativo'}
-                  </td>
-                  <td className="text-xs text-bhon-muted whitespace-nowrap">
-                    {p.responsibleName || 'Não atribuído'}
-                  </td>
-                  <td className="whitespace-nowrap">
-                    <StatusBadge status={p.status} />
-                  </td>
+                  <td className="max-w-sm"><p className="truncate text-xs font-medium text-bhon-text" title={p.currentTreatment}>{p.currentTreatment || 'Sem plano ativo'}</p><p className="mt-1 truncate text-[10px] text-bhon-muted">{p.responsibleName || 'Sem responsável'} · {p.lastAppointmentAt ? `último em ${new Date(p.lastAppointmentAt).toLocaleDateString('pt-BR')}` : 'sem atendimento anterior'}</p><div className="mt-1"><StatusBadge status={p.status} size="sm" /></div></td>
                   <td className="max-w-xs truncate text-xs text-bhon-teal-dark font-medium" title={p.nextAction}>
                     {p.nextAction || 'Aguardando agendamento'}
                   </td>

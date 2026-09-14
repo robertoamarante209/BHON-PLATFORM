@@ -1185,10 +1185,10 @@ export async function clinicalRoutes(app: FastifyInstance) {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 15);
       const payment = await tx.payment.create({
-        data: { tenantId, patientId: quote.patientId, quoteId: quote.id, treatmentId: treatment.id, referenceType: "TREATMENT", category: "TRATAMENTO_ODONTOLOGICO", amount: quote.finalAmount, dueDate, status: PaymentStatus.PENDENTE, paymentMethod: quote.paymentMethod || null }
+        data: { tenantId, patientId: quote.patientId, quoteId: quote.id, treatmentId: treatment.id, referenceType: "TREATMENT", category: "ATENDIMENTO_CLINICO", amount: quote.finalAmount, dueDate, status: PaymentStatus.PENDENTE, paymentMethod: quote.paymentMethod || null }
       });
       await tx.financialTransaction.create({
-        data: { tenantId, paymentId: payment.id, patientId: quote.patientId, treatmentId: treatment.id, type: "RECEITA", category: "TRATAMENTO_ODONTOLOGICO", description: `Recebível do orçamento ${quote.id}`, amount: quote.finalAmount, dueDate, status: PaymentStatus.PENDENTE }
+        data: { tenantId, paymentId: payment.id, patientId: quote.patientId, treatmentId: treatment.id, type: "RECEITA", category: "ATENDIMENTO_CLINICO", description: `Recebível do orçamento ${quote.id}`, amount: quote.finalAmount, dueDate, status: PaymentStatus.PENDENTE }
       });
 
       // 5. Registra na Linha do Tempo do Paciente

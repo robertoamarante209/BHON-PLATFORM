@@ -72,4 +72,17 @@ describe('OverviewPage', () => {
 
     finishUpdate?.();
   });
+
+  it('permite tentar novamente quando a operação do dia falha ao carregar', async () => {
+    api.listAppointments.mockRejectedValueOnce(new Error('Falha temporária.'));
+
+    render(<OverviewPage />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falha temporária.');
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+
+    expect(await screen.findByText('Mariana Costa')).toBeVisible();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(api.listAppointments).toHaveBeenCalledTimes(2);
+  });
 });

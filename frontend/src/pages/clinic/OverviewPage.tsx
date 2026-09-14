@@ -45,12 +45,13 @@ export const OverviewPage: React.FC = () => {
 
   const changeStatus = async (status: AppointmentStatus) => {
     if (!selected || actionLoading || !appointmentTransitions[selected.status].includes(status)) return;
+    const appointmentId = selected.id;
     setActionLoading(true);
     setLoadFailed(false);
     setError('');
     try {
-      await updateAppointmentStatus(selected.id, status);
-      setSelected(null);
+      await updateAppointmentStatus(appointmentId, status);
+      setSelected((current) => current?.id === appointmentId ? null : current);
       setReload((value) => value + 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível atualizar o atendimento.');

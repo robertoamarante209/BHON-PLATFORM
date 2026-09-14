@@ -1,363 +1,104 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link } from 'wouter';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { Drawer } from '../../components/common/Drawer';
-import { RecoveryQueue } from '../../components/recovery/RecoveryQueue';
-import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Sparkles, Users } from 'lucide-react';
-import type { Appointment, AppointmentStatus, Room } from '../../types';
-import { appointmentTransitions, getSchedulingResources, listAppointments, rescheduleAppointment, updateAppointmentStatus } from '../../lib/clinic';
+import { listAppointments } from '../../lib/clinic';
+import { apiRequest } from '../../lib/api';
+import { agendaBriefing, prioritizeRecovery, recoverableQuotes, type RecoveryItem } from '../../lib/overview';
+import type { Appointment } from '../../types';
+
+const actionClass = 'inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold text-bhon-navy hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bhon-teal focus-visible:ring-offset-2';
+const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const priorities = { URGENT: 'Urgente', HIGH: 'Alta', MEDIUM: 'Média', LOW: 'Baixa' };
+
+function PanelError({ message, retry }: { message: string; retry: () => void }) {
+  return <div className="rounded-lg border border-rose-200 bg-rose-50 p-4" role="alert">
+    <p className="text-sm text-rose-900">{message}</p>
+    <button type="button" className={`${actionClass} mt-2`} onClick={retry}>Tentar novamente</button>
+  </div>;
+}
 
 export const OverviewPage: React.FC = () => {
-  const [, setLocation] = useLocation();
+  const [now, setNow] = useState(() => new Date());
+  const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingAgenda, setLoadingAgenda] = useState(true);
+  const [recovery, setRecovery] = useState<RecoveryItem[]>([]);
+  const [agendaLoading, setAgendaLoading] = useState(true);
+  const [recoveryLoading, setRecoveryLoading] = useState(true);
   const [agendaError, setAgendaError] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
   const [agendaReload, setAgendaReload] = useState(0);
-  // Estado para Drawer de Ação Rápida em Consulta
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [rescheduleTime, setRescheduleTime] = useState('17:00');
-  const [rescheduleRoom, setRescheduleRoom] = useState('');
+  const [recoveryReload, setRecoveryReload] = useState(0);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
     const controller = new AbortController();
-    const now = new Date();
-    const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    setLoadingAgenda(true);
+    setAgendaLoading(true);
     setAgendaError('');
-    void Promise.all([listAppointments(date, controller.signal), getSchedulingResources(controller.signal)])
-      .then(([appointmentData, resources]) => {
-        setAppointments(appointmentData);
-        setRooms(resources.rooms);
-        setRescheduleRoom((current) => current || resources.rooms[0]?.id || '');
-      })
-      .catch((requestError) => {
-        if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
-        setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar a operação de hoje.');
-      })
-      .finally(() => { if (!controller.signal.aborted) setLoadingAgenda(false); });
+    void listAppointments(date, controller.signal).then(items => {
+      if (!controller.signal.aborted) setAppointments(items);
+    }).catch(() => {
+      if (!controller.signal.aborted) setAgendaError('Não foi possível carregar a agenda de hoje.');
+    }).finally(() => { if (!controller.signal.aborted) setAgendaLoading(false); });
     return () => controller.abort();
-  }, [agendaReload]);
+  }, [date, agendaReload]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setRecoveryLoading(true);
+    setRecoveryError('');
+    void apiRequest<{ items: RecoveryItem[] }>('/api/recovery', { signal: controller.signal }).then(data => {
+      if (!controller.signal.aborted) setRecovery(data.items);
+    }).catch(() => {
+      if (!controller.signal.aborted) setRecoveryError('Não foi possível carregar as oportunidades de recuperação.');
+    }).finally(() => { if (!controller.signal.aborted) setRecoveryLoading(false); });
+    return () => controller.abort();
+  }, [date, recoveryReload]);
 
-  // Cálculos da Operação de Hoje baseados nos dados reais
-  const todayAppointments = appointments;
-  const totalPatientsToday = todayAppointments.length;
-  const completedCount = todayAppointments.filter(a => a.status === 'CONCLUIDO').length;
-  const inProgressCount = todayAppointments.filter(a => a.status === 'EM_ATENDIMENTO').length;
-  const missedCount = todayAppointments.filter(a => a.status === 'FALTA').length;
-  const upcomingCount = todayAppointments.filter(
-    a => a.status === 'CONFIRMADO' || a.status === 'AGUARDANDO_CONFIRMACAO' || a.status === 'NA_RECEPCAO' || a.status === 'ENCAIXE'
-  ).length;
-  const completionRate = Math.round((completedCount / Math.max(1, totalPatientsToday)) * 100);
-  const nextAppointment = todayAppointments.find((appointment) =>
-    ['CONFIRMADO', 'AGUARDANDO_CONFIRMACAO', 'NA_RECEPCAO', 'ENCAIXE'].includes(appointment.status)
-  );
+  const agenda = agendaBriefing(appointments, now);
+  const orderedRecovery = prioritizeRecovery(recovery);
+  const potential = recoverableQuotes(recovery);
 
-  const handleStatusChange = async (appointment: Appointment, status: AppointmentStatus) => {
-    if (actionLoading || !appointmentTransitions[appointment.status].includes(status)) return;
-    setActionLoading(true);
-    setAgendaError('');
-    try {
-      await updateAppointmentStatus(appointment.id, status);
-      setSelectedAppointment((current) => current?.id === appointment.id ? { ...current, status } : current);
-      setAgendaReload((value) => value + 1);
-    } catch (requestError) {
-      setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível atualizar o atendimento.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRescheduleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAppointment || !rescheduleRoom || actionLoading) return;
-    const now = new Date();
-    const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    setActionLoading(true);
-    setAgendaError('');
-    try {
-      await rescheduleAppointment(selectedAppointment.id, { scheduledAt: new Date(`${date}T${rescheduleTime}:00`).toISOString(), roomId: rescheduleRoom });
-      setSelectedAppointment(null);
-      setAgendaReload((value) => value + 1);
-    } catch (requestError) {
-      setAgendaError(requestError instanceof Error ? requestError.message : 'Não foi possível reagendar a consulta.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  return (
-    <div className="mx-auto max-w-[1480px] space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-bhon-border bg-gradient-to-br from-white via-white to-[#E8F7F3] px-5 py-6 text-bhon-text shadow-[0_18px_55px_rgba(30,64,75,0.08)] sm:px-7 lg:px-8">
-        <div aria-hidden="true" className="absolute -right-24 -top-32 h-72 w-72 rounded-full bg-bhon-teal/15 blur-3xl" />
-        <div className="relative grid gap-6 lg:grid-cols-[1fr_360px] lg:items-center">
-          <div>
-            <p className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-bhon-teal"><Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Operação de hoje</p>
-            <h2 className="max-w-2xl text-balance font-display text-2xl font-semibold leading-tight sm:text-3xl">
-              Sua clínica, <span className="text-bhon-teal">em movimento.</span>
-            </h2>
-            <p className="mt-3 max-w-xl text-pretty text-xs leading-relaxed text-bhon-muted sm:text-sm">
-              {loadingAgenda ? 'Preparando a jornada clínica do dia…' : `${totalPatientsToday} pacientes compõem a jornada de hoje em ${rooms.length} ambiente${rooms.length === 1 ? '' : 's'} clínico${rooms.length === 1 ? '' : 's'}.`}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-bhon-border bg-white/80 p-5 shadow-sm backdrop-blur-sm">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-bhon-muted">Próximo atendimento</p>
-            {nextAppointment ? (
-              <div className="mt-4">
-                <div className="flex items-baseline justify-between gap-4"><p className="font-display text-lg font-semibold">{nextAppointment.patientName}</p><span className="font-mono-data text-sm text-bhon-teal">{nextAppointment.time}</span></div>
-                <p className="mt-1 truncate text-[11px] text-bhon-muted">{nextAppointment.procedureName} · {nextAppointment.roomName}</p>
-              </div>
-            ) : <p className="mt-4 font-display text-xl text-slate-300">Agenda em ordem.</p>}
-            <Link href="/clinic/agenda">
-              <div className="mt-5 flex cursor-pointer items-center justify-between border-t border-bhon-border pt-4 text-[11px] font-semibold text-bhon-navy transition-colors hover:text-bhon-teal-dark">
-                Abrir agenda clínica <ArrowRight aria-hidden="true" className="h-4 w-4" />
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {agendaError ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-900" role="alert" aria-live="polite">{agendaError}</div> : null}
-
-      <section aria-labelledby="operation-title">
-        <div className="mb-3 flex items-center justify-between"><h2 id="operation-title" className="text-sm font-semibold text-bhon-text">Ritmo da operação</h2><span className="font-mono-data text-[10px] text-bhon-muted">{loadingAgenda ? 'Atualizando…' : `${completionRate}% concluída`}</span></div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {[
-            { label: 'Pacientes hoje', value: totalPatientsToday, detail: 'jornada prevista', icon: Users, tone: 'text-bhon-text' },
-            { label: 'Concluídos', value: completedCount, detail: `${completionRate}% do dia`, icon: CheckCircle2, tone: 'text-emerald-400' },
-            { label: 'Em atendimento', value: inProgressCount, detail: 'cuidado em curso', icon: Sparkles, tone: 'text-bhon-teal-dark' },
-            { label: 'Próximos', value: upcomingCount, detail: 'recepção & agenda', icon: Clock3, tone: 'text-sky-400' },
-            { label: 'Atenções', value: missedCount, detail: 'faltas registradas', icon: CalendarDays, tone: missedCount > 0 ? 'text-rose-400' : 'text-bhon-muted' },
-          ].map((metric) => {
-            const Icon = metric.icon;
-            return <div key={metric.label} className="min-w-0 rounded-2xl border border-bhon-border bg-bhon-surface p-4 shadow-[0_10px_30px_rgba(30,64,75,0.055)] sm:p-5"><div className="flex items-start justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-bhon-muted">{metric.label}</p><Icon aria-hidden="true" className={`h-4 w-4 ${metric.tone}`} /></div><p className={`mt-4 font-display text-3xl font-semibold ${metric.tone}`}>{metric.value}</p><p className="mt-1 text-[10px] text-bhon-muted">{metric.detail}</p></div>;
-          })}
-        </div>
-      </section>
-
-      {/* ============================================================
-          3. TABELA OPERACIONAL DE ATENDIMENTOS DE HOJE
-          ============================================================ */}
-      <section className="bhon-panel overflow-hidden rounded-2xl">
-        <div className="flex items-center justify-between border-b border-bhon-border px-5 py-4 sm:px-6">
-          <div>
-            <p className="bhon-eyebrow">Linha de cuidado</p>
-            <h3 className="mt-1 font-display text-xl text-bhon-navy">Agenda do dia</h3>
-          </div>
-          <span className="font-mono-data text-xs text-bhon-muted">
-            {todayAppointments.length} consultas registradas
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="bhon-table">
-            <thead>
-              <tr>
-                <th>Horário</th>
-                <th>Paciente</th>
-                <th>Prontuário</th>
-                <th>Procedimento Clínico</th>
-                <th>Profissional</th>
-                <th>Consultório</th>
-                <th>Status</th>
-                <th className="text-right">Ação Imediata</th>
-              </tr>
-            </thead>
-            <tbody className="bhon-long-list">
-              {loadingAgenda && todayAppointments.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Carregando agenda de hoje…</td></tr>}
-              {!loadingAgenda && todayAppointments.length === 0 && !agendaError && <tr><td colSpan={8} className="py-8 text-center text-xs text-bhon-muted">Nenhum atendimento agendado para hoje.</td></tr>}
-              {todayAppointments.map((apt) => (
-                <tr key={apt.id}>
-                  <td className="font-mono-data font-bold text-bhon-text whitespace-nowrap">
-                    {apt.time}
-                    {apt.delayMinutes > 0 ? (
-                      <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded font-mono-data">
-                        +{apt.delayMinutes}m
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="font-semibold text-bhon-text whitespace-nowrap">
-                    {apt.patientName}
-                  </td>
-                  <td className="font-mono-data text-bhon-muted">
-                    {apt.patientRecordNumber}
-                  </td>
-                  <td className="max-w-xs truncate" title={apt.procedureName}>
-                    {apt.procedureName}
-                  </td>
-                  <td className="text-bhon-muted whitespace-nowrap">
-                    {apt.professionalName}
-                  </td>
-                  <td className="font-mono-data text-xs whitespace-nowrap">
-                    {apt.roomName}
-                  </td>
-                  <td className="whitespace-nowrap">
-                    <StatusBadge status={apt.status} />
-                  </td>
-                  <td className="text-right whitespace-nowrap">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedAppointment(apt);
-                      }}
-                      className="px-2.5 py-1 text-[11px] font-semibold text-bhon-navy bg-slate-100 hover:bg-bhon-navy hover:text-white rounded border border-bhon-border transition-colors"
-                    >
-                      Comando
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <RecoveryQueue onNavigate={setLocation} />
-
-      {/* ============================================================
-          DRAWER DE COMANDOS OPERACIONAIS NA CONSULTA
-          ============================================================ */}
-      <Drawer
-        isOpen={!!selectedAppointment}
-        onClose={() => setSelectedAppointment(null)}
-        title="Comando Operacional de Atendimento"
-        subtitle={selectedAppointment ? `${selectedAppointment.time} • ${selectedAppointment.patientName} (${selectedAppointment.patientRecordNumber})` : ''}
-      >
-        {selectedAppointment && (
-          <div className="space-y-4">
-            {/* Resumo do Atendimento */}
-            <div className="p-3 bg-slate-50 border border-bhon-border rounded space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Procedimento:</span>
-                <span className="font-bold text-bhon-text">{selectedAppointment.procedureName}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Profissional:</span>
-                <span className="font-semibold text-bhon-text">{selectedAppointment.professionalName}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-bhon-muted">Consultório:</span>
-                <span className="font-mono-data text-bhon-text">{selectedAppointment.roomName}</span>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-bhon-border">
-                <span className="text-bhon-muted">Status Atual:</span>
-                <StatusBadge status={selectedAppointment.status} />
-              </div>
-            </div>
-
-            {/* Ações Imediatas de Fluxo de Atendimento */}
-            <div>
-              <label className="block font-bold text-bhon-text uppercase tracking-wider text-[11px] mb-2">
-                Ações Imediatas de Fluxo
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('NA_RECEPCAO')}
-                  onClick={() => void handleStatusChange(selectedAppointment, 'NA_RECEPCAO')}
-                  className="p-2 text-left rounded border border-blue-200 bg-blue-50/60 hover:bg-blue-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
-                >
-                  <p className="font-bold text-blue-950">Confirmar Presença</p>
-                  <p className="text-[10px] text-blue-700">Mover para Recepção</p>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('EM_ATENDIMENTO')}
-                  onClick={() => void handleStatusChange(selectedAppointment, 'EM_ATENDIMENTO')}
-                  className="p-2 text-left rounded border border-teal-300 bg-teal-50 hover:bg-teal-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
-                >
-                  <p className="font-bold text-teal-950">Chamar Paciente</p>
-                  <p className="text-[10px] text-teal-700">Iniciar no Consultório</p>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('CONCLUIDO')}
-                  onClick={() => void handleStatusChange(selectedAppointment, 'CONCLUIDO')}
-                  className="p-2 text-left rounded border border-slate-300 bg-slate-100 hover:bg-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
-                >
-                  <p className="font-bold text-slate-800">Concluir Sessão</p>
-                  <p className="text-[10px] text-slate-600">Avançar Tratamento</p>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={actionLoading || !appointmentTransitions[selectedAppointment.status].includes('FALTA')}
-                  onClick={() => void handleStatusChange(selectedAppointment, 'FALTA')}
-                  className="p-2 text-left rounded border border-rose-300 bg-rose-50 hover:bg-rose-100 transition-colors disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
-                >
-                  <p className="font-bold text-rose-950">Registrar Falta</p>
-                  <p className="text-[10px] text-rose-700">Abrir Fila de Exceção</p>
-                </button>
-              </div>
-            </div>
-
-            {/* Reagendamento Rápido */}
-            <form onSubmit={handleRescheduleSubmit} className="pt-3 border-t border-bhon-border space-y-3">
-              <label className="block font-bold text-bhon-text uppercase tracking-wider text-[11px]">
-                Reagendar Horário
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-bhon-muted block mb-1">Novo Horário</label>
-                  <input
-                    type="time"
-                    value={rescheduleTime}
-                    onChange={(e) => setRescheduleTime(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border border-bhon-border rounded font-mono-data text-xs text-bhon-text"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-bhon-muted block mb-1">Consultório</label>
-                  <select
-                    value={rescheduleRoom}
-                    onChange={(e) => setRescheduleRoom(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-bhon-border rounded text-xs text-bhon-text bg-white"
-                  >
-                    {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={actionLoading || !rescheduleRoom}
-                className="w-full py-2 bg-bhon-navy hover:bg-bhon-navy-hover text-white text-xs font-semibold rounded transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
-              >
-                {actionLoading ? 'Salvando…' : 'Salvar Reagendamento'}
-              </button>
-            </form>
-
-            {/* Links Rápidos */}
-            <div className="pt-3 border-t border-bhon-border flex items-center justify-between text-xs">
-              <button
-                onClick={() => {
-                  setLocation(`/clinic/patients/${selectedAppointment.patientId}`);
-                  setSelectedAppointment(null);
-                }}
-                className="text-bhon-teal hover:underline font-semibold"
-              >
-                Abrir Prontuário do Paciente →
-              </button>
-              <button
-                onClick={() => {
-                  setLocation('/clinic/treatments');
-                  setSelectedAppointment(null);
-                }}
-                className="text-bhon-muted hover:text-bhon-text"
-              >
-                Ver Tratamento
-              </button>
-            </div>
-          </div>
-        )}
-      </Drawer>
-    </div>
-  );
+  return <div className="mx-auto flex max-w-7xl min-w-0 flex-col gap-8 text-bhon-text">
+    <header className="flex flex-wrap items-end justify-between gap-4">
+      <div><p className="text-sm capitalize text-bhon-muted">{now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Hoje na clínica</h1>
+        <p className="mt-2 text-sm leading-relaxed text-bhon-muted">Acompanhe os atendimentos e organize as próximas ações da equipe.</p></div>
+      <Link href="/clinic/agenda" className={`${actionClass} border border-bhon-border bg-bhon-surface`}>Abrir agenda →</Link>
+    </header>
+    <section aria-labelledby="today-agenda" aria-busy={agendaLoading} className="min-w-0 rounded-xl border border-bhon-border bg-bhon-surface">
+      <div className="border-b border-bhon-border p-4 sm:p-6">
+        <h2 id="today-agenda" className="font-display text-xl font-semibold">Agenda de hoje</h2>
+        {!agendaLoading && !agendaError && <>
+          <p className="mt-2 text-sm text-bhon-muted">{agenda.appointments.length} atendimentos · {agenda.patientCount} pacientes distintos</p>
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm"><span>{agenda.reception} na recepção</span><span>{agenda.inProgress} em atendimento</span><span>{agenda.pending.length} aguardando confirmação</span><span>{agenda.missed.length} faltas registradas</span></div>
+          <p className="mt-4 break-words text-sm leading-relaxed text-bhon-muted">{agenda.next ? `Próximo horário: ${agenda.next.time} · ${agenda.next.patientName} · ${agenda.next.professionalName}` : 'Nenhum próximo horário pendente a partir de agora.'}</p>
+        </>}
+      </div>
+      {agendaLoading ? <p role="status" className="p-6 text-sm text-bhon-muted">Carregando os atendimentos de hoje…</p>
+        : agendaError ? <div className="p-4 sm:p-6"><PanelError message={agendaError} retry={() => setAgendaReload(value => value + 1)} /></div>
+        : agenda.appointments.length === 0 ? <div className="p-6"><p className="text-sm text-bhon-muted">Nenhum atendimento agendado para hoje.</p><Link href="/clinic/agenda" className={`${actionClass} mt-3`}>Organizar agenda</Link></div>
+        : <ol className="divide-y divide-bhon-border">{agenda.appointments.map(appointment => <li key={appointment.id} className="grid min-w-0 gap-3 p-4 sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:gap-4 sm:p-6">
+          <div><time dateTime={appointment.scheduledAt} className="text-lg font-semibold tabular-nums">{appointment.time}</time>{appointment.delayMinutes > 0 && <p className="mt-1 text-sm text-amber-800">+{appointment.delayMinutes} min</p>}</div>
+          <div className="min-w-0 break-words"><p className="font-semibold">{appointment.patientName}</p><p className="mt-1 text-sm leading-relaxed text-bhon-muted">{appointment.procedureName}</p><p className="mt-1 text-sm leading-relaxed text-bhon-muted">{appointment.professionalName} · {appointment.roomName}</p>
+            <Link href={`/clinic/patients/${encodeURIComponent(appointment.patientId)}`} className={`${actionClass} -ml-3 mt-1`}>Abrir prontuário<span className="sr-only"> de {appointment.patientName}</span></Link></div>
+          <div className="self-start"><StatusBadge status={appointment.status} /></div>
+        </li>)}</ol>}
+    </section>
+    <section aria-labelledby="today-recovery" aria-busy={recoveryLoading} className="min-w-0">
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 id="today-recovery" className="font-display text-xl font-semibold">Recuperar e dar continuidade</h2><p className="mt-2 text-sm leading-relaxed text-bhon-muted">Prioridade por urgência, prazo, valor conhecido e tempo sem avanço.</p></div><Link href="/clinic/follow-ups" className={actionClass}>Abrir acompanhamentos →</Link></div>
+      {recoveryLoading ? <p role="status" className="py-6 text-sm text-bhon-muted">Carregando ações de recuperação…</p>
+        : recoveryError ? <div className="mt-4"><PanelError message={recoveryError} retry={() => setRecoveryReload(value => value + 1)} /></div>
+        : <><div className="my-5 border-l-2 border-bhon-teal py-1 pl-4"><p className="text-sm text-bhon-muted">Potencial dos orçamentos retornados</p><p className="mt-1 font-display text-2xl font-semibold tabular-nums">{potential.count > 0 && potential.unknown === potential.count ? 'Valor não informado' : currency.format(potential.value)}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-bhon-muted">Soma dos valores conhecidos de {potential.count} orçamentos únicos nesta consulta. Não representa receita garantida nem inclui tratamentos ou pagamentos. {potential.unknown > 0 ? `${potential.unknown} sem valor informado. ` : ''}A consulta retorna até 50 acompanhamentos e 25 registros por outra origem; não é o total da clínica.</p></div>
+          {orderedRecovery.length === 0 ? <p className="rounded-xl border border-bhon-border bg-bhon-surface p-6 text-sm text-bhon-muted">Nenhuma ação de recuperação retornada nesta consulta. Continue acompanhando os pacientes pela agenda.</p>
+            : <ol className="divide-y divide-bhon-border rounded-xl border border-bhon-border bg-bhon-surface">{orderedRecovery.slice(0, 8).map(item => <li key={item.id} className="grid min-w-0 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
+              <div className="min-w-0 break-words"><p className="text-sm font-semibold text-bhon-muted">Prioridade {priorities[item.priority].toLowerCase()} · {item.ageDays} dias</p><h3 className="mt-2 font-semibold">{item.patient.name} · {item.signal}</h3><p className="mt-2 text-sm leading-relaxed text-bhon-muted">{item.reason}</p><p className="mt-2 text-sm text-bhon-muted">{item.responsible?.name || 'Sem responsável definido'} · {item.deadline ? `Prazo: ${new Date(item.deadline).toLocaleDateString('pt-BR')}` : 'Sem prazo definido'}</p></div>
+              <div className="min-w-0 break-words"><p className="text-sm leading-relaxed">{item.nextAction}</p><Link href={item.href} className={`${actionClass} -ml-3 mt-2`}>Abrir acompanhamento<span className="sr-only"> de {item.patient.name}: {item.signal}</span> →</Link></div>
+            </li>)}</ol>}
+          {orderedRecovery.length > 8 && <p className="mt-3 text-sm text-bhon-muted">Exibindo as 8 primeiras de {orderedRecovery.length} ações retornadas. Consulte os acompanhamentos e os módulos de origem para continuar.</p>}
+        </>}
+    </section>
+  </div>;
 };
-

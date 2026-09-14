@@ -7,7 +7,7 @@ import {
   TreatmentStatus,
 } from "../lib/prisma-types.js";
 import { prisma } from "../lib/prisma.js";
-import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
+import { requireAuth, requirePermission, requireTenant } from "../lib/middleware.js";
 import {
   appendNote,
   asMoney,
@@ -17,8 +17,6 @@ import {
   type RecoveryItem,
 } from "../domain/recovery.js";
 
-const RECOVERY_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
-const RECOVERY_ACTION_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST"] as const;
 const OPEN_FOLLOW_UP_STATUSES = [FollowUpStatus.PENDENTE, FollowUpStatus.EM_ANDAMENTO, FollowUpStatus.ADIADO];
 const OPEN_OPPORTUNITY_STATUSES = [
   OpportunityStatus.NEW_CONTACT,
@@ -49,7 +47,7 @@ export async function recoveryRoutes(app: FastifyInstance) {
 
   app.get(
     "/recovery",
-    { preHandler: requireRole(RECOVERY_READ_ROLES) },
+    { preHandler: requirePermission('recovery.view') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const tenantId = request.tenantId!;
       const today = startOfToday();
@@ -293,7 +291,7 @@ export async function recoveryRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string }; Body: FollowUpActionBody }>(
     "/recovery/follow-ups/:id",
     {
-      preHandler: requireRole(RECOVERY_ACTION_ROLES),
+      preHandler: requirePermission('recovery.contact'),
       schema: {
         body: {
           type: "object",

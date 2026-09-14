@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "../lib/prisma.js";
-import { requireAuth, requireTenant, requireRole } from "../lib/middleware.js";
+import { requireAuth, requireTenant, requireRole, requirePermission } from "../lib/middleware.js";
 import { AppointmentStatus, PatientStatus, QuoteStatus, TreatmentStatus, OpportunityStatus, FollowUpStatus, PaymentStatus, StageStatus } from "../lib/prisma-types.js";
 import { intervalsOverlap, isAppointmentTransitionAllowed, parseAppointmentDuration } from "../domain/scheduling.js";
 import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgress, type StageState, type TreatmentState } from "../domain/treatment.js";
@@ -196,7 +196,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   // 2. PACIENTES (CRUD, BUSCA, PAGINAÇÃO, DOSSIÊ COMPLETO)
   // ============================================================
   app.get("/patients", {
-    preHandler: requireRole(CLINIC_READ_ROLES),
+    preHandler: requirePermission('patients.view'),
     schema: {
       querystring: {
         type: "object",
@@ -294,7 +294,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.post("/patients", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requirePermission('patients.create'),
     schema: {
       body: {
         type: "object",
@@ -347,7 +347,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.patch<{ Params: { id: string } }>("/patients/:id", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requirePermission('patients.edit'),
     schema: {
       body: {
         type: "object",
@@ -427,7 +427,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
     return reply.send(updated);
   });
 
-  app.get<{ Params: { id: string } }>("/patients/:id", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  app.get<{ Params: { id: string } }>("/patients/:id", { preHandler: requirePermission('patients.view') }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const { id } = request.params;
 
@@ -494,7 +494,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   // ============================================================
   // 3. AGENDA (MATRIZ DE HORÁRIOS + SALAS + WORKFLOWS DE STATUS)
   // ============================================================
-  app.get("/scheduling-resources", { preHandler: requireRole(CLINIC_READ_ROLES) }, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/scheduling-resources", { preHandler: requirePermission('agenda.view') }, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const [rooms, professionals] = await Promise.all([
       prisma.room.findMany({
@@ -512,7 +512,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.get("/appointments", {
-    preHandler: requireRole(CLINIC_READ_ROLES),
+    preHandler: requirePermission('agenda.view'),
     schema: {
       querystring: {
         type: "object",
@@ -555,7 +555,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.post("/appointments", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requirePermission('agenda.create'),
     schema: {
       body: {
         type: "object",
@@ -659,7 +659,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   app.patch<{ Params: { id: string } }>("/appointments/:id/reschedule", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requirePermission('agenda.edit'),
     schema: {
       body: {
         type: "object",
@@ -750,7 +750,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
 
   // WORKFLOW CRÍTICO CRUZADO DE STATUS DO AGENDAMENTO
   app.patch<{ Params: { id: string } }>("/appointments/:id/status", {
-    preHandler: requireRole(CLINIC_WRITE_ROLES),
+    preHandler: requirePermission('agenda.edit'),
     schema: {
       body: {
         type: "object",

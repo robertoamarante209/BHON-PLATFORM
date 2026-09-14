@@ -6,6 +6,14 @@ export const CLINIC_PERMISSIONS = [
 ] as const;
 
 const allowed = new Set<string>(CLINIC_PERMISSIONS);
+const legacyDefaults: Record<string, readonly string[]> = {
+  ADMIN: CLINIC_PERMISSIONS,
+  MANAGER: CLINIC_PERMISSIONS.filter((permission) => permission !== 'team.manage'),
+  DENTIST: ['agenda.view', 'agenda.create', 'agenda.edit', 'patients.view', 'patients.edit', 'recovery.view', 'recovery.contact'],
+  RECEPTIONIST: ['agenda.view', 'agenda.create', 'agenda.edit', 'agenda.cancel', 'patients.view', 'patients.create', 'patients.edit', 'recovery.view', 'recovery.contact'],
+  FINANCIAL: ['patients.view', 'finance.view', 'finance.manage'],
+  VIEWER: ['agenda.view', 'patients.view', 'recovery.view', 'finance.view', 'team.view'],
+};
 
 export function sanitizePermissions(input: unknown): string[] {
   if (!Array.isArray(input)) throw new Error('Permissões inválidas.');
@@ -21,6 +29,6 @@ export function hasPermission(
   permission: typeof CLINIC_PERMISSIONS[number],
 ): boolean {
   if (user.role === 'OWNER' || user.role === 'PLATFORM_OWNER') return true;
-  if (!Array.isArray(user.permissions)) return user.role === 'ADMIN';
+  if (!Array.isArray(user.permissions)) return legacyDefaults[user.role]?.includes(permission) === true;
   return user.permissions.includes(permission);
 }

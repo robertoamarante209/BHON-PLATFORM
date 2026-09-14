@@ -11,4 +11,6 @@ test('owner administra tudo e demais usuários respeitam a matriz individual', (
   assert.equal(hasPermission({ role: 'OWNER', permissions: [] }, 'team.manage'), true);
   assert.equal(hasPermission({ role: 'RECEPTIONIST', permissions: ['agenda.view'] }, 'agenda.view'), true);
   assert.equal(hasPermission({ role: 'RECEPTIONIST', permissions: ['agenda.view'] }, 'team.view'), false);
+  assert.equal(hasPermission({ role: 'RECEPTIONIST' }, 'patients.view'), true);
+  assert.equal(hasPermission({ role: 'RECEPTIONIST' }, 'finance.manage'), false);
 });

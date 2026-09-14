@@ -1,11 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { PaymentStatus } from "../lib/prisma-types.js";
 import { prisma } from "../lib/prisma.js";
-import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
+import { requireAuth, requirePermission, requireTenant } from "../lib/middleware.js";
 import { effectivePaymentStatus, moneyToCents, outstandingCents, receiptResult } from "../domain/finance.js";
 
-const FINANCE_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "FINANCIAL", "VIEWER"] as const;
-const FINANCE_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "FINANCIAL"] as const;
 const PAYMENT_METHODS = ["PIX", "CARTAO_CREDITO", "CARTAO_DEBITO", "DINHEIRO", "TRANSFERENCIA", "BOLETO", "OUTRO"] as const;
 
 function todayInClinicTimeZone() {
@@ -77,7 +75,7 @@ export async function financeRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: { search?: string; status?: string; focus?: string; page?: string; limit?: string };
   }>("/finance/payments", {
-    preHandler: requireRole(FINANCE_READ_ROLES),
+    preHandler: requirePermission('finance.view'),
     schema: {
       querystring: {
         type: "object",
@@ -157,7 +155,7 @@ export async function financeRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: { amount?: number; method: string; paidAt?: string; notes?: string };
   }>("/finance/payments/:id/pay", {
-    preHandler: requireRole(FINANCE_WRITE_ROLES),
+    preHandler: requirePermission('finance.manage'),
     schema: {
       params: { type: "object", additionalProperties: false, required: ["id"], properties: { id: { type: "string", minLength: 1, maxLength: 80 } } },
       body: {

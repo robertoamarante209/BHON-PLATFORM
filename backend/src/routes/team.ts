@@ -3,8 +3,11 @@ import { AppointmentStatus, UserRole, UserStatus } from "../lib/prisma-types.js"
 import { zonedDayRange } from "../domain/time.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
+import { hashPassword } from "../lib/auth.js";
+import { sanitizePermissions } from "../domain/permissions.js";
 
 const TEAM_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
+const TEAM_MANAGE_ROLES = ["OWNER", "ADMIN"] as const;
 const ROLE_LABELS: Record<string, string> = {
   OWNER: "Proprietário", ADMIN: "Administrador", MANAGER: "Gestor", DENTIST: "Cirurgião-dentista",
   RECEPTIONIST: "Recepção", FINANCIAL: "Financeiro", VIEWER: "Consulta",
@@ -13,6 +16,33 @@ const ROLE_LABELS: Record<string, string> = {
 export async function teamRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
   app.addHook("preHandler", requireTenant);
+
+  app.post<{ Body: { name: string; email: string; password: string; role: UserRole; specialty?: string; phone?: string; permissions: string[] } }>("/team", {
+    preHandler: requireRole(TEAM_MANAGE_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["name", "email", "password", "role", "permissions"], properties: {
+      name: { type: "string", minLength: 2, maxLength: 120 }, email: { type: "string", minLength: 3, maxLength: 320 },
+      password: { type: "string", minLength: 8, maxLength: 200 },
+      role: { type: "string", enum: ["ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] },
+      specialty: { type: "string", maxLength: 120 }, phone: { type: "string", maxLength: 30 },
+      permissions: { type: "array", maxItems: 30, items: { type: "string" } },
+    } } },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    let permissions: string[];
+    try { permissions = sanitizePermissions(request.body.permissions); }
+    catch { return reply.code(400).send({ error: "Uma ou mais permissões são inválidas.", code: "INVALID_PERMISSIONS" }); }
+    const email = request.body.email.trim();
+    const emailNormalized = email.toLowerCase();
+    const exists = await prisma.user.findFirst({ where: { tenantId, emailNormalized, deletedAt: null }, select: { id: true } });
+    if (exists) return reply.code(409).send({ error: "Este usuário já está cadastrado.", code: "USER_ALREADY_EXISTS" });
+    const passwordHash = await hashPassword(request.body.password);
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({ data: { tenantId, name: request.body.name.trim(), email, emailNormalized, passwordHash, role: request.body.role, specialty: request.body.specialty?.trim() || null, phone: request.body.phone?.trim() || null, permissions }, select: { id: true, name: true, email: true, role: true, status: true, specialty: true, phone: true, permissions: true, createdAt: true } });
+      await tx.auditLog.create({ data: { tenantId, actorUserId: request.user!.id, action: "TEAM_MEMBER_CREATED", resource: "User", resourceId: created.id, metadata: { role: created.role, permissions } } });
+      return created;
+    });
+    return reply.code(201).send(user);
+  });
 
   app.get<{ Querystring: { search?: string; role?: string; status?: string; page?: string; limit?: string } }>("/team", {
     preHandler: requireRole(TEAM_READ_ROLES),

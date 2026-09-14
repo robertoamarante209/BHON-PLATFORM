@@ -381,6 +381,20 @@ export function listTeam(input: { search?: string; role?: UserRole; status?: Use
   return apiRequest<{ data: TeamMember[]; pagination: Pagination; metrics: TeamMetrics }>(`/api/team?${query}`, { signal });
 }
 
+export type CreateTeamMemberInput = {
+  name: string;
+  email: string;
+  password: string;
+  role: Exclude<UserRole, 'PLATFORM_OWNER' | 'OWNER'>;
+  specialty?: string;
+  phone?: string;
+  permissions: string[];
+};
+
+export function createTeamMember(input: CreateTeamMemberInput) {
+  return apiRequest<TeamMember>('/api/team', { method: 'POST', body: JSON.stringify(input) });
+}
+
 export type IndicatorPeriod = 'TODAY' | 'WEEK' | 'MONTH';
 export type ClinicIndicators = {
   period: IndicatorPeriod;

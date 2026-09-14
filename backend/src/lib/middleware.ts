@@ -48,6 +48,7 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
             email: true,
             role: true,
             status: true,
+            permissions: true,
             specialty: true,
             cro: true,
             phone: true,

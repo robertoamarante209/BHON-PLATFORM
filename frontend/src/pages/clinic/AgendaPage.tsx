@@ -82,7 +82,7 @@ export const AgendaPage: React.FC = () => {
   }, [selectedDate, reloadKey]);
 
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(`${selectedDate}T12:00:00`)), [selectedDate]);
-  const appointmentsBySlot = useMemo(() => new Map(appointments.map((appointment) => [`${appointment.roomId}-${appointment.time}`, appointment])), [appointments]);
+  const appointmentsBySlot = useMemo(() => new Map(appointments.map((appointment) => [`${appointment.professionalId}-${appointment.time}`, appointment])), [appointments]);
   const visibleAppointments = statusFilter === 'ALL' ? appointments : appointments.filter((appointment) => appointment.status === statusFilter);
   const canTransition = (appointment: Appointment, status: AppointmentStatus) => appointmentTransitions[appointment.status].includes(status);
 
@@ -200,28 +200,28 @@ export const AgendaPage: React.FC = () => {
       ) : null}
 
       {!loading && rooms.length > 0 ? <div className="space-y-3">
-        <section aria-label="Agenda do dia no celular" className="space-y-2 sm:hidden">
-          {visibleAppointments.length === 0 ? <div className="bhon-panel rounded-2xl p-8 text-center text-sm text-bhon-muted">Nenhum atendimento para este filtro.</div> : visibleAppointments.map((apt) => (
-            <button key={apt.id} type="button" onClick={() => setSelectedApt(apt)} className="bhon-panel flex w-full items-start gap-3 rounded-2xl p-4 text-left">
-              <span className="rounded-xl bg-bhon-teal-subtle px-2.5 py-2 font-mono-data text-xs font-bold text-bhon-teal-dark">{apt.time}</span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-bhon-text">{apt.patientName}</span><span className="mt-1 block truncate text-xs text-bhon-muted">{apt.procedureName} · {apt.professionalName}</span><span className="mt-2 flex items-center gap-2"><StatusBadge status={apt.status} size="sm" /><span className="truncate text-[10px] text-bhon-muted">{apt.roomName}</span></span></span>
-            </button>
-          ))}
+        <section aria-label="Agenda do dia no celular" className="space-y-5 sm:hidden">
+          {visibleAppointments.length === 0 ? <div className="bhon-panel rounded-2xl p-8 text-center text-sm text-bhon-muted">Nenhum atendimento para este filtro.</div> : professionals.map((professional) => {
+            const professionalAppointments = visibleAppointments.filter((appointment) => appointment.professionalId === professional.id);
+            if (professionalAppointments.length === 0) return null;
+            return <section key={professional.id} aria-labelledby={`professional-${professional.id}`}><div className="mb-2 flex items-center gap-2"><span className="h-7 w-1 rounded-full bg-bhon-teal" /><div><h2 id={`professional-${professional.id}`} className="text-sm font-semibold text-bhon-text">{professional.name}</h2><p className="text-[11px] text-bhon-muted">{professional.specialty || `${professionalAppointments.length} atendimento${professionalAppointments.length === 1 ? '' : 's'}`}</p></div></div><div className="space-y-2">{professionalAppointments.map((apt) => <button key={apt.id} type="button" onClick={() => setSelectedApt(apt)} className="bhon-panel flex w-full items-start gap-3 rounded-2xl p-4 text-left"><span className="rounded-xl bg-bhon-teal-subtle px-2.5 py-2 font-mono-data text-xs font-bold text-bhon-teal-dark">{apt.time}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-bhon-text">{apt.patientName}</span><span className="mt-1 block truncate text-xs text-bhon-muted">{apt.procedureName}</span><span className="mt-2 flex items-center gap-2"><StatusBadge status={apt.status} size="sm" /><span className="truncate text-[10px] text-bhon-muted">{apt.roomName}</span></span></span></button>)}</div></section>;
+          })}
         </section>
-        <div className="bhon-panel hidden overflow-x-auto rounded-2xl sm:block">
+        <div role="table" aria-label="Agenda diária por profissional" className="bhon-panel hidden overflow-x-auto rounded-2xl sm:block">
         {/* Cabeçalho das Colunas de Consultórios */}
-        <div style={{ gridTemplateColumns: `86px repeat(${Math.max(rooms.length, 1)}, minmax(240px, 1fr))` }} className="sticky top-0 z-10 grid min-w-max border-b border-bhon-border bg-[#F8F5EF] text-[10px] font-bold uppercase tracking-[0.15em] text-bhon-text">
-          <div className="border-r border-bhon-border p-4 text-center font-mono-data text-bhon-muted">
-            Hora
+        <div role="row" style={{ gridTemplateColumns: `86px repeat(${Math.max(professionals.length, 1)}, minmax(240px, 1fr))` }} className="sticky top-0 z-10 grid min-w-max border-b border-bhon-border bg-[#F3F7F6] text-[10px] font-bold text-bhon-text">
+          <div role="columnheader" className="border-r border-bhon-border p-4 text-center font-mono-data text-bhon-muted">
+            Horário
           </div>
-          {rooms.map((room) => (
+          {professionals.map((professional) => (
             <div
-              key={room.id}
+              role="columnheader"
+              key={professional.id}
               className="flex items-center justify-between border-r border-bhon-border p-4 last:border-r-0"
             >
-              <span>{room.name}</span>
-              <span className="font-mono-data text-[10px] text-bhon-muted font-normal lowercase">
-                {room.description}
+              <span>{professional.name}</span>
+              <span className="text-[10px] font-normal text-bhon-muted">
+                {professional.specialty || 'Profissional'}
               </span>
             </div>
           ))}
@@ -231,22 +231,23 @@ export const AgendaPage: React.FC = () => {
         <div className="bhon-long-list divide-y divide-bhon-border">
           {timeSlots.map((time) => {
             return (
-              <div key={time} style={{ gridTemplateColumns: `86px repeat(${Math.max(rooms.length, 1)}, minmax(240px, 1fr))` }} className="grid min-h-[82px] min-w-max">
+              <div role="row" key={time} style={{ gridTemplateColumns: `86px repeat(${Math.max(professionals.length, 1)}, minmax(240px, 1fr))` }} className="grid min-h-[82px] min-w-max">
                 {/* Eixo Vertical de Tempo */}
                 <div className="flex items-center justify-center border-r border-bhon-border bg-[#FAF8F3] p-3 text-center font-mono-data text-[11px] font-semibold text-bhon-muted">
                   {time}
                 </div>
 
                 {/* Colunas dos Consultórios */}
-                {rooms.map((room) => {
-                  const apt = appointmentsBySlot.get(`${room.id}-${time}`);
+                {professionals.map((professional) => {
+                  const apt = appointmentsBySlot.get(`${professional.id}-${time}`);
 
                   const isVisible =
                     !apt || statusFilter === 'ALL' || apt.status === statusFilter;
 
                   return (
                     <div
-                      key={room.id}
+                      role="cell"
+                      key={professional.id}
                       className="relative border-r border-bhon-border p-2 last:border-r-0 hover:bg-bhon-bg/60"
                     >
                       {apt && isVisible ? (

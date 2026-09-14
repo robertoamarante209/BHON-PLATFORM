@@ -55,4 +55,11 @@ describe('AgendaPage', () => {
       scheduledAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/),
     })));
   });
+
+  it('organiza a agenda diária por profissional', async () => {
+    render(<AgendaPage />);
+
+    expect(await screen.findByRole('columnheader', { name: /Profissional/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /Profissional/ })).toHaveTextContent('Profissional');
+  });
 });

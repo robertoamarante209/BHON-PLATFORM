@@ -188,6 +188,7 @@ model User {
 
   role   UserRole   @default(RECEPTIONIST)
   status UserStatus @default(ACTIVE)
+  permissions Json?
 
   specialty     String?
   cro           String?

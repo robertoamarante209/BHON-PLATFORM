@@ -72,24 +72,22 @@ export const PatientsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
+    <div className="mx-auto max-w-7xl space-y-6">
       {/* Cabeçalho do Módulo de Pacientes */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-bhon-border gap-3">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-lg font-bold text-bhon-text uppercase tracking-wide">
-            Dossiê de Pacientes
-          </h1>
-          <p className="text-xs text-bhon-muted mt-0.5">
-            Cadastro unificado, prontuários clínicos e histórico integrado de tratamentos.
-          </p>
+          <p className="text-xs font-semibold text-bhon-teal-dark">Cuidado contínuo</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-bhon-text">Pacientes</h1>
+          <p className="mt-1 text-sm text-bhon-muted">Encontre rapidamente informações, histórico e próximos passos.</p>
         </div>
 
         <button
           onClick={() => setIsNewPatientOpen(true)}
-          className="px-3.5 py-1.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white text-xs font-bold rounded flex items-center gap-1.5 transition-colors uppercase tracking-wider self-start sm:self-auto"
+          aria-label="Novo paciente"
+          className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl bg-bhon-navy px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-bhon-navy-hover sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          <span>Cadastrar Novo Paciente</span>
+          <span>Novo paciente</span>
         </button>
       </div>
 
@@ -104,7 +102,7 @@ export const PatientsPage: React.FC = () => {
       )}
 
       {/* Barra de Filtro e Busca Rápida */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 border border-bhon-border rounded">
+      <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-bhon-border bg-white p-3 shadow-[0_8px_28px_rgba(30,64,75,0.04)] sm:flex-row">
         <div className="relative flex-1 w-full sm:w-auto">
           <Search className="w-4 h-4 text-bhon-muted absolute left-3 top-2.5" />
           <input
@@ -113,8 +111,8 @@ export const PatientsPage: React.FC = () => {
             name="patientSearch"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por nome, prontuário (#03945) ou telefone..."
-            className="w-full pl-9 pr-3 py-1.5 border border-bhon-border rounded text-xs text-bhon-text placeholder:text-bhon-muted focus:outline-none focus:border-bhon-teal"
+            placeholder="Buscar por nome, prontuário ou telefone"
+            className="min-h-11 w-full rounded-xl border border-bhon-border py-2 pl-9 pr-3 text-sm text-bhon-text placeholder:text-bhon-muted focus:border-bhon-teal focus:outline-none"
           />
         </div>
 
@@ -138,8 +136,9 @@ export const PatientsPage: React.FC = () => {
       </div>
 
       {/* Tabela de Pacientes (Prompt Seção 17: Colunas Mandatórias) */}
-      <div className="bg-white border border-bhon-border rounded shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <section aria-label="Lista de pacientes" className="overflow-hidden rounded-2xl border border-bhon-border bg-white shadow-[0_10px_32px_rgba(30,64,75,0.05)]">
+        {!loading && patients.length > 0 ? <div className="divide-y divide-bhon-border md:hidden">{patients.map((patient) => <button key={patient.id} type="button" aria-label={`Abrir prontuário de ${patient.name}`} onClick={() => setLocation(`/clinic/patients/${patient.id}`)} className="flex w-full items-center gap-3 p-4 text-left hover:bg-bhon-bg"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bhon-teal-subtle text-sm font-bold text-bhon-teal-dark">{patient.name.split(' ').slice(0, 2).map((part) => part[0]).join('')}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-bhon-text">{patient.name}</span><span className="mt-0.5 block truncate text-xs text-bhon-muted">{patient.phone || 'Sem telefone'} · {patient.recordNumber}</span><span className="mt-1 block truncate text-xs text-bhon-teal-dark">{patient.nextAction || 'Aguardando próximo atendimento'}</span></span><ArrowRight className="h-4 w-4 text-bhon-muted" /></button>)}</div> : null}
+        <div className="hidden overflow-x-auto md:block">
           <table className="bhon-table">
             <thead>
               <tr>
@@ -207,17 +206,18 @@ export const PatientsPage: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
       {/* Drawer de Cadastro de Novo Paciente */}
       <Drawer
         isOpen={isNewPatientOpen}
         onClose={() => setIsNewPatientOpen(false)}
-        title="Cadastrar Novo Paciente"
-        subtitle="Abertura de prontuário e ficha cadastral inicial"
+        title="Novo paciente"
+        subtitle="Comece pelo essencial. Os demais dados podem ser preenchidos depois."
         width="max-w-lg"
       >
-        <form onSubmit={handleCreatePatient} className="space-y-3.5 text-xs">
+        <form onSubmit={handleCreatePatient} className="space-y-6 text-xs">
+          <section className="space-y-3"><div><h2 className="text-sm font-semibold text-bhon-text">Informações essenciais</h2><p className="mt-1 text-xs text-bhon-muted">Identificação básica do paciente.</p></div>
           <div>
             <label className="block font-semibold text-bhon-text mb-1">Nome Completo *</label>
             <input
@@ -251,7 +251,9 @@ export const PatientsPage: React.FC = () => {
               />
             </div>
           </div>
+          </section>
 
+          <section className="space-y-3"><div><h2 className="text-sm font-semibold text-bhon-text">Contato</h2><p className="mt-1 text-xs text-bhon-muted">Canais usados para confirmações e acompanhamento.</p></div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block font-semibold text-bhon-text mb-1">Telefone / WhatsApp</label>
@@ -274,7 +276,9 @@ export const PatientsPage: React.FC = () => {
               />
             </div>
           </div>
+          </section>
 
+          <section className="space-y-3"><div><h2 className="text-sm font-semibold text-bhon-text">Contexto do atendimento</h2><p className="mt-1 text-xs text-bhon-muted">Informações opcionais para preparar a equipe.</p></div>
           <div>
             <label className="block font-semibold text-bhon-text mb-1">Origem do Paciente</label>
             <select
@@ -291,26 +295,27 @@ export const PatientsPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-semibold text-bhon-text mb-1">Alergias e Restrições Médicas</label>
+            <label className="block font-semibold text-bhon-text mb-1">Alergias e restrições</label>
             <input
               type="text"
               value={allergies}
               onChange={(e) => setAllergies(e.target.value)}
-              placeholder="Ex: Alérgico a Penicilina, Dipirona, Látex..."
+              placeholder="Medicamentos, materiais ou condições relevantes"
               className="w-full px-2.5 py-2 border border-bhon-border rounded text-bhon-text"
             />
           </div>
 
           <div>
-            <label className="block font-semibold text-bhon-text mb-1">Observações Clínicas Iniciais</label>
+            <label className="block font-semibold text-bhon-text mb-1">Observações iniciais</label>
             <textarea
               value={observations}
               onChange={(e) => setObservations(e.target.value)}
               rows={3}
-              placeholder="Histórico prévio, queixa principal relatada..."
+              placeholder="Motivo do contato ou informação importante"
               className="w-full px-2.5 py-2 border border-bhon-border rounded text-bhon-text"
             />
           </div>
+          </section>
 
           <button
             type="submit"

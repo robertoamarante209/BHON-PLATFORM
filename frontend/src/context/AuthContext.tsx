@@ -25,7 +25,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [sessionError, setSessionError] = useState('');
   const authRevision = useRef(0);
+  const authMutationTail = useRef<Promise<void>>(Promise.resolve());
   const logoutInFlight = useRef<Promise<void> | null>(null);
+  const latestLogoutRevision = useRef(0);
+
+  const enqueueAuthMutation = useCallback(<T,>(mutation: () => Promise<T>): Promise<T> => {
+    const operation = authMutationTail.current.then(mutation, mutation);
+    authMutationTail.current = operation.then(() => undefined, () => undefined);
+    return operation;
+  }, []);
 
   const applySession = useCallback((user: User & { tenant?: Tenant }) => {
     setCurrentUser(user);
@@ -60,60 +68,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => { void refreshSession(); }, [refreshSession]);
 
-  const login = useCallback(async (email: string, password: string, rememberMe = true): Promise<User | null> => {
+  const login = useCallback((email: string, password: string, rememberMe = true): Promise<User | null> => {
     const revision = ++authRevision.current;
-    try {
-      await logoutInFlight.current;
+    return enqueueAuthMutation(async () => {
       if (revision !== authRevision.current) return null;
-      const response = await fetch('/auth/login', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ email, password, rememberMe }),
-      });
-      if (revision !== authRevision.current || !response.ok) return null;
-      const data = await response.json();
-      if (revision !== authRevision.current || !data.user) return null;
-      applySession(data.user);
-      setSessionError('');
-      return data.user;
-    } catch { return null; }
-  }, [applySession]);
+      try {
+        const response = await fetch('/auth/login', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ email, password, rememberMe }),
+        });
+        if (revision !== authRevision.current || !response.ok) return null;
+        const data = await response.json();
+        if (revision !== authRevision.current || !data.user) return null;
+        applySession(data.user);
+        setSessionError('');
+        return data.user;
+      } catch { return null; }
+    });
+  }, [applySession, enqueueAuthMutation]);
 
-  const loginWithGoogle = useCallback(async (credential: string, rememberMe = true): Promise<User | null> => {
+  const loginWithGoogle = useCallback((credential: string, rememberMe = true): Promise<User | null> => {
     const revision = ++authRevision.current;
-    try {
-      await logoutInFlight.current;
+    return enqueueAuthMutation(async () => {
       if (revision !== authRevision.current) return null;
-      const response = await fetch('/auth/google', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ credential, rememberMe }),
-      });
-      if (revision !== authRevision.current || !response.ok) return null;
-      const data = await response.json();
-      if (revision !== authRevision.current || !data.user) return null;
-      applySession(data.user);
-      setSessionError('');
-      return data.user;
-    } catch { return null; }
-  }, [applySession]);
+      try {
+        const response = await fetch('/auth/google', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ credential, rememberMe }),
+        });
+        if (revision !== authRevision.current || !response.ok) return null;
+        const data = await response.json();
+        if (revision !== authRevision.current || !data.user) return null;
+        applySession(data.user);
+        setSessionError('');
+        return data.user;
+      } catch { return null; }
+    });
+  }, [applySession, enqueueAuthMutation]);
 
   const logout = useCallback(() => {
+    latestLogoutRevision.current = ++authRevision.current;
     if (logoutInFlight.current) return logoutInFlight.current;
-    const revision = ++authRevision.current;
-    const operation = (async () => {
+    const operation = enqueueAuthMutation(async () => {
       try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
       catch { /* logout local continua mesmo se o servidor estiver indisponível */ }
       finally {
-        if (revision !== authRevision.current) return;
+        if (latestLogoutRevision.current !== authRevision.current) return;
         setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
         window.location.href = '/login';
       }
-    })();
+    });
     logoutInFlight.current = operation;
-    void operation.finally(() => { if (logoutInFlight.current === operation) logoutInFlight.current = null; });
+    void operation.then(() => { if (logoutInFlight.current === operation) logoutInFlight.current = null; });
     return operation;
-  }, []);
+  }, [enqueueAuthMutation]);
 
   return <AuthContext.Provider value={{ currentUser, currentClinic, isPlatformOwner: currentUser.role === 'PLATFORM_OWNER', isAuthenticated, isLoadingAuth, sessionError, logout, login, loginWithGoogle, refreshSession }}>
     {children}

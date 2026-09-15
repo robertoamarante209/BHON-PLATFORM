@@ -26,7 +26,7 @@
 
 ## GREEN e verificação final
 
-- Frontend: `pnpm test` — 18 arquivos, 47 testes, 47 aprovados após a segunda revisão.
+- Frontend: `pnpm test` — 18 arquivos, 50 testes, 50 aprovados após a terceira revisão.
 - Frontend: `pnpm build` — TypeScript e Vite aprovados; 1.601 módulos transformados.
 - Backend: `node --import tsx --test test/*.test.mjs` — 47 testes, 47 aprovados.
 - Backend: `node_modules/.bin/tsc.cmd` — build aprovado, exit code 0.
@@ -41,6 +41,8 @@
 - RED da revisão: `pnpm exec vitest run src/App.test.tsx src/context/AuthContext.test.tsx src/components/shell/TopHeader.test.tsx src/components/shell/Sidebar.test.tsx` — 5 falhas esperadas.
 - A segunda revisão revelou que ignorar somente o efeito React do logout não protegia o cookie: uma resposta tardia de `/auth/logout` ainda poderia aplicar `Set-Cookie` depois de `/auth/login`. Logouts concorrentes agora compartilham uma única operação, logins aguardam sua conclusão antes de enviar a requisição, e somente a intenção de login mais recente prossegue. Falhas de rede no logout são absorvidas para evitar rejeições não tratadas e liberar o login pendente.
 - RED da segunda revisão: `pnpm exec vitest run src/context/AuthContext.test.tsx` — 2 falhas esperadas (`fetch` de login ocorria antes do logout e logout duplicado criava requisições extras).
+- A terceira revisão ampliou a coordenação para uma fila única de mutações: login por senha, login Google e logout nunca mantêm requisições simultâneas, portanto respostas `Set-Cookie` também respeitam a ordem de intenção. A revisão preserva a deduplicação de logout, descarta efeitos de intenções antigas e recupera a fila depois de falhas.
+- RED da terceira revisão: `pnpm exec vitest run src/context/AuthContext.test.tsx` — 2 falhas esperadas demonstraram sobreposição de senha→Google e login→logout. Um teste adicional falhou antes de registrar cada logout concorrente como nova intenção, garantindo que logout→login→logout termine desconectado sem duplicar a requisição; GREEN — 8/8 testes focados.
 
 ## Arquivos alterados
 

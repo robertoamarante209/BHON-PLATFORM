@@ -25,9 +25,9 @@ const SettingsPage = lazy(() => import('./pages/clinic/SettingsPage').then((modu
 const WhatsAppPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.WhatsAppPage })));
 const InventoryPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.InventoryPage })));
 const DocumentsPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.DocumentsPage })));
-const IntegrationsPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.IntegrationsPage })));
 
 const PlatformUnavailablePage = lazy(() => import('./pages/platform/PlatformUnavailablePage').then((module) => ({ default: module.PlatformUnavailablePage })));
+const PlatformIntegrationsPage = lazy(() => import('./pages/platform/PlatformIntegrationsPage').then((module) => ({ default: module.PlatformIntegrationsPage })));
 
 const RouteLoading: React.FC = () => (
   <div role="status" className="flex min-h-64 items-center justify-center">
@@ -38,11 +38,18 @@ const RouteLoading: React.FC = () => (
   </div>
 );
 
+const SessionRecovery: React.FC<{ retry: () => Promise<void> }> = ({ retry }) => (
+  <div role="alert" className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bhon-bg p-6 text-center text-bhon-text">
+    <p>Não foi possível verificar sua sessão. Tente novamente.</p>
+    <button type="button" onClick={() => void retry()} className="rounded-xl bg-bhon-teal px-4 py-3 font-semibold text-bhon-navy">Tentar novamente</button>
+  </div>
+);
+
 // ============================================================
 // Guard: redireciona para /login se não autenticado
 // ============================================================
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoadingAuth } = useAuth();
+  const { isAuthenticated, isLoadingAuth, sessionError, refreshSession } = useAuth();
 
   if (isLoadingAuth) {
     return (
@@ -56,6 +63,7 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
+    if (sessionError) return <SessionRecovery retry={refreshSession} />;
     return <Redirect to="/login" />;
   }
 
@@ -70,14 +78,26 @@ const RequireRole: React.FC<{ role: 'PLATFORM_OWNER' | 'CLINIC_USER'; children: 
   return <>{children}</>;
 };
 
+const LoginRoute: React.FC = () => {
+  const { isAuthenticated, isLoadingAuth, sessionError, refreshSession, currentUser } = useAuth();
+  if (isLoadingAuth) return <RouteLoading />;
+  if (sessionError) return <SessionRecovery retry={refreshSession} />;
+  if (isAuthenticated) return <Redirect to={currentUser.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview'} />;
+  return <LoginPage />;
+};
+
 const AppRoutes: React.FC = () => {
+  const { isAuthenticated, isLoadingAuth, sessionError, refreshSession, currentUser } = useAuth();
+  const home = currentUser.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview';
+  if (isLoadingAuth) return <RouteLoading />;
+  if (sessionError && !isAuthenticated) return <SessionRecovery retry={refreshSession} />;
   return (
     <Switch>
       {/* Rota Raiz e Login */}
       <Route path="/">
-        <Redirect to="/login" />
+        <Redirect to={!isAuthenticated ? "/login" : home} />
       </Route>
-      <Route path="/login" component={LoginPage} />
+      <Route path="/login"><LoginRoute /></Route>
 
       {/* Rotas do Ambiente Clínico (/clinic/*) */}
       <Route path="/clinic/:rest*">
@@ -101,7 +121,6 @@ const AppRoutes: React.FC = () => {
               <Route path="/clinic/whatsapp" component={WhatsAppPage} />
               <Route path="/clinic/inventory" component={InventoryPage} />
               <Route path="/clinic/documents" component={DocumentsPage} />
-              <Route path="/clinic/integrations" component={IntegrationsPage} />
               <Route path="/clinic/settings" component={SettingsPage} />
               <Route>
                 <Redirect to="/clinic/overview" />
@@ -133,6 +152,7 @@ const AppRoutes: React.FC = () => {
               <Route path="/platform/support"><PlatformUnavailablePage title="Suporte" description="Fila de atendimento e acompanhamento técnico das clínicas." /></Route>
               <Route path="/platform/indicators"><PlatformUnavailablePage title="Indicadores" description="Métricas consolidadas de produto e operação da plataforma." /></Route>
               <Route path="/platform/settings"><PlatformUnavailablePage title="Configurações" description="Parâmetros administrativos e políticas globais da BHON." /></Route>
+              <Route path="/platform/integrations" component={PlatformIntegrationsPage} />
               <Route>
                 <Redirect to="/platform/overview" />
               </Route>
@@ -146,7 +166,7 @@ const AppRoutes: React.FC = () => {
 
       {/* Rota Padrão de Fallback */}
       <Route>
-        <Redirect to="/login" />
+        <Redirect to={!isAuthenticated ? "/login" : home} />
       </Route>
     </Switch>
   );

@@ -56,7 +56,7 @@ describe('Sidebar', () => {
     expect(within(dialog).getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', '/clinic/whatsapp');
     expect(within(dialog).getByRole('link', { name: 'Estoque' })).toHaveAttribute('href', '/clinic/inventory');
     expect(within(dialog).getByRole('link', { name: 'Documentos' })).toHaveAttribute('href', '/clinic/documents');
-    expect(within(dialog).getByRole('link', { name: 'Integrações' })).toHaveAttribute('href', '/clinic/integrations');
+    expect(within(dialog).queryByRole('link', { name: 'Integrações' })).not.toBeInTheDocument();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Navegação clínica' })).not.toBeInTheDocument();
   });
@@ -76,5 +76,10 @@ describe('Sidebar', () => {
     const dialog = screen.getByRole('dialog', { name: 'Navegação clínica' });
     expect(within(dialog).getByRole('link', { name: 'Agenda clínica' })).toBeInTheDocument();
     expect(within(dialog).queryByRole('link', { name: 'Pacientes' })).not.toBeInTheDocument();
+  });
+
+  it('usa texto escuro o bastante nos atalhos móveis inativos', () => {
+    render(<Sidebar />);
+    expect(within(screen.getByRole('navigation', { name: 'Atalhos clínicos' })).getByRole('link', { name: 'Agenda clínica' })).toHaveClass('text-bhon-muted');
   });
 });

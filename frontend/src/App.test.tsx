@@ -1,0 +1,30 @@
+import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { App } from './App';
+
+describe('rotas durante a verificação da sessão', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+  });
+
+  it('mantém um estado recuperável na raiz quando a verificação inicial falha', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(new Response(JSON.stringify({ user: {
+      id: 'owner-1', tenantId: 'tenant-1', name: 'Roberto', email: 'roberto', role: 'PLATFORM_OWNER', status: 'ACTIVE',
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    render(<App />);
+    expect(window.location.pathname).toBe('/');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível verificar sua sessão. Tente novamente.');
+    expect(screen.queryByRole('heading', { name: 'Bem-vindo à BHON.' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+    expect(await screen.findByText('Painel executivo de operação, clientes e saúde da plataforma BHON.')).toBeVisible();
+  });
+
+  it('mantém um estado recuperável em /login quando a verificação inicial falha', async () => {
+    window.history.replaceState(null, '', '/login');
+    render(<App />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível verificar sua sessão. Tente novamente.');
+    expect(screen.queryByRole('heading', { name: 'Bem-vindo à BHON.' })).not.toBeInTheDocument();
+  });
+});

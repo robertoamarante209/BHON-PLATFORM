@@ -13,7 +13,7 @@ import {
   Sliders,
   ArrowLeft,
   LogOut,
-  ShieldCheck
+  ShieldCheck, PlugZap
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -32,6 +32,7 @@ export const PlatformSidebar: React.FC = () => {
     { label: 'Suporte', path: '/platform/support', icon: LifeBuoy },
     { label: 'Indicadores', path: '/platform/indicators', icon: Gauge },
     { label: 'Configurações', path: '/platform/settings', icon: Sliders },
+    { label: 'Integrações', path: '/platform/integrations', icon: PlugZap },
   ];
 
   return (

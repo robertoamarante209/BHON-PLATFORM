@@ -7,6 +7,7 @@ interface AuthContextType {
   isPlatformOwner: boolean;
   isAuthenticated: boolean;
   isLoadingAuth: boolean;
+  sessionError: string;
   logout: () => Promise<void>;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<User | null>;
   loginWithGoogle: (credential: string, rememberMe?: boolean) => Promise<User | null>;
@@ -22,7 +23,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentClinic, setCurrentClinic] = useState<Tenant>(EMPTY_CLINIC);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [sessionError, setSessionError] = useState('');
   const authRevision = useRef(0);
+  const authMutationTail = useRef<Promise<void>>(Promise.resolve());
+  const logoutInFlight = useRef<Promise<void> | null>(null);
+  const latestLogoutRevision = useRef(0);
+
+  const enqueueAuthMutation = useCallback(<T,>(mutation: () => Promise<T>): Promise<T> => {
+    const operation = authMutationTail.current.then(mutation, mutation);
+    authMutationTail.current = operation.then(() => undefined, () => undefined);
+    return operation;
+  }, []);
 
   const applySession = useCallback((user: User & { tenant?: Tenant }) => {
     setCurrentUser(user);
@@ -36,15 +47,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await fetch('/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } });
       if (revision !== authRevision.current) return;
       if (!response.ok) {
-        setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); return;
+        let code = '';
+        try { code = (await response.json() as { code?: string }).code || ''; } catch { /* resposta inválida é transitória */ }
+        if (response.status === 401 || (response.status === 403 && ['USER_BLOCKED', 'TENANT_UNAVAILABLE'].includes(code))) {
+          setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); setSessionError('');
+        } else setSessionError('Não foi possível verificar sua sessão. Tente novamente.');
+        return;
       }
       const data = await response.json();
       if (revision !== authRevision.current) return;
-      if (data.user) applySession(data.user);
-      else { setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); }
+      if (data.user) { applySession(data.user); setSessionError(''); }
+      else setSessionError('Não foi possível verificar sua sessão. Tente novamente.');
     } catch {
       if (revision !== authRevision.current) return;
-      setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
+      setSessionError('Não foi possível verificar sua sessão. Tente novamente.');
     } finally {
       setIsLoadingAuth(false);
     }
@@ -52,47 +68,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => { void refreshSession(); }, [refreshSession]);
 
-  const login = useCallback(async (email: string, password: string, rememberMe = true): Promise<User | null> => {
-    authRevision.current += 1;
-    try {
-      const response = await fetch('/auth/login', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ email, password, rememberMe }),
-      });
-      if (!response.ok) return null;
-      const data = await response.json();
-      if (!data.user) return null;
-      applySession(data.user);
-      return data.user;
-    } catch { return null; }
-  }, [applySession]);
+  const login = useCallback((email: string, password: string, rememberMe = true): Promise<User | null> => {
+    const revision = ++authRevision.current;
+    return enqueueAuthMutation(async () => {
+      if (revision !== authRevision.current) return null;
+      try {
+        const response = await fetch('/auth/login', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ email, password, rememberMe }),
+        });
+        if (revision !== authRevision.current || !response.ok) return null;
+        const data = await response.json();
+        if (revision !== authRevision.current || !data.user) return null;
+        applySession(data.user);
+        setSessionError('');
+        return data.user;
+      } catch { return null; }
+    });
+  }, [applySession, enqueueAuthMutation]);
 
-  const loginWithGoogle = useCallback(async (credential: string, rememberMe = true): Promise<User | null> => {
-    authRevision.current += 1;
-    try {
-      const response = await fetch('/auth/google', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ credential, rememberMe }),
-      });
-      if (!response.ok) return null;
-      const data = await response.json();
-      if (!data.user) return null;
-      applySession(data.user);
-      return data.user;
-    } catch { return null; }
-  }, [applySession]);
+  const loginWithGoogle = useCallback((credential: string, rememberMe = true): Promise<User | null> => {
+    const revision = ++authRevision.current;
+    return enqueueAuthMutation(async () => {
+      if (revision !== authRevision.current) return null;
+      try {
+        const response = await fetch('/auth/google', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ credential, rememberMe }),
+        });
+        if (revision !== authRevision.current || !response.ok) return null;
+        const data = await response.json();
+        if (revision !== authRevision.current || !data.user) return null;
+        applySession(data.user);
+        setSessionError('');
+        return data.user;
+      } catch { return null; }
+    });
+  }, [applySession, enqueueAuthMutation]);
 
-  const logout = useCallback(async () => {
-    try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
-    finally {
-      setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
-      window.location.href = '/login';
-    }
-  }, []);
+  const logout = useCallback(() => {
+    latestLogoutRevision.current = ++authRevision.current;
+    if (logoutInFlight.current) return logoutInFlight.current;
+    const operation = enqueueAuthMutation(async () => {
+      try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
+      catch { /* logout local continua mesmo se o servidor estiver indisponível */ }
+      finally {
+        if (latestLogoutRevision.current !== authRevision.current) return;
+        setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
+        window.location.href = '/login';
+      }
+    });
+    logoutInFlight.current = operation;
+    void operation.then(() => { if (logoutInFlight.current === operation) logoutInFlight.current = null; });
+    return operation;
+  }, [enqueueAuthMutation]);
 
-  return <AuthContext.Provider value={{ currentUser, currentClinic, isPlatformOwner: currentUser.role === 'PLATFORM_OWNER', isAuthenticated, isLoadingAuth, logout, login, loginWithGoogle, refreshSession }}>
+  return <AuthContext.Provider value={{ currentUser, currentClinic, isPlatformOwner: currentUser.role === 'PLATFORM_OWNER', isAuthenticated, isLoadingAuth, sessionError, logout, login, loginWithGoogle, refreshSession }}>
     {children}
   </AuthContext.Provider>;
 };

@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import {
   BarChart3, Boxes, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck, FileText,
   Clock3, LayoutDashboard, LogOut, Menu, Settings, ShieldAlert, Sparkles,
-  MessageCircle, PlugZap, Stethoscope, Target, UserCheck, Users, X,
+  MessageCircle, Stethoscope, Target, UserCheck, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { hasClinicPermission, type ClinicPermission } from '../../lib/permissions';
@@ -13,7 +13,7 @@ type NavigationSection = { label: string; items: NavigationItem[] };
 
 const sections: NavigationSection[] = [
   { label: 'Cuidado', items: [
-    { label: 'Visão do dia', path: '/clinic/overview', icon: LayoutDashboard },
+    { label: 'Visão Geral', path: '/clinic/overview', icon: LayoutDashboard },
     { label: 'Agenda clínica', path: '/clinic/agenda', icon: CalendarDays, permission: 'agenda.view' },
     { label: 'Pacientes', path: '/clinic/patients', icon: Users, permission: 'patients.view' },
     { label: 'Tratamentos', path: '/clinic/treatments', icon: Stethoscope, permission: 'patients.view' },
@@ -31,7 +31,6 @@ const sections: NavigationSection[] = [
     { label: 'Indicadores', path: '/clinic/indicators', icon: BarChart3, permission: 'finance.view' },
     { label: 'Estoque', path: '/clinic/inventory', icon: Boxes, permission: 'team.manage' },
     { label: 'Documentos', path: '/clinic/documents', icon: FileText, permission: 'patients.view' },
-    { label: 'Integrações', path: '/clinic/integrations', icon: PlugZap, permission: 'team.manage' },
     { label: 'Configurações', path: '/clinic/settings', icon: Settings, permission: 'team.manage' },
   ] },
 ];
@@ -69,7 +68,7 @@ export const Sidebar: React.FC = () => {
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_20%_0%,rgba(0,184,148,0.09),transparent_62%)]" />
 
         <div className="relative px-3 pb-6 pt-5">
-          <Link href="/clinic/overview" aria-label="Ir para a visão do dia" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-colors hover:bg-bhon-bg lg:h-auto lg:w-full lg:justify-start lg:px-2 lg:py-2">
+          <Link href="/clinic/overview" aria-label="Ir para a Visão Geral" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl transition-colors hover:bg-bhon-bg lg:h-auto lg:w-full lg:justify-start lg:px-2 lg:py-2">
             <span className="block h-8 w-8 lg:h-auto lg:w-[176px]">
               <img src="/logo-bhon-dark.svg" alt="BHON" width="620" height="190" className="h-full w-full object-contain" />
             </span>
@@ -132,13 +131,13 @@ export const Sidebar: React.FC = () => {
           const Icon = item.icon;
           const active = isActive(item.path);
           return (
-            <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${active ? 'text-bhon-teal' : 'text-slate-300'}`}>
+            <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${active ? 'text-bhon-teal-dark' : 'text-bhon-muted'}`}>
               <Icon aria-hidden="true" className="h-5 w-5" />
               <span>{item.label.replace(' clínica', '')}</span>
             </Link>
           );
         })}
-        <button type="button" onClick={() => setIsMobileOpen(true)} aria-label="Abrir menu" aria-expanded={isMobileOpen} className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold text-slate-300">
+        <button type="button" onClick={() => setIsMobileOpen(true)} aria-label="Abrir menu" aria-expanded={isMobileOpen} className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold text-bhon-muted">
           <Menu aria-hidden="true" className="h-5 w-5 text-bhon-navy" />
           <span>Mais</span>
         </button>

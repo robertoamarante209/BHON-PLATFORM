@@ -94,9 +94,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [applySession]);
 
   const logout = useCallback(async () => {
-    authRevision.current += 1;
+    const revision = ++authRevision.current;
     try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
     finally {
+      if (revision !== authRevision.current) return;
       setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
       window.location.href = '/login';
     }

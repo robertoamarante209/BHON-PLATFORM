@@ -9,12 +9,13 @@ const owner = {
 };
 
 const Harness = () => {
-  const { isAuthenticated, isLoadingAuth, sessionError, login, refreshSession } = useAuth();
+  const { isAuthenticated, isLoadingAuth, sessionError, login, logout, refreshSession } = useAuth();
   return <>
     <span>{isAuthenticated ? 'autenticado' : 'desconectado'}</span>
     <span>{isLoadingAuth ? 'carregando' : 'pronto'}</span>
     {sessionError ? <span>{sessionError}</span> : null}
     <button onClick={() => void login('roberto', 'senha')}>entrar</button>
+    <button onClick={() => void logout()}>sair</button>
     <button onClick={() => void refreshSession()}>atualizar</button>
   </>;
 };
@@ -60,5 +61,22 @@ describe('AuthProvider', () => {
     expect(await screen.findByText('autenticado')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'atualizar' }));
     expect(await screen.findByText('desconectado')).toBeVisible();
+  });
+
+  it('não deixa um logout atrasado apagar um login mais recente', async () => {
+    let finishLogout!: (response: Response) => void;
+    const delayedLogout = new Promise<Response>((resolve) => { finishLogout = resolve; });
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockReturnValueOnce(delayedLogout)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+
+    render(<AuthProvider><Harness /></AuthProvider>);
+    expect(await screen.findByText('autenticado')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sair' }));
+    fireEvent.click(screen.getByRole('button', { name: 'entrar' }));
+    expect(await screen.findByText('autenticado')).toBeVisible();
+    await act(async () => finishLogout(new Response(null, { status: 204 })));
+    expect(screen.getByText('autenticado')).toBeVisible();
   });
 });

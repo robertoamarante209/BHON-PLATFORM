@@ -77,4 +77,9 @@ describe('Sidebar', () => {
     expect(within(dialog).getByRole('link', { name: 'Agenda clínica' })).toBeInTheDocument();
     expect(within(dialog).queryByRole('link', { name: 'Pacientes' })).not.toBeInTheDocument();
   });
+
+  it('usa texto escuro o bastante nos atalhos móveis inativos', () => {
+    render(<Sidebar />);
+    expect(within(screen.getByRole('navigation', { name: 'Atalhos clínicos' })).getByRole('link', { name: 'Agenda clínica' })).toHaveClass('text-bhon-muted');
+  });
 });

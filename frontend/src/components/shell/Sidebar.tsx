@@ -131,13 +131,13 @@ export const Sidebar: React.FC = () => {
           const Icon = item.icon;
           const active = isActive(item.path);
           return (
-            <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${active ? 'text-bhon-teal' : 'text-slate-300'}`}>
+            <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${active ? 'text-bhon-teal-dark' : 'text-bhon-muted'}`}>
               <Icon aria-hidden="true" className="h-5 w-5" />
               <span>{item.label.replace(' clínica', '')}</span>
             </Link>
           );
         })}
-        <button type="button" onClick={() => setIsMobileOpen(true)} aria-label="Abrir menu" aria-expanded={isMobileOpen} className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold text-slate-300">
+        <button type="button" onClick={() => setIsMobileOpen(true)} aria-label="Abrir menu" aria-expanded={isMobileOpen} className="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold text-bhon-muted">
           <Menu aria-hidden="true" className="h-5 w-5 text-bhon-navy" />
           <span>Mais</span>
         </button>

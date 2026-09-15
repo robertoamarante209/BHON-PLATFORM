@@ -9,19 +9,24 @@ import { SearchModal } from '../common/SearchModal';
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   timeZone: CLINIC_TIME_ZONE, weekday: 'long', day: '2-digit', month: 'long',
 });
+const weekdayFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: CLINIC_TIME_ZONE, weekday: 'long' });
+const finishedStatuses = new Set(['CONCLUIDO', 'CANCELADO', 'FALTA']);
 
 export const TopHeader: React.FC = () => {
-  const { currentUser, currentClinic } = useAuth();
+  const { currentClinic } = useAuth();
   const { appointments, loading, error } = useDailyAppointments();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const inAttendanceCount = appointments?.filter((item) => item.status === 'EM_ATENDIMENTO').length;
   const completedCount = appointments?.filter((item) => item.status === 'CONCLUIDO').length;
-  const firstName = currentUser.name.split(' ')[0];
+  const scheduledCount = appointments?.filter((item) => !finishedStatuses.has(item.status)).length;
 
   const hour = Number(new Intl.DateTimeFormat('pt-BR', { timeZone: CLINIC_TIME_ZONE, hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
   const plural = (value: number, one: string, many: string) => `${value} ${value === 1 ? one : many}`;
-  const fullPulse = appointments === null ? '' : `${plural(appointments.length, 'agendado', 'agendados')} · ${plural(completedCount || 0, 'concluído', 'concluídos')} · Ao vivo: ${inAttendanceCount || 0} em atendimento`;
+  const fullPulse = appointments === null ? '' : `${plural(scheduledCount || 0, 'agendado', 'agendados')} · ${plural(completedCount || 0, 'concluído', 'concluídos')} · Ao vivo: ${inAttendanceCount || 0} em atendimento`;
+  const dailyGreeting = loading || error || appointments === null
+    ? `${greeting}.`
+    : `${greeting}, hoje é ${weekdayFormatter.format(new Date())}: ${plural(scheduledCount || 0, 'agendado', 'agendados')} e ${plural(completedCount || 0, 'concluído', 'concluídos')}.`;
 
   return (
     <>
@@ -29,7 +34,7 @@ export const TopHeader: React.FC = () => {
         <div className="min-w-0 flex-1">
           <p className="bhon-eyebrow truncate">{dateFormatter.format(new Date())}</p>
           <div className="mt-1 flex min-w-0 items-center gap-2">
-            <h1 className="truncate font-display text-xl font-semibold leading-none text-bhon-text sm:text-2xl">{greeting}, {firstName}.</h1>
+            <h1 className="truncate font-display text-xl font-semibold leading-none text-bhon-text sm:text-2xl">{dailyGreeting}</h1>
             <span aria-hidden="true" className="hidden h-1 w-1 rounded-full bg-bhon-gold sm:block" />
             <p className="hidden truncate text-[11px] text-bhon-muted lg:block">{currentClinic.name}</p>
           </div>

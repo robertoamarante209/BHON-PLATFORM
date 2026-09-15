@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, CalendarClock, Cable, DoorOpen, FileHeart, Loader2, Pencil, Plus, RefreshCw, Save, ShieldCheck, Users } from 'lucide-react';
+import { Building2, CalendarClock, DoorOpen, FileHeart, Loader2, Pencil, Plus, RefreshCw, Save, ShieldCheck, Users } from 'lucide-react';
 import { SectionState } from '../../components/common/SectionState';
 import { useAuth } from '../../context/AuthContext';
 import { createRoom, getClinicSettings, updateRoom, type ClinicSettings, type RoomInput } from '../../lib/clinic';
 import type { Room } from '../../types';
 
-type Section = 'CLINIC' | 'ROOMS' | 'HOURS' | 'PROCEDURES' | 'PROTOCOLS' | 'USERS' | 'INTEGRATIONS';
+type Section = 'CLINIC' | 'ROOMS' | 'HOURS' | 'PROCEDURES' | 'PROTOCOLS' | 'USERS';
 const sections: Array<{ key: Section; label: string; icon: typeof Building2 }> = [
   { key: 'CLINIC', label: 'Dados da Clínica', icon: Building2 },
   { key: 'ROOMS', label: 'Consultórios e Salas', icon: DoorOpen },
@@ -13,7 +13,6 @@ const sections: Array<{ key: Section; label: string; icon: typeof Building2 }> =
   { key: 'PROCEDURES', label: 'Procedimentos', icon: FileHeart },
   { key: 'PROTOCOLS', label: 'Protocolos', icon: ShieldCheck },
   { key: 'USERS', label: 'Usuários e Permissões', icon: Users },
-  { key: 'INTEGRATIONS', label: 'Integrações', icon: Cable },
 ];
 
 type RoomEditorProps = { room?: Room; saving: boolean; onCancel: () => void; onSave: (input: RoomInput) => Promise<void> };
@@ -80,7 +79,6 @@ export const SettingsPage: React.FC = () => {
     PROCEDURES: { icon: FileHeart, title: 'Tabela de procedimentos ainda não configurada', description: 'Nenhum procedimento padrão foi publicado para esta clínica.' },
     PROTOCOLS: { icon: ShieldCheck, title: 'Protocolos ainda não configurados', description: 'Cadastre protocolos clínicos reais antes de automatizar lembretes e acompanhamentos.' },
     USERS: { icon: Users, title: 'Gestão de usuários em preparação', description: 'A equipe exibida no BHON já vem do banco; convites e permissões serão configurados em uma etapa dedicada.' },
-    INTEGRATIONS: { icon: Cable, title: 'Integrações ainda não configuradas', description: 'Conectores externos serão apresentados somente quando houver uma integração ativa e verificável.' },
   };
 
   return <div className="page-enter mx-auto max-w-7xl space-y-5">

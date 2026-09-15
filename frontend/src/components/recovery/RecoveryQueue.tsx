@@ -163,7 +163,7 @@ export function RecoveryQueue({ onNavigate }: { onNavigate: (href: string) => vo
     return (
       <div className="border border-bhon-border bg-white px-5 py-8 text-center">
         <Check className="mx-auto h-5 w-5 text-bhon-teal" />
-        <p className="mt-2 text-sm font-semibold text-bhon-text">Operação sob controle</p>
+        <p className="mt-2 text-sm font-semibold text-bhon-text">Nenhuma pendência agora.</p>
         <p className="mt-1 text-xs text-bhon-muted">Nenhuma exceção exige ação neste momento.</p>
       </div>
     );

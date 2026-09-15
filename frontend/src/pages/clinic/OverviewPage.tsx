@@ -1,39 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowRight, CalendarDays, Check, Clock3, MoreHorizontal, Users } from 'lucide-react';
 import { Drawer } from '../../components/common/Drawer';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { RecoveryQueue } from '../../components/recovery/RecoveryQueue';
 import type { Appointment, AppointmentStatus } from '../../types';
-import { appointmentTransitions, listAppointments, updateAppointmentStatus } from '../../lib/clinic';
+import { appointmentTransitions, updateAppointmentStatus } from '../../lib/clinic';
+import { useDailyAppointments } from '../../context/DailyAppointmentsContext';
 
 const actionable: AppointmentStatus[] = ['AGUARDANDO_CONFIRMACAO', 'CONFIRMADO', 'NA_RECEPCAO', 'ENCAIXE', 'EM_ATENDIMENTO'];
 
 export const OverviewPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const daily = useDailyAppointments();
+  const appointments = daily.appointments || [];
   const [selected, setSelected] = useState<Appointment | null>(null);
-  const [loading, setLoading] = useState(true);
+  const loading = daily.loading;
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [reload, setReload] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const now = new Date();
-    const date = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    setLoading(true);
-    setError('');
-    setLoadFailed(false);
-    void listAppointments(date, controller.signal).then(setAppointments).catch((reason) => {
-      if (!(reason instanceof DOMException && reason.name === 'AbortError')) {
-        setLoadFailed(true);
-        setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o dia.');
-      }
-    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [reload]);
+  const loadFailed = !!daily.error;
 
   const summary = useMemo(() => ({
     total: appointments.length,
@@ -47,12 +32,11 @@ export const OverviewPage: React.FC = () => {
     if (!selected || actionLoading || !appointmentTransitions[selected.status].includes(status)) return;
     const appointmentId = selected.id;
     setActionLoading(true);
-    setLoadFailed(false);
     setError('');
     try {
       await updateAppointmentStatus(appointmentId, status);
       setSelected((current) => current?.id === appointmentId ? null : current);
-      setReload((value) => value + 1);
+      await daily.refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível atualizar o atendimento.');
     } finally {
@@ -61,27 +45,27 @@ export const OverviewPage: React.FC = () => {
   };
 
   return (
-    <main className="mx-auto max-w-[1320px] space-y-5" aria-label="Visão do dia">
+    <main className="mx-auto max-w-[1320px] space-y-5" aria-label="Visão Geral">
       <header className="flex flex-col gap-4 border-b border-bhon-border pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="bhon-eyebrow">Hoje na clínica</p><h1 className="mt-2 font-display text-3xl text-bhon-navy sm:text-4xl">O dia, sem ruído.</h1><p className="mt-2 max-w-xl text-sm text-bhon-muted">Veja quem chega agora, o que precisa de atenção e siga o atendimento sem perder contexto.</p></div>
+        <div><p className="bhon-eyebrow">Hoje na clínica</p><h1 className="mt-2 font-display text-3xl text-bhon-navy sm:text-4xl">Sua operação de hoje, em um só lugar.</h1><p className="mt-2 max-w-xl text-sm text-bhon-muted">Veja quem chega agora, o que precisa de atenção e siga o atendimento sem perder contexto.</p></div>
         <Link href="/clinic/agenda" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white">Abrir agenda <ArrowRight className="h-4 w-4 text-bhon-teal" aria-hidden="true" /></Link>
       </header>
 
-      {error ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800"><span>{error}</span>{loadFailed ? <button type="button" onClick={() => setReload((value) => value + 1)} className="font-semibold underline underline-offset-2">Tentar novamente</button> : null}</div> : null}
+      {error || daily.error ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800"><span>{error || daily.error}</span>{loadFailed ? <button type="button" onClick={() => void daily.refresh()} className="font-semibold underline underline-offset-2">Tentar novamente</button> : null}</div> : null}
 
-      <section aria-label="Resumo do dia" className="flex gap-6 overflow-x-auto rounded-2xl border border-bhon-border bg-white px-5 py-4 shadow-[0_8px_28px_rgba(31,49,60,0.045)] sm:gap-10">
+      {!loadFailed ? <section aria-label="Resumo do dia" className="flex gap-6 overflow-x-auto rounded-2xl border border-bhon-border bg-white px-5 py-4 shadow-[0_8px_28px_rgba(31,49,60,0.045)] sm:gap-10">
         {[
           { label: 'Agendados', value: summary.total, icon: CalendarDays }, { label: 'Aguardando', value: summary.waiting, icon: Clock3 },
           { label: 'Em atendimento', value: summary.inProgress, icon: Users }, { label: 'Concluídos', value: summary.completed, icon: Check },
         ].map(({ label, value, icon: Icon }) => <div key={label} className="flex min-w-max items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-bhon-teal-subtle text-bhon-teal-dark"><Icon className="h-4 w-4" aria-hidden="true" /></span><div><p className="font-mono-data text-lg font-semibold text-bhon-navy">{value}</p><p className="text-[10px] font-medium text-bhon-muted">{label}</p></div></div>)}
-      </section>
+      </section> : null}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,.75fr)]">
         <section aria-labelledby="next-title" className="bhon-panel overflow-hidden rounded-2xl">
           <div className="flex items-center justify-between border-b border-bhon-border px-5 py-4"><div><p className="bhon-eyebrow">Fluxo de atendimento</p><h2 id="next-title" className="mt-1 font-display text-xl text-bhon-navy">Próximos atendimentos</h2></div><span className="font-mono-data text-[10px] text-bhon-muted">{nextAppointments.length} em andamento</span></div>
           <div className="divide-y divide-bhon-border">
             {loading ? <p className="p-8 text-center text-sm text-bhon-muted">Organizando o dia…</p> : null}
-            {!loading && nextAppointments.length === 0 ? <div className="p-8 text-center"><p className="font-medium text-bhon-text">Tudo em ordem por aqui.</p><p className="mt-1 text-xs text-bhon-muted">Os próximos atendimentos aparecerão nesta lista.</p></div> : null}
+            {!loading && !loadFailed && nextAppointments.length === 0 ? <div className="p-8 text-center"><p className="font-medium text-bhon-text">Nenhuma pendência agora.</p><p className="mt-1 text-xs text-bhon-muted">Os próximos atendimentos aparecerão nesta lista.</p></div> : null}
             {nextAppointments.map((appointment) => <article key={appointment.id} className="grid grid-cols-[54px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3.5 sm:grid-cols-[64px_minmax(0,1fr)_150px_auto] sm:px-5"><time className="font-mono-data text-sm font-semibold text-bhon-navy">{appointment.time}</time><div className="min-w-0"><p className="truncate text-sm font-semibold text-bhon-text">{appointment.patientName}</p><p className="mt-0.5 truncate text-[11px] text-bhon-muted">{appointment.procedureName} · {appointment.professionalName}</p></div><div className="hidden sm:block"><StatusBadge status={appointment.status} size="sm" /></div><button type="button" onClick={() => setSelected(appointment)} aria-label={`Abrir atendimento de ${appointment.patientName}`} className="flex h-10 w-10 items-center justify-center rounded-full text-bhon-muted hover:bg-bhon-bg hover:text-bhon-navy"><MoreHorizontal className="h-5 w-5" aria-hidden="true" /></button></article>)}
           </div>
         </section>

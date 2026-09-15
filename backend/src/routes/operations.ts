@@ -4,6 +4,7 @@ import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
 
 const READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
+export const PLATFORM_INTEGRATION_ROLES = ["PLATFORM_OWNER"] as const;
 
 export async function operationsRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
@@ -104,14 +105,14 @@ export async function operationsRoutes(app: FastifyInstance) {
     return reply.code(201).send(document);
   });
 
-  app.get("/integrations", { preHandler: requireRole(READ_ROLES) }, async (request, reply) => {
+  app.get("/integrations", { preHandler: requireRole(PLATFORM_INTEGRATION_ROLES) }, async (request, reply) => {
     const configured = await prisma.integrationConnection.findMany({ where: { tenantId: request.tenantId! }, orderBy: { provider: "asc" } });
     const byProvider = new Map(configured.map((item) => [item.provider, item]));
     return reply.send(["WHATSAPP", "GOOGLE_CALENDAR", "NFE"].map((provider) => byProvider.get(provider) || { provider, status: "NOT_CONFIGURED", displayName: null, configuration: null }));
   });
 
   app.put<{ Params: { provider: string }; Body: { displayName?: string; accountLabel?: string; clinicPhone?: string } }>("/integrations/:provider", {
-    preHandler: requireRole(WRITE_ROLES),
+    preHandler: requireRole(PLATFORM_INTEGRATION_ROLES),
     schema: {
       params: { type: "object", required: ["provider"], properties: { provider: { type: "string", enum: ["WHATSAPP", "GOOGLE_CALENDAR", "NFE"] } } },
       body: { type: "object", additionalProperties: false, minProperties: 1, properties: {

@@ -56,7 +56,7 @@ describe('Sidebar', () => {
     expect(within(dialog).getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', '/clinic/whatsapp');
     expect(within(dialog).getByRole('link', { name: 'Estoque' })).toHaveAttribute('href', '/clinic/inventory');
     expect(within(dialog).getByRole('link', { name: 'Documentos' })).toHaveAttribute('href', '/clinic/documents');
-    expect(within(dialog).getByRole('link', { name: 'Integrações' })).toHaveAttribute('href', '/clinic/integrations');
+    expect(within(dialog).queryByRole('link', { name: 'Integrações' })).not.toBeInTheDocument();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Navegação clínica' })).not.toBeInTheDocument();
   });

@@ -8,7 +8,7 @@ import type { FollowUp } from '../../types';
 const canManage = (role: string) => ['OWNER', 'ADMIN', 'MANAGER'].includes(role);
 const PageHeader = ({ eyebrow, title, description, icon: Icon }: { eyebrow: string; title: string; description: string; icon: React.ElementType }) => (
   <header className="flex flex-col gap-4 rounded-3xl border border-white/[0.07] bg-[#14161A] p-6 sm:flex-row sm:items-end sm:justify-between sm:p-8">
-    <div><p className="bhon-eyebrow">{eyebrow}</p><h1 className="mt-2 font-display text-3xl font-semibold text-white">{title}</h1><p className="mt-2 max-w-2xl text-sm text-bhon-muted">{description}</p></div>
+    <div><p className="bhon-eyebrow">{eyebrow}</p><h1 className="mt-2 font-display text-3xl font-semibold text-bhon-navy">{title}</h1><p className="mt-2 max-w-2xl text-sm text-bhon-muted">{description}</p></div>
     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-bhon-teal/10 text-bhon-teal"><Icon className="h-5 w-5" aria-hidden="true" /></div>
   </header>
 );

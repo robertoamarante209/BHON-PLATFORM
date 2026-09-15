@@ -117,6 +117,11 @@
 
 .bhon-clinic-theme .bhon-table tr:hover td { background-color: #F7FAF9; }
 
+.bhon-clinic-theme .bhon-panel h2.text-white,
+.bhon-clinic-theme .bhon-panel p.text-white { color: var(--color-text); }
+.bhon-clinic-theme .bhon-panel .text-amber-300 { color: #92400E; }
+.bhon-clinic-theme .bhon-panel .text-emerald-300 { color: #047857; }
+
 .bhon-clinic-theme input,
 .bhon-clinic-theme select,
 .bhon-clinic-theme textarea {

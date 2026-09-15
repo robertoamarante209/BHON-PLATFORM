@@ -48,7 +48,8 @@ describe('LoginPage', () => {
     render(<LoginPage />);
 
     expect(screen.getAllByRole('img', { name: 'BHON' })[0]).toHaveAttribute('src', '/figma-login-symbol.png');
-    expect(screen.getByRole('heading', { name: /^login$/i })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Bem-vindo à BHON.' })).toBeVisible();
+    expect(screen.getByText('Sua clínica, pronta para um novo dia.')).toBeVisible();
     expect(screen.getByText(/acreditar no futuro da saúde/i)).toBeVisible();
     expect(screen.getByRole('img', { name: /ambiente clínico minimalista/i })).toHaveAttribute('src', '/figma-login-office.jpg');
   });

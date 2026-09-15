@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Appointment } from '../../types';
 import { OverviewPage } from './OverviewPage';
+import { DailyAppointmentsProvider } from '../../context/DailyAppointmentsContext';
 
 const api = vi.hoisted(() => ({
   listAppointments: vi.fn(),
@@ -56,6 +57,8 @@ const secondAppointment: Appointment = {
   procedureName: 'Retorno',
 };
 
+const renderOverview = () => render(<DailyAppointmentsProvider><OverviewPage /></DailyAppointmentsProvider>);
+
 describe('OverviewPage', () => {
   beforeEach(() => {
     api.listAppointments.mockReset();
@@ -63,12 +66,26 @@ describe('OverviewPage', () => {
     api.listAppointments.mockResolvedValue([appointment]);
   });
 
+  it('usa a cópia aprovada e não fabrica totais quando o dia está indisponível', async () => {
+    api.listAppointments.mockRejectedValueOnce(new Error('Falha temporária.'));
+    renderOverview();
+    expect(screen.getByRole('heading', { name: 'Sua operação de hoje, em um só lugar.' })).toBeVisible();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falha temporária.');
+    expect(screen.queryByText('0', { selector: 'p' })).not.toBeInTheDocument();
+  });
+
+  it('mostra o estado vazio aprovado', async () => {
+    api.listAppointments.mockResolvedValueOnce([]);
+    renderOverview();
+    expect(await screen.findByText('Nenhuma pendência agora.')).toBeVisible();
+  });
+
   it('impede repetir uma transição enquanto a atualização do atendimento está em andamento', async () => {
     let finishUpdate: (() => void) | undefined;
     const updatePromise = new Promise<void>((resolve) => { finishUpdate = resolve; });
     api.updateAppointmentStatus.mockReturnValue(updatePromise);
 
-    render(<OverviewPage />);
+    renderOverview();
 
     await screen.findByText('Mariana Costa');
     fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento de Mariana Costa' }));
@@ -92,7 +109,7 @@ describe('OverviewPage', () => {
   it('permite tentar novamente quando a operação do dia falha ao carregar', async () => {
     api.listAppointments.mockRejectedValueOnce(new Error('Falha temporária.'));
 
-    render(<OverviewPage />);
+    renderOverview();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Falha temporária.');
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
@@ -108,7 +125,7 @@ describe('OverviewPage', () => {
     const updatePromise = new Promise<void>((resolve) => { finishUpdate = resolve; });
     api.updateAppointmentStatus.mockReturnValue(updatePromise);
 
-    render(<OverviewPage />);
+    renderOverview();
 
     await screen.findByText('Carlos Mendes');
     fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento de Mariana Costa' }));

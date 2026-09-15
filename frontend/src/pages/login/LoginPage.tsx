@@ -142,7 +142,8 @@ export const LoginPage: React.FC = () => {
         <section className="bhon-login-form relative z-10 flex min-h-[100dvh] items-center bg-white px-6 py-10 sm:px-12 lg:px-[clamp(4rem,8.5vw,8rem)]" aria-labelledby="login-title">
           <div className="w-full max-w-[403px]">
             <img src="/figma-login-symbol.png" alt="BHON" width="400" height="400" className="mb-8 h-16 w-16 lg:hidden" />
-            <h1 id="login-title" className="font-display text-[30px] font-semibold tracking-[0.1px]">Login</h1>
+            <h1 id="login-title" className="font-display text-[30px] font-semibold tracking-[0.1px]">Bem-vindo à BHON.</h1>
+            <p className="mt-2 text-sm text-[#596170]">Sua clínica, pronta para um novo dia.</p>
             {error && <div id="login-error" role="alert" aria-live="polite" className="mt-6 rounded-2xl border border-[#D94F70]/25 bg-white/55 px-4 py-3 text-sm text-[#8E2641]">{error}</div>}
 
             <form onSubmit={handleSubmit} aria-busy={isSubmitting} className="mt-10 space-y-4">

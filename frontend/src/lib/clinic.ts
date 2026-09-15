@@ -1,6 +1,7 @@
 import type { Appointment, AppointmentStatus, Budget, FollowUp, FollowUpCategory, FollowUpStatus, Opportunity, OpportunityStatus, Patient, PatientStatus, Payment, PaymentStatus, QuoteStatus, Room, TeamMember, TimelineEvent, Treatment, TreatmentStatus, UserRole, UserStatus } from '../types';
 import { apiRequest } from './api';
 import { formatClinicTime } from './datetime';
+import { notifyDailyAppointmentsChanged } from './appointmentEvents';
 
 export const appointmentTransitions: Record<AppointmentStatus, readonly AppointmentStatus[]> = {
   CONFIRMADO: ['NA_RECEPCAO', 'CANCELADO', 'FALTA', 'ENCAIXE'],
@@ -241,21 +242,27 @@ export function getSchedulingResources(signal?: AbortSignal) {
 }
 
 export async function createAppointment(input: CreateAppointmentInput): Promise<Appointment> {
-  return mapAppointment(await apiRequest<ApiAppointment>('/api/appointments', { method: 'POST', body: JSON.stringify(input) }));
+  const appointment = mapAppointment(await apiRequest<ApiAppointment>('/api/appointments', { method: 'POST', body: JSON.stringify(input) }));
+  notifyDailyAppointmentsChanged();
+  return appointment;
 }
 
-export function updateAppointmentStatus(id: string, status: AppointmentStatus, delayMinutes?: number) {
-  return apiRequest(`/api/appointments/${encodeURIComponent(id)}/status`, {
+export async function updateAppointmentStatus(id: string, status: AppointmentStatus, delayMinutes?: number) {
+  const result = await apiRequest(`/api/appointments/${encodeURIComponent(id)}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status, delayMinutes }),
   });
+  notifyDailyAppointmentsChanged();
+  return result;
 }
 
-export function rescheduleAppointment(id: string, input: { scheduledAt: string; roomId?: string; professionalId?: string; durationMinutes?: number }) {
-  return apiRequest(`/api/appointments/${encodeURIComponent(id)}/reschedule`, {
+export async function rescheduleAppointment(id: string, input: { scheduledAt: string; roomId?: string; professionalId?: string; durationMinutes?: number }) {
+  const result = await apiRequest(`/api/appointments/${encodeURIComponent(id)}/reschedule`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+  notifyDailyAppointmentsChanged();
+  return result;
 }
 
 export async function listTreatments(input: { search?: string; status?: TreatmentStatus; page?: number; limit?: number } = {}, signal?: AbortSignal) {

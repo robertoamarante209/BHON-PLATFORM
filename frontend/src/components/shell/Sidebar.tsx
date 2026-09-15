@@ -45,7 +45,7 @@ export const Sidebar: React.FC = () => {
   const [areToolsOpen, setAreToolsOpen] = useState(false);
   const { currentUser, currentClinic, logout } = useAuth();
   const visibleSections = sections
-    .map((section) => ({ ...section, items: section.items.filter((item) => item.configuration ? canManageClinicConfiguration(currentUser) : (!item.permission || hasClinicPermission(currentUser, item.permission)) && !(item.path === '/clinic/team' && currentUser.role === 'MANAGER' && !Array.isArray(currentUser.permissions))) }))
+    .map((section) => ({ ...section, items: section.items.filter((item) => item.configuration ? canManageClinicConfiguration(currentUser) : !item.permission || hasClinicPermission(currentUser, item.permission)) }))
     .filter((section) => section.items.length > 0);
   const visibleItems = visibleSections.flatMap((section) => section.items);
   const primaryItems = visibleItems.filter((item) => primaryPaths.has(item.path));

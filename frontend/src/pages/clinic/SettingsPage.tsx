@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Building2, CalendarClock, DoorOpen, FileHeart, Loader2, Pencil, Plus, RefreshCw, Save, ShieldCheck, Users } from 'lucide-react';
 import { SectionState } from '../../components/common/SectionState';
 import { useAuth } from '../../context/AuthContext';
-import { createRoom, getClinicAvailability, getClinicSettings, updateClinicAvailability, updateRoom, type AvailabilityInterval, type ClinicAvailability, type ClinicSettings, type RoomInput } from '../../lib/clinic';
+import { createClinicProtocol, createRoom, getClinicAvailability, getClinicSettings, listClinicProtocols, updateClinicAvailability, updateRoom, type AvailabilityInterval, type ClinicAvailability, type ClinicProtocol, type ClinicSettings, type RoomInput } from '../../lib/clinic';
 import type { Room } from '../../types';
 
 type Section = 'CLINIC' | 'ROOMS' | 'HOURS' | 'PROCEDURES' | 'PROTOCOLS' | 'USERS';
@@ -46,6 +46,10 @@ function AvailabilityEditor({ value, canManage, saving, onSave }: { value: Clini
     {canManage ? <button type="button" disabled={saving} onClick={() => void onSave(intervals)} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-bold text-white shadow-sm hover:bg-bhon-navy-light focus-visible:ring-2 focus-visible:ring-bhon-teal disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}Salvar horários</button> : null}</section>;
 }
 
+function ProtocolsPanel({ protocols, canManage, onCreate }: { protocols: ClinicProtocol[]; canManage: boolean; onCreate: () => void }) {
+  return <section className="p-5 sm:p-7" aria-labelledby="protocols-settings-title"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><h2 id="protocols-settings-title" className="font-display text-xl text-bhon-navy">Protocolos operacionais</h2><p className="mt-1 max-w-xl text-sm text-bhon-muted">Modelos organizam a rotina da equipe; não substituem avaliação ou conduta clínica.</p></div>{canManage ? <button type="button" onClick={onCreate} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-bold text-white hover:bg-bhon-navy-light focus-visible:ring-2 focus-visible:ring-bhon-teal"><Plus className="h-4 w-4" aria-hidden="true" />Novo protocolo</button> : null}</div>{protocols.length ? <div className="mt-6 grid gap-3">{protocols.map((protocol) => <article key={protocol.id} className="rounded-2xl border border-bhon-border p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-bhon-navy">{protocol.title}</h3><p className="mt-1 text-xs text-bhon-muted">{protocol.description || 'Sem descrição.'}</p></div><span className={`rounded-full px-2 py-1 font-mono-data text-[10px] font-bold ${protocol.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{protocol.isActive ? 'ATIVO' : 'INATIVO'}</span></div><ol className="mt-3 list-decimal space-y-1 pl-4 text-xs text-bhon-text">{protocol.steps.map((step, index) => <li key={`${protocol.id}-${index}`}>{step}</li>)}</ol></article>)}</div> : <div className="mt-6 rounded-2xl border border-dashed border-bhon-border bg-bhon-ivory/50 p-5 text-sm text-bhon-muted">Nenhum protocolo cadastrado.</div>}</section>;
+}
+
 export const SettingsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const [activeSection, setActiveSection] = useState<Section>('CLINIC');
@@ -56,6 +60,7 @@ export const SettingsPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [availability, setAvailability] = useState<ClinicAvailability>({ professionalId: null, revision: 0, intervals: [] });
+  const [protocols, setProtocols] = useState<ClinicProtocol[]>([]);
   const canManage = ['OWNER', 'ADMIN', 'MANAGER'].includes(currentUser.role);
 
   const load = async (signal?: AbortSignal) => {
@@ -67,11 +72,20 @@ export const SettingsPage: React.FC = () => {
 
   useEffect(() => { const controller = new AbortController(); void load(controller.signal); return () => controller.abort(); }, []);
   useEffect(() => { if (activeSection !== 'HOURS') return; const controller = new AbortController(); void getClinicAvailability(controller.signal).then(setAvailability).catch((loadError) => { if ((loadError as Error).name !== 'AbortError') setError((loadError as Error).message || 'Não foi possível carregar a disponibilidade.'); }); return () => controller.abort(); }, [activeSection]);
+  useEffect(() => { if (activeSection !== 'PROTOCOLS') return; const controller = new AbortController(); void listClinicProtocols(controller.signal).then(setProtocols).catch((loadError) => { if ((loadError as Error).name !== 'AbortError') setError((loadError as Error).message || 'Não foi possível carregar os protocolos.'); }); return () => controller.abort(); }, [activeSection]);
 
   const saveAvailability = async (intervals: AvailabilityInterval[]) => {
     setSaving(true); setError(''); setFeedback('');
     try { setAvailability(await updateClinicAvailability({ revision: availability.revision, intervals })); setFeedback('Disponibilidade atualizada com sucesso.'); }
     catch (saveError) { setError((saveError as Error).message || 'Não foi possível salvar os horários.'); }
+    finally { setSaving(false); }
+  };
+  const createProtocol = async () => {
+    const title = window.prompt('Nome do protocolo operacional');
+    if (!title?.trim()) return;
+    setSaving(true); setError(''); setFeedback('');
+    try { const protocol = await createClinicProtocol({ title, steps: ['Definir a primeira etapa'] }); setProtocols((current) => [...current, protocol]); setFeedback('Protocolo criado. Edite as etapas antes de usar na rotina.'); }
+    catch (saveError) { setError((saveError as Error).message || 'Não foi possível criar o protocolo.'); }
     finally { setSaving(false); }
   };
 
@@ -96,9 +110,8 @@ export const SettingsPage: React.FC = () => {
     finally { setSaving(false); }
   };
 
-  const notConfigured: Record<Exclude<Section, 'CLINIC' | 'ROOMS' | 'HOURS'>, { icon: typeof Building2; title: string; description: string }> = {
+  const notConfigured: Record<Exclude<Section, 'CLINIC' | 'ROOMS' | 'HOURS' | 'PROTOCOLS'>, { icon: typeof Building2; title: string; description: string }> = {
     PROCEDURES: { icon: FileHeart, title: 'Tabela de procedimentos ainda não configurada', description: 'Nenhum procedimento padrão foi publicado para esta clínica.' },
-    PROTOCOLS: { icon: ShieldCheck, title: 'Protocolos ainda não configurados', description: 'Cadastre protocolos clínicos reais antes de automatizar lembretes e acompanhamentos.' },
     USERS: { icon: Users, title: 'Gestão de usuários em preparação', description: 'A equipe exibida no BHON já vem do banco; convites e permissões serão configurados em uma etapa dedicada.' },
   };
 
@@ -119,7 +132,8 @@ export const SettingsPage: React.FC = () => {
           {settings.rooms.length === 0 && editorRoom === undefined ? <SectionState icon={DoorOpen} title="Nenhum ambiente cadastrado" description="Cadastre o primeiro consultório ou sala para liberar novos agendamentos." action={canManage ? <button type="button" onClick={() => setEditorRoom(null)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-bold text-white transition-[background-color,transform] hover:bg-bhon-navy-light active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-bhon-teal focus-visible:ring-offset-2"><Plus className="h-4 w-4" aria-hidden="true" />Cadastrar Primeiro Ambiente</button> : undefined} /> : <div className="mt-5 grid gap-3 sm:grid-cols-2">{settings.rooms.map((room) => <article key={room.id} className={`rounded-2xl border p-4 transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:shadow-md ${room.isActive ? 'border-bhon-border bg-white' : 'border-slate-200 bg-slate-50 opacity-75'}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate font-bold text-bhon-navy">{room.name}</h3><span className={`rounded-full px-2 py-0.5 font-mono-data text-[10px] font-bold ${room.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>{room.isActive ? 'ATIVO' : 'INATIVO'}</span></div><p className="mt-1 line-clamp-2 min-h-8 text-xs leading-4 text-bhon-muted">{room.description || 'Sem descrição.'}</p></div><span className="shrink-0 font-mono-data text-[10px] text-bhon-muted">#{room.orderIndex}</span></div>{canManage ? <div className="mt-4 flex gap-2 border-t border-bhon-border pt-3"><button type="button" onClick={() => setEditorRoom(room)} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg text-xs font-bold text-bhon-navy hover:bg-bhon-ivory focus-visible:ring-2 focus-visible:ring-bhon-teal"><Pencil className="h-3.5 w-3.5" aria-hidden="true" />Editar</button><button type="button" disabled={saving} onClick={() => void toggleRoom(room)} className="min-h-10 flex-1 rounded-lg text-xs font-bold text-bhon-muted hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-bhon-teal disabled:opacity-50">{room.isActive ? 'Desativar' : 'Reativar'}</button></div> : null}</article>)}</div>}</section> : null}
 
           {activeSection === 'HOURS' ? <AvailabilityEditor value={availability} canManage={canManage} saving={saving} onSave={saveAvailability} /> : null}
-          {activeSection !== 'CLINIC' && activeSection !== 'ROOMS' && activeSection !== 'HOURS' ? <SectionState {...notConfigured[activeSection]} /> : null}
+          {activeSection === 'PROTOCOLS' ? <ProtocolsPanel protocols={protocols} canManage={canManage} onCreate={() => void createProtocol()} /> : null}
+          {activeSection !== 'CLINIC' && activeSection !== 'ROOMS' && activeSection !== 'HOURS' && activeSection !== 'PROTOCOLS' ? <SectionState {...notConfigured[activeSection]} /> : null}
         </> : <SectionState icon={Building2} title="Configurações indisponíveis" description="Atualize a página para tentar consultar a clínica novamente." />}
       </main>
     </div>

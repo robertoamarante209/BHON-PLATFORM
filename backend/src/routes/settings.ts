@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { AppointmentStatus, QuoteStatus, TreatmentStatus, UserRole, UserStatus } from "../lib/prisma-types.js";
 import { indicatorPeriodRange, percentage, type IndicatorPeriod } from "../domain/indicators.js";
 import { availabilityScopeKey, parseAvailabilityIntervals } from "../domain/availability.js";
+import { parseClinicProtocol } from "../domain/clinic-protocol.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
 
@@ -106,6 +107,61 @@ export async function settingsRoutes(app: FastifyInstance) {
       return updated;
     });
     return reply.send({ professionalId: professionalId || null, revision: availability.revision, intervals: parsed.intervals });
+  });
+
+  app.get<{ Querystring: { active?: "true" | "false" } }>("/settings/protocols", {
+    preHandler: requireRole(CLINIC_READ_ROLES),
+    schema: { querystring: { type: "object", additionalProperties: false, properties: { active: { type: "string", enum: ["true", "false"] } } } },
+  }, async (request, reply) => {
+    const active = request.query.active === undefined ? undefined : request.query.active === "true";
+    const protocols = await prisma.clinicProtocol.findMany({
+      where: { tenantId: request.tenantId!, ...(active === undefined ? {} : { isActive: active }) },
+      orderBy: [{ isActive: "desc" }, { title: "asc" }],
+    });
+    return reply.send(protocols);
+  });
+
+  app.post<{ Body: { title: string; description?: string; steps: string[] } }>("/settings/protocols", {
+    preHandler: requireRole(SETTINGS_WRITE_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["title", "steps"], properties: { title: { type: "string", minLength: 2, maxLength: 120 }, description: { type: "string", maxLength: 2000 }, steps: { type: "array", minItems: 1, maxItems: 50, items: { type: "string", minLength: 1, maxLength: 500 } } } } },
+  }, async (request, reply) => {
+    const parsed = parseClinicProtocol(request.body);
+    if (!parsed.ok) return reply.code(422).send({ error: "Revise o título e as etapas do protocolo.", code: parsed.code });
+    const tenantId = request.tenantId!;
+    try {
+      const protocol = await prisma.$transaction(async (tx) => {
+        const created = await tx.clinicProtocol.create({ data: { tenantId, ...parsed.value } });
+        await tx.auditLog.create({ data: { tenantId, actorUserId: request.user!.id, action: "CLINIC_PROTOCOL_CREATED", resource: "ClinicProtocol", resourceId: created.id, metadata: { title: created.title, stepCount: parsed.value.steps.length } } });
+        return created;
+      });
+      return reply.code(201).send(protocol);
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2002") return reply.code(409).send({ error: "Já existe um protocolo com esse título.", code: "PROTOCOL_TITLE_CONFLICT" });
+      throw error;
+    }
+  });
+
+  app.patch<{ Params: { id: string }; Body: { title?: string; description?: string | null; steps?: string[]; isActive?: boolean; version: number } }>("/settings/protocols/:id", {
+    preHandler: requireRole(SETTINGS_WRITE_ROLES),
+    schema: { params: { type: "object", required: ["id"], properties: { id: { type: "string", minLength: 1, maxLength: 100 } } }, body: { type: "object", additionalProperties: false, required: ["version"], minProperties: 2, properties: { title: { type: "string", minLength: 2, maxLength: 120 }, description: { anyOf: [{ type: "string", maxLength: 2000 }, { type: "null" }] }, steps: { type: "array", minItems: 1, maxItems: 50, items: { type: "string", minLength: 1, maxLength: 500 } }, isActive: { type: "boolean" }, version: { type: "integer", minimum: 1 } } } },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const current = await prisma.clinicProtocol.findFirst({ where: { id: request.params.id, tenantId } });
+    if (!current) return reply.code(404).send({ error: "Protocolo não encontrado.", code: "PROTOCOL_NOT_FOUND" });
+    if (current.version !== request.body.version) return reply.code(409).send({ error: "O protocolo foi alterado em outra sessão. Atualize a página antes de salvar.", code: "PROTOCOL_VERSION_CONFLICT" });
+    const parsed = parseClinicProtocol({ title: request.body.title ?? current.title, description: request.body.description ?? current.description, steps: request.body.steps ?? current.steps });
+    if (!parsed.ok) return reply.code(422).send({ error: "Revise o título e as etapas do protocolo.", code: parsed.code });
+    try {
+      const protocol = await prisma.$transaction(async (tx) => {
+        const updated = await tx.clinicProtocol.update({ where: { id: current.id }, data: { ...parsed.value, isActive: request.body.isActive ?? current.isActive, version: { increment: 1 } } });
+        await tx.auditLog.create({ data: { tenantId, actorUserId: request.user!.id, action: updated.isActive ? "CLINIC_PROTOCOL_UPDATED" : "CLINIC_PROTOCOL_DEACTIVATED", resource: "ClinicProtocol", resourceId: updated.id, metadata: { fields: Object.keys(request.body) } } });
+        return updated;
+      });
+      return reply.send(protocol);
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2002") return reply.code(409).send({ error: "Já existe um protocolo com esse título.", code: "PROTOCOL_TITLE_CONFLICT" });
+      throw error;
+    }
   });
 
   app.post<{ Body: { name: string; description?: string; orderIndex?: number } }>("/rooms", {

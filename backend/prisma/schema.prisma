@@ -149,6 +149,7 @@ model Tenant {
   clinicDocuments       ClinicDocument[]
   integrationConnections IntegrationConnection[]
   clinicAvailability     ClinicAvailability[]
+  clinicProtocols        ClinicProtocol[]
 
   @@index([status])
   @@index([createdAt])
@@ -306,6 +307,26 @@ model ClinicAvailability {
   @@unique([tenantId, scopeKey])
   @@index([tenantId, professionalId])
   @@map("clinic_availability")
+}
+
+// Modelos operacionais definidos pela própria clínica. Não representam conduta médica.
+model ClinicProtocol {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  title       String
+  description String?
+  steps       Json
+  isActive    Boolean @default(true) @map("is_active")
+  version     Int @default(1)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, title])
+  @@index([tenantId, isActive])
+  @@map("clinic_protocols")
 }
 
 // ============================================================

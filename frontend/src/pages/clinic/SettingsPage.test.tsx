@@ -15,6 +15,8 @@ vi.mock('../../lib/clinic', () => ({
   updateRoom: vi.fn(),
   getClinicAvailability: vi.fn().mockResolvedValue({ professionalId: null, revision: 0, intervals: [] }),
   updateClinicAvailability: vi.fn(),
+  listClinicProtocols: vi.fn().mockResolvedValue([]),
+  createClinicProtocol: vi.fn(),
 }));
 
 describe('SettingsPage', () => {
@@ -38,5 +40,17 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('heading', { name: 'Disponibilidade da clínica' })).toBeInTheDocument();
     expect(screen.getByText(/não bloqueia agendamentos/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Salvar horários' })).toBeInTheDocument();
+  });
+
+  it('mostra protocolos como modelos operacionais da clínica', async () => {
+    const user = userEvent.setup();
+    render(<SettingsPage />);
+
+    await screen.findByDisplayValue('BHON Clínica');
+    await user.click(screen.getByRole('button', { name: 'Protocolos' }));
+
+    expect(await screen.findByRole('heading', { name: 'Protocolos operacionais' })).toBeInTheDocument();
+    expect(screen.getByText(/modelos organizam a rotina/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Novo protocolo' })).toBeInTheDocument();
   });
 });

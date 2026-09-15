@@ -435,6 +435,8 @@ export type RoomInput = { name: string; description?: string; orderIndex?: numbe
 export type RoomUpdate = Partial<RoomInput> & { isActive?: boolean; description?: string | null };
 export type AvailabilityInterval = { dayOfWeek: number; start: string; end: string };
 export type ClinicAvailability = { professionalId: string | null; revision: number; intervals: AvailabilityInterval[] };
+export type ClinicProtocol = { id: string; tenantId: string; title: string; description: string | null; steps: string[]; isActive: boolean; version: number; createdAt: string; updatedAt: string };
+export type ClinicProtocolInput = { title: string; description?: string; steps: string[] };
 
 export function getIndicators(period: IndicatorPeriod, signal?: AbortSignal) {
   return apiRequest<ClinicIndicators>(`/api/indicators?period=${period}`, { signal });
@@ -450,6 +452,14 @@ export function getClinicAvailability(signal?: AbortSignal) {
 
 export function updateClinicAvailability(input: Pick<ClinicAvailability, 'revision' | 'intervals'>) {
   return apiRequest<ClinicAvailability>('/api/settings/availability', { method: 'PUT', body: JSON.stringify(input) });
+}
+
+export function listClinicProtocols(signal?: AbortSignal) {
+  return apiRequest<ClinicProtocol[]>('/api/settings/protocols', { signal });
+}
+
+export function createClinicProtocol(input: ClinicProtocolInput) {
+  return apiRequest<ClinicProtocol>('/api/settings/protocols', { method: 'POST', body: JSON.stringify(input) });
 }
 
 export function createRoom(input: RoomInput) {

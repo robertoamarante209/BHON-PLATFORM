@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { AppointmentStatus, QuoteStatus, TreatmentStatus, UserRole, UserStatus } from "../lib/prisma-types.js";
 import { indicatorPeriodRange, percentage, type IndicatorPeriod } from "../domain/indicators.js";
+import { availabilityScopeKey, parseAvailabilityIntervals } from "../domain/availability.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
 
@@ -38,6 +39,73 @@ export async function settingsRoutes(app: FastifyInstance) {
       },
       rooms,
     });
+  });
+
+  app.get<{ Querystring: { professionalId?: string } }>("/settings/availability", {
+    preHandler: requireRole(CLINIC_READ_ROLES),
+    schema: {
+      querystring: {
+        type: "object",
+        additionalProperties: false,
+        properties: { professionalId: { type: "string", minLength: 1, maxLength: 100 } },
+      },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const professionalId = request.query.professionalId?.trim() || undefined;
+    if (professionalId) {
+      const professional = await prisma.user.findFirst({ where: { id: professionalId, tenantId, deletedAt: null }, select: { id: true } });
+      if (!professional) return reply.code(404).send({ error: "Profissional não encontrado nesta clínica.", code: "PROFESSIONAL_NOT_FOUND" });
+    }
+    const availability = await prisma.clinicAvailability.findUnique({
+      where: { tenantId_scopeKey: { tenantId, scopeKey: availabilityScopeKey(professionalId) } },
+    });
+    const parsed = availability ? parseAvailabilityIntervals(availability.intervals) : { ok: true as const, intervals: [] };
+    return reply.send({ professionalId: professionalId || null, revision: availability?.revision || 0, intervals: parsed.ok ? parsed.intervals : [] });
+  });
+
+  app.put<{ Body: { professionalId?: string; intervals: unknown; revision: number } }>("/settings/availability", {
+    preHandler: requireRole(SETTINGS_WRITE_ROLES),
+    schema: {
+      body: {
+        type: "object",
+        additionalProperties: false,
+        required: ["intervals", "revision"],
+        properties: {
+          professionalId: { type: "string", minLength: 1, maxLength: 100 },
+          intervals: { type: "array", maxItems: 28 },
+          revision: { type: "integer", minimum: 0 },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const actor = request.user!;
+    const professionalId = request.body.professionalId?.trim() || undefined;
+    const parsed = parseAvailabilityIntervals(request.body.intervals);
+    if (!parsed.ok) return reply.code(422).send({ error: "Os intervalos de disponibilidade são inválidos.", code: parsed.code });
+    if (professionalId) {
+      const professional = await prisma.user.findFirst({ where: { id: professionalId, tenantId, deletedAt: null }, select: { id: true } });
+      if (!professional) return reply.code(404).send({ error: "Profissional não encontrado nesta clínica.", code: "PROFESSIONAL_NOT_FOUND" });
+    }
+
+    const scopeKey = availabilityScopeKey(professionalId);
+    const current = await prisma.clinicAvailability.findUnique({ where: { tenantId_scopeKey: { tenantId, scopeKey } } });
+    if ((current?.revision || 0) !== request.body.revision) {
+      return reply.code(409).send({ error: "Os horários foram alterados em outra sessão. Atualize a página antes de salvar.", code: "AVAILABILITY_VERSION_CONFLICT" });
+    }
+
+    const availability = await prisma.$transaction(async (tx) => {
+      if (!current) {
+        const created = await tx.clinicAvailability.create({ data: { tenantId, professionalId: professionalId || null, scopeKey, intervals: parsed.intervals } });
+        await tx.auditLog.create({ data: { tenantId, actorUserId: actor.id, action: "AVAILABILITY_CREATED", resource: "ClinicAvailability", resourceId: created.id, metadata: { professionalId: professionalId || null, intervalCount: parsed.intervals.length } } });
+        return created;
+      }
+      const updated = await tx.clinicAvailability.update({ where: { id: current.id }, data: { intervals: parsed.intervals, revision: { increment: 1 } } });
+      await tx.auditLog.create({ data: { tenantId, actorUserId: actor.id, action: "AVAILABILITY_UPDATED", resource: "ClinicAvailability", resourceId: updated.id, metadata: { professionalId: professionalId || null, intervalCount: parsed.intervals.length } } });
+      return updated;
+    });
+    return reply.send({ professionalId: professionalId || null, revision: availability.revision, intervals: parsed.intervals });
   });
 
   app.post<{ Body: { name: string; description?: string; orderIndex?: number } }>("/rooms", {

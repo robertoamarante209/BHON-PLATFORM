@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseAvailabilityIntervals } from "../src/domain/availability.ts";
+import { availabilityScopeKey, parseAvailabilityIntervals } from "../src/domain/availability.ts";
 
 test("normaliza intervalos válidos em ordem cronológica por dia", () => {
   const result = parseAvailabilityIntervals([
@@ -41,4 +41,9 @@ test("rejeita sobreposição e permite intervalos adjacentes no mesmo dia", () =
       { dayOfWeek: 1, start: "12:00", end: "17:00" },
     ],
   });
+});
+
+test("mantém a disponibilidade da clínica e de cada profissional em escopos distintos", () => {
+  assert.equal(availabilityScopeKey(), "CLINIC");
+  assert.equal(availabilityScopeKey("  professional-7  "), "professional-7");
 });

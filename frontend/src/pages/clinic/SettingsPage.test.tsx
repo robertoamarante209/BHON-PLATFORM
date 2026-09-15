@@ -13,6 +13,8 @@ vi.mock('../../lib/clinic', () => ({
   }),
   createRoom: vi.fn(),
   updateRoom: vi.fn(),
+  getClinicAvailability: vi.fn().mockResolvedValue({ professionalId: null, revision: 0, intervals: [] }),
+  updateClinicAvailability: vi.fn(),
 }));
 
 describe('SettingsPage', () => {
@@ -24,5 +26,17 @@ describe('SettingsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Consultórios e Salas' }));
     expect(screen.getByText('Nenhum ambiente cadastrado')).toBeInTheDocument();
     expect(screen.queryByText('(11) 3288-4100')).not.toBeInTheDocument();
+  });
+
+  it('apresenta a configuração de disponibilidade sem prometer bloqueio de agenda', async () => {
+    const user = userEvent.setup();
+    render(<SettingsPage />);
+
+    await screen.findByDisplayValue('BHON Clínica');
+    await user.click(screen.getByRole('button', { name: 'Horários' }));
+
+    expect(screen.getByRole('heading', { name: 'Disponibilidade da clínica' })).toBeInTheDocument();
+    expect(screen.getByText(/não bloqueia agendamentos/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Salvar horários' })).toBeInTheDocument();
   });
 });

@@ -433,6 +433,8 @@ export type ClinicIndicators = {
 export type ClinicSettings = { clinic: import('../types').Tenant; rooms: Room[] };
 export type RoomInput = { name: string; description?: string; orderIndex?: number };
 export type RoomUpdate = Partial<RoomInput> & { isActive?: boolean; description?: string | null };
+export type AvailabilityInterval = { dayOfWeek: number; start: string; end: string };
+export type ClinicAvailability = { professionalId: string | null; revision: number; intervals: AvailabilityInterval[] };
 
 export function getIndicators(period: IndicatorPeriod, signal?: AbortSignal) {
   return apiRequest<ClinicIndicators>(`/api/indicators?period=${period}`, { signal });
@@ -440,6 +442,14 @@ export function getIndicators(period: IndicatorPeriod, signal?: AbortSignal) {
 
 export function getClinicSettings(signal?: AbortSignal) {
   return apiRequest<ClinicSettings>('/api/settings', { signal });
+}
+
+export function getClinicAvailability(signal?: AbortSignal) {
+  return apiRequest<ClinicAvailability>('/api/settings/availability', { signal });
+}
+
+export function updateClinicAvailability(input: Pick<ClinicAvailability, 'revision' | 'intervals'>) {
+  return apiRequest<ClinicAvailability>('/api/settings/availability', { method: 'PUT', body: JSON.stringify(input) });
 }
 
 export function createRoom(input: RoomInput) {

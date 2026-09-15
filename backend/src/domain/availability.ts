@@ -10,6 +10,10 @@ export type AvailabilityParseResult =
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+export function availabilityScopeKey(professionalId?: string | null) {
+  return professionalId?.trim() || "CLINIC";
+}
+
 function minutes(value: string) {
   const hour = Number(value.slice(0, 2));
   const minute = Number(value.slice(3, 5));

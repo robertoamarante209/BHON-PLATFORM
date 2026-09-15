@@ -148,6 +148,7 @@ model Tenant {
   inventoryMovements    InventoryMovement[]
   clinicDocuments       ClinicDocument[]
   integrationConnections IntegrationConnection[]
+  clinicAvailability     ClinicAvailability[]
 
   @@index([status])
   @@index([createdAt])
@@ -217,6 +218,7 @@ model User {
   assignedSupportTickets  SupportTicket[] @relation("SupportTicketAssignee")
   notifications           Notification[]  @relation("NotificationRecipient")
   receivedPayments        PaymentReceipt[] @relation("PaymentReceiptReceiver")
+  availabilityOverrides   ClinicAvailability[] @relation("AvailabilityProfessional")
 
   timelineEvents TimelineEvent[] @relation("TimelineActor")
   auditLogs      AuditLog[]      @relation("AuditActor")
@@ -280,6 +282,30 @@ model Room {
   @@index([tenantId])
   @@index([tenantId, isActive])
   @@map("rooms")
+}
+
+// ============================================================
+// DISPONIBILIDADE CLÍNICA
+// Grade informativa por clínica ou profissional. Não bloqueia agenda.
+// ============================================================
+
+model ClinicAvailability {
+  id             String @id @default(uuid())
+  tenantId       String @map("tenant_id")
+  professionalId String? @map("professional_id")
+  scopeKey       String @map("scope_key")
+  intervals      Json
+  revision       Int @default(1)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  professional User?  @relation("AvailabilityProfessional", fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scopeKey])
+  @@index([tenantId, professionalId])
+  @@map("clinic_availability")
 }
 
 // ============================================================

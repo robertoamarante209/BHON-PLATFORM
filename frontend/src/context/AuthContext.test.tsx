@@ -63,20 +63,43 @@ describe('AuthProvider', () => {
     expect(await screen.findByText('desconectado')).toBeVisible();
   });
 
-  it('não deixa um logout atrasado apagar um login mais recente', async () => {
+  it('espera o logout terminar antes de enviar somente o login mais recente', async () => {
     let finishLogout!: (response: Response) => void;
     const delayedLogout = new Promise<Response>((resolve) => { finishLogout = resolve; });
-    vi.stubGlobal('fetch', vi.fn()
+    const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockReturnValueOnce(delayedLogout)
-      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
 
     render(<AuthProvider><Harness /></AuthProvider>);
     expect(await screen.findByText('autenticado')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'sair' }));
+    fireEvent.click(screen.getByRole('button', { name: 'sair' }));
     fireEvent.click(screen.getByRole('button', { name: 'entrar' }));
-    expect(await screen.findByText('autenticado')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'entrar' }));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     await act(async () => finishLogout(new Response(null, { status: 204 })));
-    expect(screen.getByText('autenticado')).toBeVisible();
+    expect(await screen.findByText('autenticado')).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][0]).toBe('/auth/login');
+  });
+
+  it('continua o login após falha de rede no logout sem rejeição não tratada', async () => {
+    let failLogout!: (reason: Error) => void;
+    const delayedLogout = new Promise<Response>((_resolve, reject) => { failLogout = reject; });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockReturnValueOnce(delayedLogout)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<AuthProvider><Harness /></AuthProvider>);
+    expect(await screen.findByText('autenticado')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sair' }));
+    fireEvent.click(screen.getByRole('button', { name: 'entrar' }));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await act(async () => failLogout(new Error('offline')));
+    expect(await screen.findByText('autenticado')).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

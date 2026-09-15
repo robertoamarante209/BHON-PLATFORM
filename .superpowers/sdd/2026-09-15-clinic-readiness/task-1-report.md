@@ -26,7 +26,7 @@
 
 ## GREEN e verificação final
 
-- Frontend: `pnpm test` — 18 arquivos, 46 testes, 46 aprovados após a revisão.
+- Frontend: `pnpm test` — 18 arquivos, 47 testes, 47 aprovados após a segunda revisão.
 - Frontend: `pnpm build` — TypeScript e Vite aprovados; 1.601 módulos transformados.
 - Backend: `node --import tsx --test test/*.test.mjs` — 47 testes, 47 aprovados.
 - Backend: `node_modules/.bin/tsc.cmd` — build aprovado, exit code 0.
@@ -35,10 +35,12 @@
 ## Correções após revisão
 
 - A raiz, `/login` e o fallback agora mantêm a URL e exibem carregamento enquanto `/auth/me` está pendente; uma falha transitória inicial mostra recuperação com nova tentativa, nunca o formulário de login.
-- O efeito final do logout carrega sua própria revisão e não pode apagar um login iniciado depois. Isso protege o estado React; a ordem de aplicação do cookie continua sendo autoridade do servidor/navegador e não é simulada como garantia do cliente.
+- O efeito final do logout carrega sua própria revisão e não pode apagar um login iniciado depois; a segunda revisão também serializa as requisições para preservar a ordem real dos cookies.
 - No cabeçalho móvel, data/dia da semana continuam visíveis, a busca larga é escondida, o pulso usa resumo `Ao vivo: N` e o texto integral de agendados/concluídos/em atendimento permanece acessível e volta a aparecer a partir de `sm`.
 - Atalhos móveis inativos usam `text-bhon-muted`, em vez de `text-slate-300` sobre branco.
 - RED da revisão: `pnpm exec vitest run src/App.test.tsx src/context/AuthContext.test.tsx src/components/shell/TopHeader.test.tsx src/components/shell/Sidebar.test.tsx` — 5 falhas esperadas.
+- A segunda revisão revelou que ignorar somente o efeito React do logout não protegia o cookie: uma resposta tardia de `/auth/logout` ainda poderia aplicar `Set-Cookie` depois de `/auth/login`. Logouts concorrentes agora compartilham uma única operação, logins aguardam sua conclusão antes de enviar a requisição, e somente a intenção de login mais recente prossegue. Falhas de rede no logout são absorvidas para evitar rejeições não tratadas e liberar o login pendente.
+- RED da segunda revisão: `pnpm exec vitest run src/context/AuthContext.test.tsx` — 2 falhas esperadas (`fetch` de login ocorria antes do logout e logout duplicado criava requisições extras).
 
 ## Arquivos alterados
 

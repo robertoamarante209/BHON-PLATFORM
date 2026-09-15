@@ -25,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [sessionError, setSessionError] = useState('');
   const authRevision = useRef(0);
+  const logoutInFlight = useRef<Promise<void> | null>(null);
 
   const applySession = useCallback((user: User & { tenant?: Tenant }) => {
     setCurrentUser(user);
@@ -62,6 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string, rememberMe = true): Promise<User | null> => {
     const revision = ++authRevision.current;
     try {
+      await logoutInFlight.current;
+      if (revision !== authRevision.current) return null;
       const response = await fetch('/auth/login', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -79,6 +82,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = useCallback(async (credential: string, rememberMe = true): Promise<User | null> => {
     const revision = ++authRevision.current;
     try {
+      await logoutInFlight.current;
+      if (revision !== authRevision.current) return null;
       const response = await fetch('/auth/google', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -93,14 +98,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch { return null; }
   }, [applySession]);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(() => {
+    if (logoutInFlight.current) return logoutInFlight.current;
     const revision = ++authRevision.current;
-    try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
-    finally {
-      if (revision !== authRevision.current) return;
-      setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
-      window.location.href = '/login';
-    }
+    const operation = (async () => {
+      try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
+      catch { /* logout local continua mesmo se o servidor estiver indisponível */ }
+      finally {
+        if (revision !== authRevision.current) return;
+        setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
+        window.location.href = '/login';
+      }
+    })();
+    logoutInFlight.current = operation;
+    void operation.finally(() => { if (logoutInFlight.current === operation) logoutInFlight.current = null; });
+    return operation;
   }, []);
 
   return <AuthContext.Provider value={{ currentUser, currentClinic, isPlatformOwner: currentUser.role === 'PLATFORM_OWNER', isAuthenticated, isLoadingAuth, sessionError, logout, login, loginWithGoogle, refreshSession }}>

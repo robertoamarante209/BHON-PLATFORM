@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { CalendarDays, Search } from 'lucide-react';
 import { Link } from 'wouter';
-import { useAuth } from '../../context/AuthContext';
 import { useDailyAppointments } from '../../context/DailyAppointmentsContext';
 import { CLINIC_TIME_ZONE } from '../../lib/datetime';
 import { SearchModal } from '../common/SearchModal';
@@ -13,7 +12,6 @@ const weekdayFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: CLINIC_TIM
 const finishedStatuses = new Set(['CONCLUIDO', 'CANCELADO', 'FALTA']);
 
 export const TopHeader: React.FC = () => {
-  const { currentClinic } = useAuth();
   const { appointments, loading, error } = useDailyAppointments();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const inAttendanceCount = appointments?.filter((item) => item.status === 'EM_ATENDIMENTO').length;
@@ -35,8 +33,6 @@ export const TopHeader: React.FC = () => {
           <p className="bhon-eyebrow truncate">{dateFormatter.format(new Date())}</p>
           <div className="mt-1 flex min-w-0 items-center gap-2">
             <h1 className="truncate font-display text-xl font-semibold leading-none text-bhon-text sm:text-2xl">{dailyGreeting}</h1>
-            <span aria-hidden="true" className="hidden h-1 w-1 rounded-full bg-bhon-gold sm:block" />
-            <p className="hidden truncate text-[11px] text-bhon-muted lg:block">{currentClinic.name}</p>
           </div>
         </div>
 

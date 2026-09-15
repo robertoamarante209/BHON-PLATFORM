@@ -28,6 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const authMutationTail = useRef<Promise<void>>(Promise.resolve());
   const logoutInFlight = useRef<Promise<void> | null>(null);
   const latestLogoutRevision = useRef(0);
+  const hadAuthenticatedSession = useRef(false);
 
   const enqueueAuthMutation = useCallback(<T,>(mutation: () => Promise<T>): Promise<T> => {
     const operation = authMutationTail.current.then(mutation, mutation);
@@ -38,18 +39,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const applySession = useCallback((user: User & { tenant?: Tenant }) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
+    hadAuthenticatedSession.current = true;
     if (user.tenant) setCurrentClinic(user.tenant);
   }, []);
 
   const refreshSession = useCallback(async () => {
     const revision = authRevision.current;
     try {
-      const response = await fetch('/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } });
+      let response = await fetch('/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } });
       if (revision !== authRevision.current) return;
+      if (response.status === 401 && hadAuthenticatedSession.current) {
+        response = await fetch('/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } });
+        if (revision !== authRevision.current) return;
+      }
       if (!response.ok) {
         let code = '';
         try { code = (await response.json() as { code?: string }).code || ''; } catch { /* resposta inválida é transitória */ }
         if (response.status === 401 || (response.status === 403 && ['USER_BLOCKED', 'TENANT_UNAVAILABLE'].includes(code))) {
+          hadAuthenticatedSession.current = false;
           setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC); setSessionError('');
         } else setSessionError('Não foi possível verificar sua sessão. Tente novamente.');
         return;
@@ -116,6 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       catch { /* logout local continua mesmo se o servidor estiver indisponível */ }
       finally {
         if (latestLogoutRevision.current !== authRevision.current) return;
+        hadAuthenticatedSession.current = false;
         setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
         window.location.href = '/login';
       }

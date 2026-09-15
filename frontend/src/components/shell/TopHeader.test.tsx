@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TopHeader } from './TopHeader';
 
 vi.mock('wouter', () => ({ Link: ({ children, href, ...props }: React.ComponentProps<'a'> & { href: string }) => <a href={href} {...props}>{children}</a> }));
-vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ currentUser: { name: 'Ana Souza' }, currentClinic: { name: 'Clínica Ana' } }) }));
 vi.mock('../../context/DailyAppointmentsContext', () => ({ useDailyAppointments: () => ({
   appointments: [
     { id: '1', status: 'EM_ATENDIMENTO' },
@@ -23,6 +22,7 @@ describe('TopHeader', () => {
     render(<TopHeader />);
 
     expect(screen.getByRole('heading', { name: 'Bom dia, hoje é segunda-feira: 1 agendado e 1 concluído.' })).toBeVisible();
+    expect(screen.queryByText('Clínica Ana')).not.toBeInTheDocument();
   });
 
   it('mantém data e pulso completo acessíveis com resumo compacto no mobile', () => {

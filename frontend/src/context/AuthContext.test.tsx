@@ -55,9 +55,22 @@ describe('AuthProvider', () => {
     expect(screen.queryByText('Não foi possível verificar sua sessão. Tente novamente.')).not.toBeInTheDocument();
   });
 
-  it('revoga a sessão local quando o servidor responde 401', async () => {
+  it('mantém a sessão quando uma resposta 401 isolada é seguida por confirmação válida', async () => {
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 'INVALID_SESSION' }), { status: 401, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+    render(<AuthProvider><Harness /></AuthProvider>);
+    expect(await screen.findByText('autenticado')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'atualizar' }));
+    expect(await screen.findByText('autenticado')).toBeVisible();
+    expect(screen.queryByText('Não foi possível verificar sua sessão. Tente novamente.')).not.toBeInTheDocument();
+  });
+
+  it('revoga a sessão local somente após duas confirmações consecutivas de 401', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 'INVALID_SESSION' }), { status: 401, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ code: 'INVALID_SESSION' }), { status: 401, headers: { 'Content-Type': 'application/json' } })));
     render(<AuthProvider><Harness /></AuthProvider>);
     expect(await screen.findByText('autenticado')).toBeVisible();

@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface DrawerProps {
@@ -39,7 +40,7 @@ export const Drawer: React.FC<DrawerProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <button
@@ -69,11 +70,12 @@ export const Drawer: React.FC<DrawerProps> = ({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-5 text-xs space-y-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 text-xs space-y-4">
             {children}
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

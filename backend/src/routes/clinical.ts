@@ -1155,7 +1155,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
   });
 
   // WORKFLOW CRÍTICO: APROVAÇÃO DE ORÇAMENTO EM UMA TRANSAÇÃO ATÔMICA
-  app.post<{ Params: { id: string } }>("/budgets/:id/approve", { preHandler: requireRole(CLINIC_MANAGEMENT_ROLES) }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  app.post<{ Params: { id: string } }>("/budgets/:id/approve", { preHandler: requirePermission("recovery.manage") }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const user = request.user!;
     const { id } = request.params;

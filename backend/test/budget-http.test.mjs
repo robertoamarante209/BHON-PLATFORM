@@ -45,6 +45,9 @@ test("orçamento persiste com isolamento, permissão, auditoria e aprovação co
   const second = await request(token, { ...payload, title: "Plano alternativo" });
   assert.equal(second.statusCode, 201);
   const approve = (id) => app.inject({ method: "POST", url: `/api/budgets/${id}/approve`, headers: { cookie: `bhon_session=${token}`, origin: "https://app.bhon.test" } });
+  const forbiddenApproval = await app.inject({ method: "POST", url: `/api/budgets/${second.json().id}/approve`, headers: { cookie: `bhon_session=${forbiddenToken}`, origin: "https://app.bhon.test" } });
+  assert.equal(forbiddenApproval.statusCode, 403);
+  assert.equal(forbiddenApproval.json().code, "PERMISSION_REQUIRED");
   const approvals = await Promise.all([approve(first.json().id), approve(second.json().id)]);
   assert.deepEqual(approvals.map((response) => response.statusCode).sort(), [200, 409]);
   assert.equal(approvals.find((response) => response.statusCode === 409).json().code, "ACTIVE_TREATMENT_EXISTS");

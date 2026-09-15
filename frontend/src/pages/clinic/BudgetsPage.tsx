@@ -11,7 +11,6 @@ import { hasClinicPermission } from '../../lib/permissions';
 import type { Budget, QuoteStatus } from '../../types';
 import { BudgetEditor } from './BudgetEditor';
 
-const approvalRoles = ['OWNER', 'ADMIN', 'MANAGER'];
 const quoteStatuses: QuoteStatus[] = ['DRAFT', 'SENT', 'VIEWED', 'NEGOTIATING', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'NO_RESPONSE'];
 const emptyMetrics: BudgetMetrics = { totalInNegotiation: 0, noResponseCount: 0, approvedCount: 0, rejectedCount: 0, conversionRate: null };
 
@@ -69,8 +68,8 @@ export const BudgetsPage: React.FC = () => {
     }
   };
 
-  const canApprove = approvalRoles.includes(currentUser.role);
-  const canCreate = hasClinicPermission(currentUser, 'recovery.manage');
+  const canApprove = hasClinicPermission(currentUser, 'recovery.manage');
+  const canCreate = canApprove;
   const money = (value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   return (

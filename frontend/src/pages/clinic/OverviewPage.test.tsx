@@ -9,10 +9,11 @@ const api = vi.hoisted(() => ({
   listAppointments: vi.fn(),
   updateAppointmentStatus: vi.fn(),
 }));
+const router = vi.hoisted(() => ({ setLocation: vi.fn() }));
 
 vi.mock('wouter', () => ({
   Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => <a href={href} {...props}>{children}</a>,
-  useLocation: () => ['/clinic/overview', vi.fn()],
+  useLocation: () => ['/clinic/overview', router.setLocation],
 }));
 
 vi.mock('../../components/recovery/RecoveryQueue', () => ({
@@ -61,6 +62,7 @@ const renderOverview = () => render(<DailyAppointmentsProvider><OverviewPage /><
 
 describe('OverviewPage', () => {
   beforeEach(() => {
+    router.setLocation.mockReset();
     api.listAppointments.mockReset();
     api.updateAppointmentStatus.mockReset();
     api.listAppointments.mockResolvedValue([appointment]);
@@ -141,5 +143,14 @@ describe('OverviewPage', () => {
     });
 
     expect(screen.getByRole('dialog')).toHaveTextContent('Carlos Mendes');
+  });
+
+  it('fecha o painel e abre o prontuário do atendimento selecionado', async () => {
+    renderOverview();
+    await screen.findByText('Mariana Costa');
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir atendimento de Mariana Costa' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir perfil do paciente →' }));
+    expect(router.setLocation).toHaveBeenCalledWith('/clinic/patients/patient-1');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

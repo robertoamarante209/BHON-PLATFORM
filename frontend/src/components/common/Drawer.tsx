@@ -9,6 +9,7 @@ interface DrawerProps {
   subtitle?: string;
   children: React.ReactNode;
   width?: string;
+  theme?: 'clinic' | 'dark';
 }
 
 export const Drawer: React.FC<DrawerProps> = ({
@@ -18,6 +19,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   subtitle,
   children,
   width = 'max-w-md',
+  theme = 'clinic',
 }) => {
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -39,9 +41,10 @@ export const Drawer: React.FC<DrawerProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
+  const portalThemeClass = theme === 'clinic' ? 'bhon-clinic-theme' : 'bhon-dark-theme';
 
   return createPortal(
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className={`fixed inset-0 z-50 overflow-hidden ${portalThemeClass}`}>
       {/* Backdrop */}
       <button
         type="button"

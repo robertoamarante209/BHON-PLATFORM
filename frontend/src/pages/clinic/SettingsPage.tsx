@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Building2, CalendarClock, DoorOpen, FileHeart, Loader2, Pencil, Plus, RefreshCw, Save, ShieldCheck, Users } from 'lucide-react';
 import { SectionState } from '../../components/common/SectionState';
+import { AvailabilitySettingsPanel, ProtocolSettingsPanel } from '../../components/settings/ConfigurationPanels';
 import { useAuth } from '../../context/AuthContext';
 import { createRoom, getClinicSettings, updateRoom, type ClinicSettings, type RoomInput } from '../../lib/clinic';
 import type { Room } from '../../types';
@@ -74,10 +75,8 @@ export const SettingsPage: React.FC = () => {
     finally { setSaving(false); }
   };
 
-  const notConfigured: Record<Exclude<Section, 'CLINIC' | 'ROOMS'>, { icon: typeof Building2; title: string; description: string }> = {
-    HOURS: { icon: CalendarClock, title: 'Horários ainda não configurados', description: 'A grade de funcionamento será ativada quando o contrato de horários estiver conectado ao banco.' },
+  const notConfigured: Record<'PROCEDURES' | 'USERS', { icon: typeof Building2; title: string; description: string }> = {
     PROCEDURES: { icon: FileHeart, title: 'Tabela de procedimentos ainda não configurada', description: 'Nenhum procedimento padrão foi publicado para esta clínica.' },
-    PROTOCOLS: { icon: ShieldCheck, title: 'Protocolos ainda não configurados', description: 'Cadastre protocolos clínicos reais antes de automatizar lembretes e acompanhamentos.' },
     USERS: { icon: Users, title: 'Gestão de usuários em preparação', description: 'A equipe exibida no BHON já vem do banco; convites e permissões serão configurados em uma etapa dedicada.' },
   };
 
@@ -97,7 +96,9 @@ export const SettingsPage: React.FC = () => {
           {editorRoom !== undefined ? <div className="mt-5"><RoomEditor key={editorRoom?.id || 'new'} room={editorRoom || undefined} saving={saving} onCancel={() => setEditorRoom(undefined)} onSave={saveRoom} /></div> : null}
           {settings.rooms.length === 0 && editorRoom === undefined ? <SectionState icon={DoorOpen} title="Nenhum ambiente cadastrado" description="Cadastre o primeiro consultório ou sala para liberar novos agendamentos." action={canManage ? <button type="button" onClick={() => setEditorRoom(null)} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-bold text-white transition-[background-color,transform] hover:bg-bhon-navy-light active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-bhon-teal focus-visible:ring-offset-2"><Plus className="h-4 w-4" aria-hidden="true" />Cadastrar Primeiro Ambiente</button> : undefined} /> : <div className="mt-5 grid gap-3 sm:grid-cols-2">{settings.rooms.map((room) => <article key={room.id} className={`rounded-2xl border p-4 transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:shadow-md ${room.isActive ? 'border-bhon-border bg-white' : 'border-slate-200 bg-slate-50 opacity-75'}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate font-bold text-bhon-navy">{room.name}</h3><span className={`rounded-full px-2 py-0.5 font-mono-data text-[10px] font-bold ${room.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>{room.isActive ? 'ATIVO' : 'INATIVO'}</span></div><p className="mt-1 line-clamp-2 min-h-8 text-xs leading-4 text-bhon-muted">{room.description || 'Sem descrição.'}</p></div><span className="shrink-0 font-mono-data text-[10px] text-bhon-muted">#{room.orderIndex}</span></div>{canManage ? <div className="mt-4 flex gap-2 border-t border-bhon-border pt-3"><button type="button" onClick={() => setEditorRoom(room)} className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg text-xs font-bold text-bhon-navy hover:bg-bhon-ivory focus-visible:ring-2 focus-visible:ring-bhon-teal"><Pencil className="h-3.5 w-3.5" aria-hidden="true" />Editar</button><button type="button" disabled={saving} onClick={() => void toggleRoom(room)} className="min-h-10 flex-1 rounded-lg text-xs font-bold text-bhon-muted hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-bhon-teal disabled:opacity-50">{room.isActive ? 'Desativar' : 'Reativar'}</button></div> : null}</article>)}</div>}</section> : null}
 
-          {activeSection !== 'CLINIC' && activeSection !== 'ROOMS' ? <SectionState {...notConfigured[activeSection]} /> : null}
+          {activeSection === 'HOURS' ? <section className="p-5 sm:p-7"><AvailabilitySettingsPanel user={currentUser} /></section> : null}
+          {activeSection === 'PROTOCOLS' ? <section className="p-5 sm:p-7"><ProtocolSettingsPanel user={currentUser} /></section> : null}
+          {activeSection === 'PROCEDURES' || activeSection === 'USERS' ? <SectionState {...notConfigured[activeSection]} /> : null}
         </> : <SectionState icon={Building2} title="Configurações indisponíveis" description="Atualize a página para tentar consultar a clínica novamente." />}
       </main>
     </div>

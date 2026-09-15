@@ -13,6 +13,7 @@ import { teamRoutes } from "./routes/team.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { operationsRoutes } from "./routes/operations.js";
+import { clinicConfigurationRoutes } from "./routes/clinic-configuration.js";
 
 export type BuildAppOptions = {
   logger?: boolean;
@@ -85,6 +86,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(financeRoutes, { prefix: "/api" });
   app.register(teamRoutes, { prefix: "/api" });
   app.register(settingsRoutes, { prefix: "/api" });
+  app.register(clinicConfigurationRoutes, { prefix: "/api" });
   app.register(operationsRoutes, { prefix: "/api" });
 
   app.get("/", async () => ({

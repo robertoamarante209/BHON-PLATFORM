@@ -148,6 +148,8 @@ model Tenant {
   inventoryMovements    InventoryMovement[]
   clinicDocuments       ClinicDocument[]
   integrationConnections IntegrationConnection[]
+  availabilitySchedules ClinicAvailability[]
+  protocols              ClinicProtocol[]
 
   @@index([status])
   @@index([createdAt])
@@ -220,6 +222,7 @@ model User {
 
   timelineEvents TimelineEvent[] @relation("TimelineActor")
   auditLogs      AuditLog[]      @relation("AuditActor")
+  availabilitySchedules ClinicAvailability[] @relation("AvailabilityProfessional")
 
   @@unique([tenantId, emailNormalized])
   @@index([tenantId])
@@ -1073,5 +1076,37 @@ model AuditLog {
   @@index([tenantId, resourceId])
   @@index([tenantId, createdAt])
   @@map("audit_logs")
+}
+
+model ClinicAvailability {
+  id             String @id @default(uuid())
+  tenantId       String @map("tenant_id")
+  professionalId String? @map("professional_id")
+  scopeKey       String @map("scope_key")
+  intervals      Json
+  version        Int @default(1)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  professional User? @relation("AvailabilityProfessional", fields: [professionalId], references: [id], onDelete: Cascade)
+  @@unique([tenantId, scopeKey])
+  @@index([tenantId, professionalId])
+  @@map("clinic_availability")
+}
+
+model ClinicProtocol {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  title String
+  description String?
+  steps Json
+  isActive Boolean @default(true) @map("is_active")
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  @@index([tenantId, isActive])
+  @@index([tenantId, updatedAt])
+  @@map("clinic_protocols")
 }
 

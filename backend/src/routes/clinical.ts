@@ -6,6 +6,7 @@ import { intervalsOverlap, isAppointmentTransitionAllowed, parseAppointmentDurat
 import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgress, type StageState, type TreatmentState } from "../domain/treatment.js";
 import { zonedCalendarDayRange, zonedDayRange } from "../domain/time.js";
 import { hasPermission, permissionForAppointmentStatus } from "../domain/permissions.js";
+import { calculateBudget } from "../domain/budget.js";
 
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const CLINIC_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
@@ -1113,6 +1114,46 @@ export async function clinicalRoutes(app: FastifyInstance) {
     });
   });
 
+  app.post("/budgets", {
+    preHandler: requirePermission("recovery.manage"),
+    schema: { body: {
+      type: "object", additionalProperties: false, required: ["patientId", "items"],
+      properties: {
+        patientId: { type: "string", minLength: 1, maxLength: 100 },
+        title: { type: "string", minLength: 2, maxLength: 160 },
+        discountAmount: { anyOf: [{ type: "number" }, { type: "string", maxLength: 32 }] },
+        paymentMethod: { type: "string", maxLength: 120 },
+        items: { type: "array", minItems: 1, maxItems: 50, items: { type: "object", additionalProperties: false, required: ["description", "quantity", "unitPrice"], properties: {
+          description: { type: "string", minLength: 2, maxLength: 200 },
+          quantity: { anyOf: [{ type: "number" }, { type: "string", maxLength: 32 }] },
+          unitPrice: { anyOf: [{ type: "number" }, { type: "string", maxLength: 32 }] },
+        } } },
+      },
+    } },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const tenantId = request.tenantId!;
+    const user = request.user!;
+    const body = request.body as { patientId: string; title?: string; items: Array<{ description: unknown; quantity: unknown; unitPrice: unknown }>; discountAmount?: unknown; paymentMethod?: string };
+    let calculated;
+    try { calculated = calculateBudget(body); }
+    catch (error) { return reply.code(400).send({ error: (error as Error).message, code: "INVALID_BUDGET" }); }
+    const title = body.title?.trim() || "Plano clínico";
+    const paymentMethod = body.paymentMethod?.trim() || null;
+    const result = await prisma.$transaction(async (tx: any) => {
+      const patient = await tx.patient.findFirst({ where: { id: body.patientId, tenantId, deletedAt: null, status: PatientStatus.ACTIVE }, select: { id: true, name: true, recordNumber: true } });
+      if (!patient) return null;
+      const quote = await tx.quote.create({ data: {
+        tenantId, patientId: patient.id, createdById: user.id, title, status: QuoteStatus.DRAFT,
+        totalAmount: calculated.totalAmount, discountAmount: calculated.discountAmount, finalAmount: calculated.finalAmount, paymentMethod,
+        items: { create: calculated.items.map((item) => ({ tenantId, ...item })) },
+      }, include: { items: true, patient: { select: { id: true, name: true, recordNumber: true } }, createdBy: { select: { id: true, name: true } } } });
+      await tx.auditLog.create({ data: { tenantId, actorUserId: user.id, action: "CREATE", resource: "Quote", resourceId: quote.id, metadata: { patientId: patient.id, totalAmount: calculated.totalAmount, discountAmount: calculated.discountAmount, finalAmount: calculated.finalAmount, itemCount: calculated.items.length } } });
+      return quote;
+    });
+    if (!result) return reply.code(404).send({ error: "Paciente ativo não encontrado nesta clínica.", code: "PATIENT_NOT_FOUND" });
+    return reply.code(201).send(result);
+  });
+
   // WORKFLOW CRÍTICO: APROVAÇÃO DE ORÇAMENTO EM UMA TRANSAÇÃO ATÔMICA
   app.post<{ Params: { id: string } }>("/budgets/:id/approve", { preHandler: requireRole(CLINIC_MANAGEMENT_ROLES) }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
@@ -1120,8 +1161,11 @@ export async function clinicalRoutes(app: FastifyInstance) {
     const { id } = request.params;
 
     // O lock e todas as verificações ficam na mesma transação para impedir aprovação dupla.
+    const initial = await prisma.quote.findFirst({ where: { id, tenantId, deletedAt: null }, select: { patientId: true } });
+    if (!initial) return reply.code(404).send({ error: "Orçamento não encontrado.", code: "QUOTE_NOT_FOUND" });
     const result = await prisma.$transaction(async (tx: any) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`budget-patient:${initial.patientId}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`budget-quote:${id}`}))`;
       const quote = await tx.quote.findFirst({
         where: { id, tenantId, deletedAt: null },
         include: { patient: true, items: true },

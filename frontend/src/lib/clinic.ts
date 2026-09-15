@@ -215,7 +215,7 @@ export async function getPatientDossier(id: string, signal?: AbortSignal): Promi
       category: payment.category || 'GERAL',
       amount: Number(payment.amount),
       paidAmount: Number(payment.paidAmount || 0),
-      outstandingAmount: Number(payment.outstandingAmount ?? payment.amount),
+      outstandingAmount: Number(payment.outstandingAmount ?? Math.max(0, Number(payment.amount) - Number(payment.paidAmount || 0))),
     })),
     followUps: value.followUps.map((followUp) => ({
       ...followUp,
@@ -336,6 +336,18 @@ export async function listBudgets(input: { search?: string; status?: QuoteStatus
 
 export function approveBudget(id: string) {
   return apiRequest(`/api/budgets/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+}
+
+export type CreateBudgetInput = {
+  patientId: string;
+  title: string;
+  items: Array<{ description: string; quantity: number; unitPrice: number }>;
+  discountAmount?: number;
+  paymentMethod?: string;
+};
+
+export function createBudget(input: CreateBudgetInput) {
+  return apiRequest<ApiQuote>('/api/budgets', { method: 'POST', body: JSON.stringify(input) });
 }
 
 export type FinanceMetrics = {

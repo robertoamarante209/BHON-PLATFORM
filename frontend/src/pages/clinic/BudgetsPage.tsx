@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Plus, Search } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { ConfirmationDialog } from '../../components/common/ConfirmationDialog';
 import { Drawer } from '../../components/common/Drawer';
@@ -7,7 +7,9 @@ import { MetricCard } from '../../components/common/MetricCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
 import { approveBudget, listBudgets, type BudgetMetrics, type Pagination } from '../../lib/clinic';
+import { hasClinicPermission } from '../../lib/permissions';
 import type { Budget, QuoteStatus } from '../../types';
+import { BudgetEditor } from './BudgetEditor';
 
 const approvalRoles = ['OWNER', 'ADMIN', 'MANAGER'];
 const quoteStatuses: QuoteStatus[] = ['DRAFT', 'SENT', 'VIEWED', 'NEGOTIATING', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'NO_RESPONSE'];
@@ -27,6 +29,7 @@ export const BudgetsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -67,11 +70,12 @@ export const BudgetsPage: React.FC = () => {
   };
 
   const canApprove = approvalRoles.includes(currentUser.role);
+  const canCreate = hasClinicPermission(currentUser, 'recovery.manage');
   const money = (value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
-      <div className="flex flex-col justify-between gap-3 border-b border-bhon-border pb-3 sm:flex-row sm:items-center"><div><h1 className="text-lg font-bold uppercase tracking-wide text-bhon-text">Orçamentos Clínicos</h1><p className="mt-0.5 text-xs text-bhon-muted">Negociação persistida de planos terapêuticos e conversão financeira auditável.</p></div><span className="font-mono-data text-xs text-bhon-muted">{pagination.total} propostas encontradas</span></div>
+      <div className="flex flex-col justify-between gap-3 border-b border-bhon-border pb-3 sm:flex-row sm:items-center"><div><h1 className="text-lg font-bold uppercase tracking-wide text-bhon-text">Orçamentos Clínicos</h1><p className="mt-0.5 text-xs text-bhon-muted">Negociação persistida de planos terapêuticos e conversão financeira auditável.</p></div><div className="flex items-center gap-3"><span className="font-mono-data text-xs text-bhon-muted">{pagination.total} propostas encontradas</span>{canCreate && <button type="button" onClick={() => setEditorOpen(true)} className="flex items-center gap-1 rounded bg-bhon-teal px-3 py-2 text-xs font-bold text-bhon-navy"><Plus className="h-4 w-4" /> Novo orçamento</button>}</div></div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5"><MetricCard label="Total em Negociação" value={money(metrics.totalInNegotiation)} subtext="Volume ativo na esteira" highlight /><MetricCard label="Sem Resposta" value={metrics.noResponseCount} subtext="Propostas sem retorno" /><MetricCard label="Aprovados" value={metrics.approvedCount} subtext="Tratamentos ativados" /><MetricCard label="Recusados" value={metrics.rejectedCount} subtext="Propostas encerradas" /><MetricCard label="Taxa de Conversão" value={metrics.conversionRate == null ? 'Sem base' : `${metrics.conversionRate}%`} subtext="Aprovados entre decisões" /></div>
 
@@ -84,6 +88,8 @@ export const BudgetsPage: React.FC = () => {
       {pagination.totalPages > 1 && <div className="flex items-center justify-end gap-2 text-xs text-bhon-muted"><button type="button" aria-label="Página anterior" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)} className="rounded border border-bhon-border p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button><span>Página {page} de {pagination.totalPages}</span><button type="button" aria-label="Próxima página" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)} className="rounded border border-bhon-border p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div>}
 
       <Drawer isOpen={!!selectedBudget} onClose={() => setSelectedBudget(null)} title="Dossiê do Orçamento" subtitle={selectedBudget ? `${selectedBudget.patientName} (${selectedBudget.patientRecordNumber})` : ''} width="max-w-lg">{selectedBudget && <div className="space-y-4 text-xs"><div className="space-y-1.5 rounded border border-bhon-border bg-slate-50 p-3"><button type="button" onClick={() => setLocation(`/clinic/patients/${selectedBudget.patientId}`)} className="font-bold text-bhon-teal hover:underline">Abrir prontuário de {selectedBudget.patientName} →</button><div className="flex justify-between"><span className="text-bhon-muted">Plano terapêutico</span><span className="font-bold">{selectedBudget.treatmentTitle}</span></div><div className="flex justify-between"><span className="text-bhon-muted">Condição proposta</span><span>{selectedBudget.paymentMethod || 'A combinar'}</span></div></div><div><p className="mb-2 font-bold uppercase tracking-wider">Procedimentos inclusos</p><div className="overflow-hidden rounded border border-bhon-border"><table className="bhon-table"><thead><tr><th>Procedimento</th><th>Qtd</th><th className="text-right">Total</th></tr></thead><tbody>{selectedBudget.items.map((item) => <tr key={item.id}><td>{item.description}</td><td className="font-mono-data">{item.quantity}</td><td className="text-right font-mono-data font-bold">{money(item.totalPrice)}</td></tr>)}</tbody></table></div></div><div className="space-y-1 rounded border border-bhon-border bg-slate-50 p-3 font-mono-data"><div className="flex justify-between text-bhon-muted"><span>Subtotal</span><span>{money(selectedBudget.totalAmount)}</span></div><div className="flex justify-between text-emerald-700"><span>Desconto</span><span>-{money(selectedBudget.discountAmount)}</span></div><div className="flex justify-between border-t border-bhon-border pt-1.5 text-sm font-bold"><span>Valor final</span><span>{money(selectedBudget.finalAmount)}</span></div></div>{canApprove && !['ACCEPTED', 'REJECTED', 'EXPIRED'].includes(selectedBudget.status) && <button type="button" disabled={saving} onClick={() => setConfirmApproveId(selectedBudget.id)} className="flex w-full items-center justify-center gap-1.5 rounded bg-emerald-700 py-2.5 font-bold uppercase tracking-wider text-white transition-colors hover:bg-emerald-800 disabled:opacity-60"><CheckCircle2 className="h-4 w-4" /> Aprovar e ativar tratamento</button>}</div>}</Drawer>
+
+      <BudgetEditor open={editorOpen} onClose={() => setEditorOpen(false)} onSaved={() => { setEditorOpen(false); setSearchTerm(''); setStatusFilter('ALL'); setPage(1); void load(); }} />
 
       <ConfirmationDialog isOpen={!!confirmApproveId} onClose={() => !saving && setConfirmApproveId(null)} onConfirm={() => void handleApproveConfirm()} title="Aprovar orçamento e disparar fluxos" description="Esta ação converte a oportunidade aberta, ativa o tratamento, gera o recebível e registra timeline e auditoria em uma única transação." confirmText={saving ? 'Processando…' : 'Aprovar e ativar'} isDestructive={false} />
     </div>

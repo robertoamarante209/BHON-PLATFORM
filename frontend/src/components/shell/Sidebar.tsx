@@ -7,8 +7,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { hasClinicPermission, type ClinicPermission } from '../../lib/permissions';
+import { canManageClinicConfiguration } from '../../lib/clinicConfiguration';
 
-type NavigationItem = { label: string; path: string; icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>; permission?: ClinicPermission };
+type NavigationItem = { label: string; path: string; icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>; permission?: ClinicPermission; configuration?: boolean };
 type NavigationSection = { label: string; items: NavigationItem[] };
 
 const sections: NavigationSection[] = [
@@ -31,7 +32,7 @@ const sections: NavigationSection[] = [
     { label: 'Indicadores', path: '/clinic/indicators', icon: BarChart3, permission: 'finance.view' },
     { label: 'Estoque', path: '/clinic/inventory', icon: Boxes, permission: 'team.manage' },
     { label: 'Documentos', path: '/clinic/documents', icon: FileText, permission: 'patients.view' },
-    { label: 'Configurações', path: '/clinic/settings', icon: Settings, permission: 'team.manage' },
+    { label: 'Configurações', path: '/clinic/settings', icon: Settings, configuration: true },
   ] },
 ];
 
@@ -44,7 +45,7 @@ export const Sidebar: React.FC = () => {
   const [areToolsOpen, setAreToolsOpen] = useState(false);
   const { currentUser, currentClinic, logout } = useAuth();
   const visibleSections = sections
-    .map((section) => ({ ...section, items: section.items.filter((item) => !item.permission || hasClinicPermission(currentUser, item.permission)) }))
+    .map((section) => ({ ...section, items: section.items.filter((item) => item.configuration ? canManageClinicConfiguration(currentUser) : (!item.permission || hasClinicPermission(currentUser, item.permission)) && !(item.path === '/clinic/team' && currentUser.role === 'MANAGER' && !Array.isArray(currentUser.permissions))) }))
     .filter((section) => section.items.length > 0);
   const visibleItems = visibleSections.flatMap((section) => section.items);
   const primaryItems = visibleItems.filter((item) => primaryPaths.has(item.path));

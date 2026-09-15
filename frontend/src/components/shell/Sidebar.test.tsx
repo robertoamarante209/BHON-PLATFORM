@@ -82,4 +82,14 @@ describe('Sidebar', () => {
     render(<Sidebar />);
     expect(within(screen.getByRole('navigation', { name: 'Atalhos clínicos' })).getByRole('link', { name: 'Agenda clínica' })).toHaveClass('text-bhon-muted');
   });
+
+  it('permite configurações ao gestor legado sem expor administração da equipe', async () => {
+    auth.currentUser = { name: 'Gabi', role: 'MANAGER', permissions: null as unknown as string[] };
+    const user = userEvent.setup();
+    render(<Sidebar />);
+    const navigation = screen.getByRole('navigation', { name: 'Navegação clínica' });
+    expect(within(navigation).queryByRole('link', { name: 'Equipe' })).not.toBeInTheDocument();
+    await user.click(within(navigation).getByRole('button', { name: 'Mostrar ferramentas de gestão' }));
+    expect(within(navigation).getByRole('link', { name: 'Configurações' })).toBeInTheDocument();
+  });
 });

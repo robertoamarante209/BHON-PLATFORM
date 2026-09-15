@@ -26,6 +26,11 @@ export async function clinicConfigurationRoutes(app: FastifyInstance) {
     return reply.send(record ? { professionalId, intervals: record.intervals, version: record.version } : null);
   });
 
+  app.get("/settings/availability/professionals", { preHandler: allow(canReadAvailability) }, async (request) => prisma.user.findMany({
+    where: { tenantId: request.tenantId!, status: "ACTIVE", deletedAt: null, role: { in: availabilityRoles } },
+    select: { id: true, name: true }, orderBy: { name: "asc" },
+  }));
+
   app.put<{ Querystring: { professionalId?: string }; Body: { intervals: unknown; version: number } }>("/settings/availability", { preHandler: allow(canManageClinicConfiguration) }, async (request, reply) => {
     const tenantId = request.tenantId!; const professionalId = request.query.professionalId || null;
     let intervals; try { intervals = normalizeAvailability(request.body?.intervals); } catch (error) { return reply.code(400).send({ error: (error as Error).message, code: "INVALID_AVAILABILITY" }); }

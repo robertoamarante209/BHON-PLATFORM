@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { listTeam } from '../../lib/clinic';
 import {
   canManageClinicConfiguration,
   createProtocol,
   getAvailability,
+  getAvailabilityProfessionals,
   getProtocols,
   saveAvailability,
   updateProtocol,
@@ -14,8 +14,6 @@ import {
 import type { User } from '../../types';
 import { AvailabilityEditor } from './AvailabilityEditor';
 import { ProtocolEditor } from './ProtocolEditor';
-
-const professionalRoles = new Set(['OWNER', 'MANAGER', 'DENTIST']);
 
 export function AvailabilitySettingsPanel({ user }: { user: Pick<User, 'role' | 'permissions'> }) {
   const canManage = canManageClinicConfiguration(user);
@@ -28,17 +26,18 @@ export function AvailabilitySettingsPanel({ user }: { user: Pick<User, 'role' | 
   useEffect(() => {
     if (!canManage) return;
     const controller = new AbortController();
-    void listTeam({ status: 'ACTIVE', limit: 100 }, controller.signal)
-      .then((result) => setProfessionals(result.data.filter((member) => professionalRoles.has(member.role)).map(({ id, name }) => ({ id, name }))))
+    void getAvailabilityProfessionals(controller.signal)
+      .then(setProfessionals)
       .catch((reason) => { if ((reason as Error).name !== 'AbortError') setError('Não foi possível carregar os profissionais.'); });
     return () => controller.abort();
   }, [canManage]);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError('');
+    const requestedScope = professionalId;
+    setValue(null); setLoading(true); setError('');
     void getAvailability(professionalId || undefined, controller.signal)
-      .then(setValue)
+      .then((result) => { if (!controller.signal.aborted && requestedScope === professionalId) setValue(result); })
       .catch((reason) => { if ((reason as Error).name !== 'AbortError') setError((reason as Error).message || 'Não foi possível carregar a disponibilidade.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -54,7 +53,7 @@ export function AvailabilitySettingsPanel({ user }: { user: Pick<User, 'role' | 
       </select>
     </label> : null}
     {error ? <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p> : null}
-    <AvailabilityEditor value={value && { ...value, professionalId: professionalId || null }} canManage={canManage} onSave={async (draft) => setValue(await saveAvailability({ ...draft, professionalId: professionalId || null }))} />
+    {!error ? <AvailabilityEditor value={value && { ...value, professionalId: professionalId || null }} canManage={canManage} onSave={async (draft) => setValue(await saveAvailability({ ...draft, professionalId: professionalId || null }))} /> : null}
   </div>;
 }
 

@@ -16,4 +16,12 @@ describe('ProtocolEditor', () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ steps: ['Primeira', 'Segunda'] }));
     expect(screen.queryByRole('button', { name: /excluir/i })).not.toBeInTheDocument();
   });
+
+  it('captura falha ao desativar e orienta recarregar sem rejeição solta', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockRejectedValue(new Error('Conflito: recarregue os protocolos.'));
+    render(<ProtocolEditor protocols={[{ id: 'p1', title: 'Teste', description: null, steps: ['A'], isActive: true, version: 1 }]} canManage onSave={onSave} />);
+    await user.click(screen.getByRole('button', { name: 'Desativar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/recarregue/i);
+  });
 });

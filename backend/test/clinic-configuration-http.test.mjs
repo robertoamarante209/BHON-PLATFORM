@@ -8,7 +8,7 @@ const app = await buildApp({ logger: false, cookieSecret: "test-only-cookie-secr
 await app.ready();
 after(async () => app.close());
 
-for (const path of ["/api/settings/availability", "/api/settings/protocols"]) {
+for (const path of ["/api/settings/availability", "/api/settings/availability/professionals", "/api/settings/protocols"]) {
   test(`${path} exige sessão autenticada`, async () => {
     const response = await app.inject({ method: "GET", url: path });
     assert.equal(response.statusCode, 401);

@@ -10,6 +10,7 @@ export function canManageClinicConfiguration(user: Pick<User, 'role' | 'permissi
   return user.role === 'OWNER' || user.role === 'PLATFORM_OWNER' || (user.role === 'MANAGER' && !Array.isArray(user.permissions)) || (Array.isArray(user.permissions) && user.permissions.includes('team.manage'));
 }
 export const getAvailability = (professionalId?: string, signal?: AbortSignal) => apiRequest<Availability | null>(`/api/settings/availability${professionalId ? `?professionalId=${encodeURIComponent(professionalId)}` : ''}`, { signal });
+export const getAvailabilityProfessionals = (signal?: AbortSignal) => apiRequest<Array<{ id: string; name: string }>>('/api/settings/availability/professionals', { signal });
 export const saveAvailability = (value: Availability) => apiRequest<Availability>(`/api/settings/availability${value.professionalId ? `?professionalId=${encodeURIComponent(value.professionalId)}` : ''}`, { method: 'PUT', body: JSON.stringify({ intervals: value.intervals, version: value.version }) });
 export const getProtocols = (signal?: AbortSignal) => apiRequest<Protocol[]>('/api/settings/protocols', { signal });
 export const createProtocol = (value: ProtocolInput) => apiRequest<Protocol>('/api/settings/protocols', { method: 'POST', body: JSON.stringify(value) });

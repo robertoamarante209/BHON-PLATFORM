@@ -28,9 +28,18 @@ const WhatsAppPage = lazy(() => import('./pages/clinic/OperationsPages').then((m
 const InventoryPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.InventoryPage })));
 const DocumentsPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.DocumentsPage })));
 
-const PlatformUnavailablePage = lazy(() => import('./pages/platform/PlatformUnavailablePage').then((module) => ({ default: module.PlatformUnavailablePage })));
 const PlatformOverviewPage = lazy(() => import('./pages/platform/PlatformOverviewPage').then((module) => ({ default: module.PlatformOverviewPage })));
 const PlatformIntegrationsPage = lazy(() => import('./pages/platform/PlatformIntegrationsPage').then((module) => ({ default: module.PlatformIntegrationsPage })));
+const PlatformClinicsPage = lazy(() => import('./pages/platform/PlatformClinicsPage').then((module) => ({ default: module.PlatformClinicsPage })));
+const PlatformClinicDetailPage = lazy(() => import('./pages/platform/PlatformClinicDetailPage').then((module) => ({ default: module.PlatformClinicDetailPage })));
+const PlatformSubscriptionsPage = lazy(() => import('./pages/platform/PlatformSubscriptionsPage').then((module) => ({ default: module.PlatformSubscriptionsPage })));
+const PlatformBillingPage = lazy(() => import('./pages/platform/PlatformBillingPage').then((module) => ({ default: module.PlatformBillingPage })));
+const PlatformRevenuePage = lazy(() => import('./pages/platform/PlatformRevenuePage').then((module) => ({ default: module.PlatformRevenuePage })));
+const PlatformCustomersPage = lazy(() => import('./pages/platform/PlatformCustomersPage').then((module) => ({ default: module.PlatformCustomersPage })));
+const PlatformUsersPage = lazy(() => import('./pages/platform/PlatformUsersPage').then((module) => ({ default: module.PlatformUsersPage })));
+const PlatformSupportPage = lazy(() => import('./pages/platform/PlatformSupportPage').then((module) => ({ default: module.PlatformSupportPage })));
+const PlatformIndicatorsPage = lazy(() => import('./pages/platform/PlatformIndicatorsPage').then((module) => ({ default: module.PlatformIndicatorsPage })));
+const PlatformSettingsPage = lazy(() => import('./pages/platform/PlatformSettingsPage').then((module) => ({ default: module.PlatformSettingsPage })));
 
 const RouteLoading: React.FC = () => (
   <div role="status" className="flex min-h-64 items-center justify-center">
@@ -145,16 +154,16 @@ const AppRoutes: React.FC = () => {
             <div className="bhon-page-enter">
             <Switch>
               <Route path="/platform/overview" component={PlatformOverviewPage} />
-              <Route path="/platform/clinics/:id"><PlatformUnavailablePage title="Dossiê da Clínica" description="Visão administrativa detalhada de uma clínica da plataforma." /></Route>
-              <Route path="/platform/clinics"><PlatformUnavailablePage title="Clínicas" description="Gestão de clínicas, contratos e situação operacional." /></Route>
-              <Route path="/platform/subscriptions"><PlatformUnavailablePage title="Assinaturas" description="Planos, limites e ciclo de vida das assinaturas." /></Route>
-              <Route path="/platform/billing"><PlatformUnavailablePage title="Faturamento" description="Cobranças e conciliação das assinaturas da plataforma." /></Route>
-              <Route path="/platform/revenue"><PlatformUnavailablePage title="Receita" description="Indicadores financeiros consolidados da BHON." /></Route>
-              <Route path="/platform/customers"><PlatformUnavailablePage title="Clientes" description="Relacionamento e sucesso das clínicas atendidas." /></Route>
-              <Route path="/platform/users"><PlatformUnavailablePage title="Usuários" description="Administração dos acessos internos à plataforma." /></Route>
-              <Route path="/platform/support"><PlatformUnavailablePage title="Suporte" description="Fila de atendimento e acompanhamento técnico das clínicas." /></Route>
-              <Route path="/platform/indicators"><PlatformUnavailablePage title="Indicadores" description="Métricas consolidadas de produto e operação da plataforma." /></Route>
-              <Route path="/platform/settings"><PlatformUnavailablePage title="Configurações" description="Parâmetros administrativos e políticas globais da BHON." /></Route>
+              <Route path="/platform/clinics/:id" component={PlatformClinicDetailPage} />
+              <Route path="/platform/clinics" component={PlatformClinicsPage} />
+              <Route path="/platform/subscriptions" component={PlatformSubscriptionsPage} />
+              <Route path="/platform/billing" component={PlatformBillingPage} />
+              <Route path="/platform/revenue" component={PlatformRevenuePage} />
+              <Route path="/platform/customers" component={PlatformCustomersPage} />
+              <Route path="/platform/users" component={PlatformUsersPage} />
+              <Route path="/platform/support" component={PlatformSupportPage} />
+              <Route path="/platform/indicators" component={PlatformIndicatorsPage} />
+              <Route path="/platform/settings" component={PlatformSettingsPage} />
               <Route path="/platform/integrations" component={PlatformIntegrationsPage} />
               <Route>
                 <Redirect to="/platform/overview" />

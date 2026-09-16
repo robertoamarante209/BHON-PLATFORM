@@ -49,4 +49,16 @@ describe('rotas durante a verificação da sessão', () => {
     render(<App />);
     expect(await screen.findByText('Carregando prontuário integrado…')).toBeVisible();
   });
+
+  it('entrega a gestão real de clínicas ao Owner', async () => {
+    window.history.replaceState(null, '', '/platform/clinics');
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ user: {
+      id: 'owner-1', tenantId: 'tenant-1', name: 'Roberto', email: 'roberto', role: 'PLATFORM_OWNER', status: 'ACTIVE',
+    } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Gestão Global de Clínicas' })).toBeVisible();
+    expect(screen.queryByText('Esta área estará disponível em breve.')).not.toBeInTheDocument();
+  });
 });

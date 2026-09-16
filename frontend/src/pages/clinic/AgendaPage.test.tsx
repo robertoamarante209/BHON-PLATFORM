@@ -66,6 +66,20 @@ describe('AgendaPage', () => {
     expect(screen.getByRole('columnheader', { name: /Profissional/ })).toHaveTextContent('Profissional');
   });
 
+  it('mostra uma marcação como card com status visível', async () => {
+    api.listAppointments.mockResolvedValue([{
+      id: 'appointment-card', tenantId: 'tenant-1', patientId: 'patient-1', patientName: 'Paciente real', patientRecordNumber: '#00001',
+      professionalId: 'user-1', professionalName: 'Profissional', roomId: 'room-1', roomName: 'Sala 1', scheduledAt: '2026-09-14T14:30:00.000Z',
+      time: '14:30', durationMinutes: 30, procedureName: 'Avaliação inicial', status: 'AGUARDANDO_CONFIRMACAO', delayMinutes: 0,
+    }]);
+    render(<AgendaPage />);
+
+    const card = await screen.findByTestId('agenda-appointment-card');
+    expect(card).toHaveAttribute('data-tone', 'amber');
+    expect(card).toHaveTextContent('Aguardando confirmação');
+    expect(card).toHaveTextContent('Paciente real');
+  });
+
   it('não oferece novo agendamento para acesso somente leitura', async () => {
     auth.currentUser = { role: 'VIEWER', permissions: ['agenda.view'] };
     render(<AgendaPage />);

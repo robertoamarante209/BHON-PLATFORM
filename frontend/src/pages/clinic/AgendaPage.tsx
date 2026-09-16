@@ -25,6 +25,18 @@ function moveDate(value: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+const appointmentCardTones: Record<AppointmentStatus, { tone: string; label: string; className: string }> = {
+  CONFIRMADO: { tone: 'teal', label: 'Confirmado', className: 'border-teal-300 bg-teal-50/90' },
+  AGUARDANDO_CONFIRMACAO: { tone: 'amber', label: 'Aguardando confirmação', className: 'border-amber-300 bg-amber-50/90' },
+  NA_RECEPCAO: { tone: 'blue', label: 'Na recepção', className: 'border-blue-300 bg-blue-50/90' },
+  EM_ATENDIMENTO: { tone: 'blue', label: 'Em atendimento', className: 'border-cyan-300 bg-cyan-50/90 shadow-[0_8px_20px_rgba(8,145,178,0.14)]' },
+  CONCLUIDO: { tone: 'green', label: 'Concluído', className: 'border-emerald-300 bg-emerald-50/90' },
+  ATRASADO: { tone: 'amber', label: 'Atrasado', className: 'border-amber-400 bg-amber-100/90' },
+  FALTA: { tone: 'rose', label: 'Falta', className: 'border-rose-300 bg-rose-50/90' },
+  CANCELADO: { tone: 'rose', label: 'Cancelado', className: 'border-slate-300 bg-slate-100/90 opacity-80' },
+  ENCAIXE: { tone: 'blue', label: 'Encaixe', className: 'border-violet-300 bg-violet-50/90' },
+};
+
 export const AgendaPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const { currentUser } = useAuth();
@@ -264,6 +276,7 @@ export const AgendaPage: React.FC = () => {
 
                   const isVisible =
                     !apt || statusFilter === 'ALL' || apt.status === statusFilter;
+                  const cardTone = apt ? appointmentCardTones[apt.status] : null;
 
                   return (
                     <div
@@ -272,17 +285,7 @@ export const AgendaPage: React.FC = () => {
                       className="relative border-r border-bhon-border p-2 last:border-r-0 hover:bg-[#EAF4EE]"
                     >
                       {apt && isVisible ? (
-                        <button type="button" onClick={() => setSelectedApt(apt)} className={`flex h-full w-full flex-col justify-between rounded-xl border p-3 text-left text-xs transition-[border-color,box-shadow,background-color] ${
-                            apt.status === 'EM_ATENDIMENTO'
-                              ? 'bg-teal-50/80 border-teal-400 shadow-[0_8px_20px_rgba(19,170,153,0.12)]'
-                              : apt.status === 'NA_RECEPCAO'
-                              ? 'bg-blue-50/80 border-blue-400'
-                              : apt.status === 'FALTA'
-                              ? 'bg-rose-50/80 border-rose-300 opacity-90'
-                              : apt.status === 'ATRASADO'
-                              ? 'bg-amber-50 border-amber-300'
-                              : 'bg-white/90 border-bhon-border hover:border-bhon-teal hover:shadow-sm'
-                          }`}
+                        <button type="button" data-testid="agenda-appointment-card" data-tone={cardTone?.tone} onClick={() => setSelectedApt(apt)} className={`flex h-full w-full flex-col justify-between rounded-xl border p-3 text-left text-xs transition-[border-color,box-shadow,background-color] hover:shadow-sm ${cardTone?.className}`}
                         >
                           <div>
                             {/* Linha 1: Horário, Prontuário e Status */}
@@ -294,7 +297,7 @@ export const AgendaPage: React.FC = () => {
                                 <span className="font-mono-data text-[10px] text-bhon-muted">
                                   {apt.patientRecordNumber}
                                 </span>
-                                <StatusBadge status={apt.status} size="sm" />
+                                <span className="rounded-full bg-white/75 px-2 py-0.5 text-[10px] font-semibold text-bhon-text">{cardTone?.label}</span>
                               </div>
                             </div>
 

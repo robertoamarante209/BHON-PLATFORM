@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { CalendarDays, Search } from 'lucide-react';
+import { CalendarDays, Moon, Search, Sun } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useDailyAppointments } from '../../context/DailyAppointmentsContext';
 import { CLINIC_TIME_ZONE } from '../../lib/datetime';
 import { SearchModal } from '../common/SearchModal';
+import { useTheme } from '../../context/ThemeContext';
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   timeZone: CLINIC_TIME_ZONE, weekday: 'long', day: '2-digit', month: 'long',
@@ -12,6 +13,7 @@ const finishedStatuses = new Set(['CONCLUIDO', 'CANCELADO', 'FALTA']);
 
 export const TopHeader: React.FC = () => {
   const [location] = useLocation();
+  const { theme, toggleTheme } = useTheme();
   const { appointments, loading, error } = useDailyAppointments();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const inAttendanceCount = appointments?.filter((item) => item.status === 'EM_ATENDIMENTO').length;
@@ -49,6 +51,10 @@ export const TopHeader: React.FC = () => {
           <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Buscar pacientes" className="group hidden h-10 items-center gap-2 rounded-full border border-bhon-border bg-bhon-surface px-3 text-bhon-muted transition-[border-color,color,box-shadow] hover:border-bhon-teal/50 hover:text-bhon-text hover:shadow-sm sm:flex sm:min-w-[220px] sm:justify-between">
             <span className="flex items-center gap-2 text-[11px]"><Search aria-hidden="true" className="h-4 w-4" /><span className="hidden sm:inline">Buscar paciente</span></span>
             <kbd className="hidden rounded border border-bhon-border bg-bhon-bg px-1.5 py-0.5 font-mono-data text-[9px] text-bhon-muted sm:block">Ctrl K</kbd>
+          </button>
+
+          <button type="button" onClick={toggleTheme} aria-label={theme === 'light' ? 'Alternar para tema escuro' : 'Alternar para tema claro'} title={theme === 'light' ? 'Usar tema escuro' : 'Usar tema claro'} className="flex h-10 w-10 items-center justify-center rounded-full border border-bhon-border bg-bhon-surface text-bhon-muted transition-[border-color,color,transform] hover:border-bhon-teal/50 hover:text-bhon-teal-dark active:scale-95">
+            {theme === 'light' ? <Moon aria-hidden="true" className="h-4 w-4" /> : <Sun aria-hidden="true" className="h-4 w-4" />}
           </button>
 
           <Link href="/clinic/agenda" aria-label="Abrir agenda" title="Abrir agenda" className="flex h-10 w-10 items-center justify-center rounded-full bg-bhon-teal text-bhon-navy transition-[background-color,transform] hover:bg-[#14CBA7] active:scale-95">

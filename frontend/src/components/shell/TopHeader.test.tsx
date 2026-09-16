@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TopHeader } from './TopHeader';
+import { ThemeProvider } from '../../context/ThemeContext';
 
 const router = vi.hoisted(() => ({ location: '/clinic/overview' }));
 
@@ -24,7 +25,7 @@ describe('TopHeader', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-14T12:00:00.000Z'));
 
-    render(<TopHeader />);
+    render(<ThemeProvider><TopHeader /></ThemeProvider>);
 
     expect(screen.getByRole('heading', { name: 'Bom dia.' })).toBeVisible();
     expect(screen.queryByText(/hoje é segunda-feira/i)).not.toBeInTheDocument();
@@ -32,7 +33,7 @@ describe('TopHeader', () => {
   });
 
   it('mantém data e pulso completo acessíveis com resumo compacto no mobile', () => {
-    render(<TopHeader />);
+    render(<ThemeProvider><TopHeader /></ThemeProvider>);
     const date = screen.getByText(/feira|sábado|domingo/i, { selector: 'p' });
     expect(date).not.toHaveClass('hidden');
     expect(screen.getByText('Ao vivo: 1')).toBeVisible();
@@ -42,9 +43,17 @@ describe('TopHeader', () => {
   it('mostra o cumprimento apenas na visão geral', () => {
     router.location = '/clinic/agenda';
 
-    render(<TopHeader />);
+    render(<ThemeProvider><TopHeader /></ThemeProvider>);
 
     expect(screen.queryByRole('heading', { name: /bom dia|boa tarde|boa noite/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/feira|sábado|domingo/i, { selector: 'p' })).not.toBeInTheDocument();
+  });
+
+  it('alterna o tema clínico por um controle acessível', () => {
+    render(<ThemeProvider><TopHeader /></ThemeProvider>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Alternar para tema escuro' }));
+
+    expect(screen.getByRole('button', { name: 'Alternar para tema claro' })).toBeVisible();
   });
 });

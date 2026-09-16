@@ -2,14 +2,16 @@ import React from 'react';
 import { Sidebar } from './Sidebar';
 import { TopHeader } from './TopHeader';
 import { DailyAppointmentsProvider } from '../../context/DailyAppointmentsContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface ClinicLayoutProps {
   children: React.ReactNode;
 }
 
 export const ClinicLayout: React.FC<ClinicLayoutProps> = ({ children }) => {
+  const { theme } = useTheme();
   return (
-    <DailyAppointmentsProvider><div className="bhon-clinic-theme flex h-[100dvh] overflow-hidden bg-bhon-bg text-bhon-text">
+    <DailyAppointmentsProvider><div className={`bhon-clinic-theme ${theme === 'dark' ? 'bhon-clinic-theme--dark' : ''} flex h-[100dvh] overflow-hidden bg-bhon-bg text-bhon-text`}>
       <a href="#main-content" className="fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-bhon-navy px-4 py-2 text-sm font-bold text-white transition-transform focus:translate-y-0">
         Ir para o conteúdo principal
       </a>

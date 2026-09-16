@@ -56,7 +56,9 @@ The Owner clinic list exposes an explicit **Create clinic** action and a guarded
 
 ### Patient spreadsheet import
 
-The clinic patient list gets an **Import patients** action. It accepts `.csv` and `.xlsx`, presents a client-side preview, maps supported columns (`name`, `phone`, `email`, `birthDate`, `document`), rejects a file with no valid name column, highlights invalid rows, and requires explicit confirmation before creating patients. Duplicate matching uses normalized phone first and email second; duplicates are shown for user review and skipped by default. The source file is not retained after parsing.
+The clinic patient list gets an **Import patients** action designed for migration from manual spreadsheets and other clinic systems. Before choosing a file, the screen explains the accepted structure and offers a downloadable `.xlsx` template. It documents one patient per row and the supported columns: `name` (required), `phone`, `email`, `birthDate`, `document`, `address`, and `notes`, including a visible example row and expected date format (`DD/MM/YYYY` or `YYYY-MM-DD`).
+
+The importer accepts `.csv` and `.xlsx`, reads the header row, and presents a preview with a per-column mapping control so exported columns with different names can be matched to BHON fields. It rejects a file with no mapped name column, highlights invalid rows, explains the specific field that needs correction, and requires explicit confirmation before creating patients. Duplicate matching uses normalized phone first and email second; duplicates are shown for user review and skipped by default. The source file is not retained after parsing.
 
 ### Support reports
 
@@ -77,6 +79,6 @@ Every mutation displays a non-technical failure message with an actionable retry
 - Agenda cards display status, details, and status color in both themes and at mobile widths.
 - WhatsApp templates are human, editable, and require an intentional user action.
 - Owner can create and deactivate/reactivate clinics without erasing records.
-- Patient imports only persist rows after preview and confirmation; invalid rows and duplicates are reported.
+- The import screen explains the spreadsheet structure, provides a downloadable template, supports column mapping, and only persists rows after preview and confirmation; invalid rows and duplicates are reported.
 - A clinic can open a support report and see progress; Owner can resolve it with a visible note.
 - Targeted tests, full frontend suite, production build, and post-deploy smoke paths pass before release.

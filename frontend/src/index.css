@@ -128,6 +128,14 @@
 .bhon-clinic-theme select,
 .bhon-clinic-theme textarea {
   color-scheme: light;
+  color: var(--color-text);
+  background-color: #FFFFFF;
+}
+
+.bhon-clinic-theme input::placeholder,
+.bhon-clinic-theme textarea::placeholder {
+  color: #748291;
+  opacity: 1;
 }
 
 .bhon-login-visual {

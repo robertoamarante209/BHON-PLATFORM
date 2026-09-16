@@ -118,16 +118,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(() => {
     latestLogoutRevision.current = ++authRevision.current;
     if (logoutInFlight.current) return logoutInFlight.current;
-    const operation = enqueueAuthMutation(async () => {
-      try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }); }
-      catch { /* logout local continua mesmo se o servidor estiver indisponível */ }
-      finally {
-        if (latestLogoutRevision.current !== authRevision.current) return;
-        hadAuthenticatedSession.current = false;
-        setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
-        window.location.href = '/login';
-      }
-    });
+    // A saída é imediata no dispositivo. A invalidação remota segue em segundo plano
+    // para não deixar a pessoa presa na clínica se a rede estiver lenta ou indisponível.
+    hadAuthenticatedSession.current = false;
+    setSessionError('');
+    setIsAuthenticated(false); setCurrentUser(EMPTY_USER); setCurrentClinic(EMPTY_CLINIC);
+    const operation = fetch('/auth/logout', { method: 'POST', credentials: 'include', keepalive: true })
+      .catch(() => undefined)
+      .then(() => undefined);
     logoutInFlight.current = operation;
     void operation.then(() => { if (logoutInFlight.current === operation) logoutInFlight.current = null; });
     return operation;

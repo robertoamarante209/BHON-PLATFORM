@@ -27,4 +27,26 @@ describe('rotas durante a verificação da sessão', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível verificar sua sessão. Tente novamente.');
     expect(screen.queryByRole('heading', { name: 'Bem-vindo à BHON.' })).not.toBeInTheDocument();
   });
+
+  it('prioriza a rota específica do prontuário antes da lista de pacientes', async () => {
+    window.history.replaceState(null, '', '/clinic/patients/paciente-1');
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url === '/auth/me') return Promise.resolve(new Response(JSON.stringify({ user: {
+        id: 'user-1', tenantId: 'tenant-1', name: 'Ana', email: 'ana', role: 'OWNER', status: 'ACTIVE',
+        tenant: { id: 'tenant-1', name: 'Clínica', slug: 'clinica', email: 'clinica@test', status: 'ACTIVE', planCode: 'PRO', createdAt: '', activeRoomsCount: 1 },
+      } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      if (url === '/api/patients/paciente-1') return new Promise<Response>(() => undefined);
+      if (url === '/api/recovery') return Promise.resolve(new Response(JSON.stringify({
+        generatedAt: '', assignees: [], items: [], metrics: {
+          actionsRequiringAttention: 0, overdueActions: 0, inactiveBudgets: 0,
+          stalledOpportunities: 0, treatmentsAtRisk: 0, overduePayments: 0,
+          inactiveQuoteValue: 0, overdueReceivables: 0, financialExposure: 0,
+        },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      return Promise.resolve(new Response(JSON.stringify({ data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    }));
+
+    render(<App />);
+    expect(await screen.findByText('Carregando prontuário integrado…')).toBeVisible();
+  });
 });

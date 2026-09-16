@@ -25,4 +25,11 @@ describe('SettingsPage', () => {
     expect(screen.getByText('Nenhum ambiente cadastrado')).toBeInTheDocument();
     expect(screen.queryByText('(11) 3288-4100')).not.toBeInTheDocument();
   });
+
+  it('não apresenta horários como uma configuração da clínica', async () => {
+    render(<SettingsPage />);
+
+    await screen.findByDisplayValue('BHON Clínica');
+    expect(screen.queryByRole('button', { name: 'Horários' })).not.toBeInTheDocument();
+  });
 });

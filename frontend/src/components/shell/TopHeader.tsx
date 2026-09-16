@@ -8,7 +8,6 @@ import { SearchModal } from '../common/SearchModal';
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   timeZone: CLINIC_TIME_ZONE, weekday: 'long', day: '2-digit', month: 'long',
 });
-const weekdayFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: CLINIC_TIME_ZONE, weekday: 'long' });
 const finishedStatuses = new Set(['CONCLUIDO', 'CANCELADO', 'FALTA']);
 
 export const TopHeader: React.FC = () => {
@@ -22,9 +21,7 @@ export const TopHeader: React.FC = () => {
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
   const plural = (value: number, one: string, many: string) => `${value} ${value === 1 ? one : many}`;
   const fullPulse = appointments === null ? '' : `${plural(scheduledCount || 0, 'agendado', 'agendados')} · ${plural(completedCount || 0, 'concluído', 'concluídos')} · Ao vivo: ${inAttendanceCount || 0} em atendimento`;
-  const dailyGreeting = loading || error || appointments === null
-    ? `${greeting}.`
-    : `${greeting}, hoje é ${weekdayFormatter.format(new Date())}: ${plural(scheduledCount || 0, 'agendado', 'agendados')} e ${plural(completedCount || 0, 'concluído', 'concluídos')}.`;
+  const dailyGreeting = `${greeting}.`;
 
   return (
     <>

@@ -15,13 +15,14 @@ vi.mock('../common/SearchModal', () => ({ SearchModal: () => null }));
 describe('TopHeader', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('resume o dia e os atendimentos no cumprimento', () => {
+  it('mantém o cumprimento acolhedor e deixa os números no indicador operacional', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-14T12:00:00.000Z'));
 
     render(<TopHeader />);
 
-    expect(screen.getByRole('heading', { name: 'Bom dia, hoje é segunda-feira: 1 agendado e 1 concluído.' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Bom dia.' })).toBeVisible();
+    expect(screen.queryByText(/hoje é segunda-feira/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Clínica Ana')).not.toBeInTheDocument();
   });
 

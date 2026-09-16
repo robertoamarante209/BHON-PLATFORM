@@ -170,29 +170,23 @@ export function RecoveryQueue({ onNavigate }: { onNavigate: (href: string) => vo
   }
 
   return (
-    <section aria-labelledby="recovery-title">
-      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <section aria-labelledby="recovery-title" className="overflow-hidden rounded-2xl border border-bhon-border bg-white shadow-[0_12px_35px_rgba(30,64,75,0.06)]">
+      <header className="grid gap-4 border-b border-bhon-border bg-slate-50/80 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:p-5">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-bhon-teal-dark">Receita que pode voltar</p>
-          <h2 id="recovery-title" className="mt-0.5 text-lg font-bold text-bhon-text">Recuperação de orçamentos e pacientes</h2>
-          <p className="mt-0.5 text-xs text-bhon-muted">Priorize contatos frios, registre tentativas e transforme intenção em tratamento.</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-bhon-teal-dark">Recuperação ativa</p>
+          <h2 id="recovery-title" className="mt-1 text-lg font-bold text-bhon-text">Receita que pode voltar</h2>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-bhon-muted">Contatos que merecem uma retomada humana: faltas, orçamentos sem resposta e tratamentos interrompidos.</p>
         </div>
-        <div className="flex gap-5 border-t border-bhon-border pt-2 sm:border-0 sm:pt-0">
-          <div>
-            <span className="block font-mono-data text-lg font-bold text-bhon-text">{data.metrics.actionsRequiringAttention}</span>
-            <span className="text-[10px] uppercase tracking-wide text-bhon-muted">ações abertas</span>
-          </div>
-          <div>
-            <span className="block font-mono-data text-lg font-bold text-rose-700">{currency.format(data.metrics.financialExposure)}</span>
-            <span className="text-[10px] uppercase tracking-wide text-bhon-muted">exposição financeira</span>
-          </div>
-        </div>
-      </div>
+        <dl className="grid grid-cols-2 gap-2 sm:min-w-[260px]">
+          <div className="rounded-xl border border-bhon-border bg-white px-3 py-2.5"><dt className="text-[10px] font-semibold uppercase tracking-wide text-bhon-muted">ações abertas</dt><dd className="mt-1 font-mono-data text-lg font-bold text-bhon-text">{data.metrics.actionsRequiringAttention}</dd></div>
+          <div className="rounded-xl border border-rose-100 bg-rose-50/70 px-3 py-2.5"><dt className="text-[10px] font-semibold uppercase tracking-wide text-rose-700">valor em atenção</dt><dd className="mt-1 font-mono-data text-sm font-bold text-rose-800">{currency.format(data.metrics.financialExposure)}</dd></div>
+        </dl>
+      </header>
 
       {feedback && <div className="mb-2 border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800" role="status">{feedback}</div>}
       {error && <div className="mb-2 border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800" role="alert">{error}</div>}
 
-      <div className="overflow-hidden rounded-2xl border border-bhon-border bg-white shadow-[0_12px_35px_rgba(30,64,75,0.06)]">
+      <div>
         {visibleItems.map((item) => {
           const editing = editingId === item.id;
           return (

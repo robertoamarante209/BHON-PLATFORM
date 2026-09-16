@@ -100,7 +100,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/login"><LoginRoute /></Route>
 
       {/* Rotas do Ambiente Clínico (/clinic/*) */}
-      <Route path="/clinic/:rest*">
+      <Route path="/clinic/*">
         <RequireAuth>
           <RequireRole role="CLINIC_USER">
             <ClinicLayout>
@@ -109,8 +109,8 @@ const AppRoutes: React.FC = () => {
             <Switch>
               <Route path="/clinic/overview" component={OverviewPage} />
               <Route path="/clinic/agenda" component={AgendaPage} />
-              <Route path="/clinic/patients" component={PatientsPage} />
               <Route path="/clinic/patients/:id" component={PatientDetailPage} />
+              <Route path="/clinic/patients" component={PatientsPage} />
               <Route path="/clinic/treatments" component={TreatmentsPage} />
               <Route path="/clinic/opportunities" component={OpportunitiesPage} />
               <Route path="/clinic/follow-ups" component={FollowUpsPage} />
@@ -134,7 +134,7 @@ const AppRoutes: React.FC = () => {
       </Route>
 
       {/* Rotas do Mantenedor da Plataforma (/platform/*) */}
-      <Route path="/platform/:rest*">
+      <Route path="/platform/*">
         <RequireAuth>
           <RequireRole role="PLATFORM_OWNER">
             <PlatformLayout>

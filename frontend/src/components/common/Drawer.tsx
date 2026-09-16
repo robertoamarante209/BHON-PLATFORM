@@ -73,7 +73,7 @@ export const Drawer: React.FC<DrawerProps> = ({
           </div>
 
           {/* Body */}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 text-xs space-y-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 text-xs text-bhon-text space-y-4">
             {children}
           </div>
         </div>

@@ -120,6 +120,21 @@ describe('AuthProvider', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it('encerra a sessão local imediatamente mesmo se a requisição de logout demorar', async () => {
+    let finishLogout!: (response: Response) => void;
+    const delayedLogout = new Promise<Response>((resolve) => { finishLogout = resolve; });
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockReturnValueOnce(delayedLogout));
+
+    render(<AuthProvider><Harness /></AuthProvider>);
+    expect(await screen.findByText('autenticado')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'sair' }));
+
+    expect(screen.getByText('desconectado')).toBeVisible();
+    await act(async () => finishLogout(new Response(null, { status: 204 })));
+  });
+
   it('serializa login por senha e Google mesmo quando a primeira resposta atrasa', async () => {
     let finishPassword!: (response: Response) => void;
     const delayedPassword = new Promise<Response>((resolve) => { finishPassword = resolve; });
@@ -146,7 +161,7 @@ describe('AuthProvider', () => {
     expect(fetchMock.mock.calls[2][0]).toBe('/auth/google');
   });
 
-  it('espera um login em andamento terminar antes de enviar o logout mais recente', async () => {
+  it('envia o logout imediatamente e invalida qualquer login em andamento', async () => {
     let finishLogin!: (response: Response) => void;
     const delayedLogin = new Promise<Response>((resolve) => { finishLogin = resolve; });
     const fetchMock = vi.fn()
@@ -160,11 +175,10 @@ describe('AuthProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'entrar' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole('button', { name: 'sair' }));
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     await act(async () => finishLogin(new Response(JSON.stringify({ user: owner }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
     expect(await screen.findByText('desconectado')).toBeVisible();
-    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[2][0]).toBe('/auth/logout');
   });
 

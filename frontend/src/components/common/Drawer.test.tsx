@@ -10,5 +10,6 @@ describe('Drawer', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog.closest('.fixed.inset-0')?.parentElement).toBe(document.body);
     expect(dialog.closest('.bhon-clinic-theme')).not.toBeNull();
+    expect(screen.getByText('Conteúdo').parentElement).toHaveClass('text-bhon-text');
   });
 });

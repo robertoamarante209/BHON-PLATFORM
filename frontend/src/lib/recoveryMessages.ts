@@ -8,7 +8,7 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] || 'tudo bem';
 
 export function buildRecoveryWhatsAppMessage({ patientName, category, reason = '' }: RecoveryMessageInput): string {
   const name = firstName(patientName);
-  const normalizedReason = reason.toLocaleLowerCase('pt-BR');
+  const normalizedReason = (reason ?? '').toLocaleLowerCase('pt-BR');
   const isNoShow = category === 'CONFIRMACAO' || /faltou|ausência|ausencia/.test(normalizedReason);
 
   if (category === 'ORCAMENTO') {

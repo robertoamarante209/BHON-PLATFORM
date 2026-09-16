@@ -22,4 +22,12 @@ describe('ClinicLayout', () => {
     expect(layout).not.toHaveClass('bhon-clinic-theme--dark');
     expect(screen.getByRole('main')).toHaveClass('overflow-y-auto');
   });
+
+  it('expõe o espaço clínico temático para auditoria de contraste', () => {
+    window.localStorage.setItem('bhon-clinic-theme', 'dark');
+
+    render(<ThemeProvider><ClinicLayout><h1>Visão clínica</h1></ClinicLayout></ThemeProvider>);
+
+    expect(screen.getByTestId('clinic-workspace')).toHaveClass('bhon-clinic-theme--dark');
+  });
 });

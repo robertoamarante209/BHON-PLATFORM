@@ -159,7 +159,7 @@ export const AgendaPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
-      <section className="bhon-panel overflow-hidden rounded-[24px]">
+      <section className="bhon-panel overflow-hidden rounded-[24px] bg-[#FBFCF9]">
         <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8 lg:py-7">
           <div>
             <p className="bhon-eyebrow">Ritual do dia</p>
@@ -167,14 +167,14 @@ export const AgendaPage: React.FC = () => {
             <p className="mt-2 max-w-xl text-pretty text-xs leading-relaxed text-bhon-muted">Cada horário, ambiente e profissional reunidos em uma única linha de cuidado.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center rounded-full border border-bhon-border bg-white p-1 shadow-sm">
+            <div className="flex items-center rounded-full border border-bhon-border bg-[#FEFFFC] p-1 shadow-sm">
               <button type="button" aria-label="Dia anterior" onClick={() => setSelectedDate((value) => moveDate(value, -1))} className="flex h-9 w-9 items-center justify-center rounded-full text-bhon-muted transition-colors hover:bg-bhon-bg hover:text-bhon-navy"><ChevronLeft aria-hidden="true" className="h-4 w-4" /></button>
               <label className="sr-only" htmlFor="agenda-date">Data da agenda</label>
               <input id="agenda-date" name="agenda-date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} className="min-w-0 border-0 bg-transparent px-2 text-xs font-semibold text-bhon-navy" />
               <button type="button" aria-label="Próximo dia" onClick={() => setSelectedDate((value) => moveDate(value, 1))} className="flex h-9 w-9 items-center justify-center rounded-full text-bhon-muted transition-colors hover:bg-bhon-bg hover:text-bhon-navy"><ChevronRight aria-hidden="true" className="h-4 w-4" /></button>
             </div>
             <label className="sr-only" htmlFor="agenda-status">Filtrar por status</label>
-            <select id="agenda-status" name="agenda-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-11 rounded-full border border-bhon-border bg-white px-4 text-xs text-bhon-text shadow-sm">
+            <select id="agenda-status" name="agenda-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-11 rounded-full border border-bhon-border bg-[#FEFFFC] px-4 text-xs text-bhon-text shadow-sm">
             <option value="ALL">Todos os status</option>
             <option value="EM_ATENDIMENTO">Em Atendimento</option>
             <option value="NA_RECEPCAO">Na Recepção</option>
@@ -188,7 +188,7 @@ export const AgendaPage: React.FC = () => {
           </button> : null}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-bhon-border bg-[#F8F5EF] px-5 py-3 text-[10px] text-bhon-muted sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-bhon-border bg-[#F0F4F0] px-5 py-3 text-[10px] text-bhon-muted sm:px-6 lg:px-8">
           <span className="capitalize font-semibold text-bhon-navy">{dateLabel}</span>
           <span><strong className="font-mono-data text-bhon-navy">{visibleAppointments.length}</strong> atendimentos visíveis</span>
           <span><strong className="font-mono-data text-bhon-navy">{rooms.length}</strong> ambientes clínicos</span>
@@ -228,9 +228,9 @@ export const AgendaPage: React.FC = () => {
             return <section key={professional.id} aria-labelledby={`professional-${professional.id}`}><div className="mb-2 flex items-center gap-2"><span className="h-7 w-1 rounded-full bg-bhon-teal" /><div><h2 id={`professional-${professional.id}`} className="text-sm font-semibold text-bhon-text">{professional.name}</h2><p className="text-[11px] text-bhon-muted">{professional.specialty || `${professionalAppointments.length} atendimento${professionalAppointments.length === 1 ? '' : 's'}`}</p></div></div><div className="space-y-2">{professionalAppointments.map((apt) => <button key={apt.id} type="button" onClick={() => setSelectedApt(apt)} className="bhon-panel flex w-full items-start gap-3 rounded-2xl p-4 text-left"><span className="rounded-xl bg-bhon-teal-subtle px-2.5 py-2 font-mono-data text-xs font-bold text-bhon-teal-dark">{apt.time}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-bhon-text">{apt.patientName}</span><span className="mt-1 block truncate text-xs text-bhon-muted">{apt.procedureName}</span><span className="mt-2 flex items-center gap-2"><StatusBadge status={apt.status} size="sm" /><span className="truncate text-[10px] text-bhon-muted">{apt.roomName}</span></span></span></button>)}</div></section>;
           })}
         </section>
-        <div role="table" aria-label="Agenda diária por profissional" className="bhon-panel hidden overflow-x-auto rounded-2xl sm:block">
+        <div role="table" aria-label="Agenda diária por profissional" className="hidden overflow-x-auto rounded-2xl border border-bhon-border bg-[#EDF3EF] shadow-[0_12px_32px_rgba(31,49,60,0.045)] sm:block">
         {/* Cabeçalho das Colunas de Consultórios */}
-        <div role="row" style={{ gridTemplateColumns: `86px repeat(${Math.max(professionals.length, 1)}, minmax(240px, 1fr))` }} className="sticky top-0 z-10 grid min-w-max border-b border-bhon-border bg-[#F3F7F6] text-[10px] font-bold text-bhon-text">
+        <div role="row" style={{ gridTemplateColumns: `86px repeat(${Math.max(professionals.length, 1)}, minmax(240px, 1fr))` }} className="sticky top-0 z-10 grid min-w-max border-b border-bhon-border bg-[#E6EFEA] text-[10px] font-bold text-bhon-text">
           <div role="columnheader" className="border-r border-bhon-border p-4 text-center font-mono-data text-bhon-muted">
             Horário
           </div>
@@ -250,11 +250,11 @@ export const AgendaPage: React.FC = () => {
 
         {/* Grade de Horários */}
         <div className="bhon-long-list divide-y divide-bhon-border">
-          {timeSlots.map((time) => {
+          {timeSlots.map((time, index) => {
             return (
-              <div role="row" key={time} style={{ gridTemplateColumns: `86px repeat(${Math.max(professionals.length, 1)}, minmax(240px, 1fr))` }} className="grid min-h-[82px] min-w-max">
+              <div role="row" key={time} style={{ gridTemplateColumns: `86px repeat(${Math.max(professionals.length, 1)}, minmax(240px, 1fr))` }} className={`grid min-h-[82px] min-w-max ${index % 2 === 0 ? 'bg-[#FCFDFC]' : 'bg-[#F7FAF7]'}`}>
                 {/* Eixo Vertical de Tempo */}
-                <div className="flex items-center justify-center border-r border-bhon-border bg-[#FAF8F3] p-3 text-center font-mono-data text-[11px] font-semibold text-bhon-muted">
+                <div className="flex items-center justify-center border-r border-bhon-border bg-[#EEF3EF] p-3 text-center font-mono-data text-[11px] font-semibold text-bhon-muted">
                   {time}
                 </div>
 
@@ -269,7 +269,7 @@ export const AgendaPage: React.FC = () => {
                     <div
                       role="cell"
                       key={professional.id}
-                      className="relative border-r border-bhon-border p-2 last:border-r-0 hover:bg-bhon-bg/60"
+                      className="relative border-r border-bhon-border p-2 last:border-r-0 hover:bg-[#EAF4EE]"
                     >
                       {apt && isVisible ? (
                         <button type="button" onClick={() => setSelectedApt(apt)} className={`flex h-full w-full flex-col justify-between rounded-xl border p-3 text-left text-xs transition-[border-color,box-shadow,background-color] ${

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Route, Switch, Redirect } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { OperationalDataProvider } from './context/OperationalDataContext';
 
 // Layouts
 import { ClinicLayout } from './components/shell/ClinicLayout';
@@ -27,6 +28,7 @@ const InventoryPage = lazy(() => import('./pages/clinic/OperationsPages').then((
 const DocumentsPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.DocumentsPage })));
 
 const PlatformUnavailablePage = lazy(() => import('./pages/platform/PlatformUnavailablePage').then((module) => ({ default: module.PlatformUnavailablePage })));
+const PlatformOverviewPage = lazy(() => import('./pages/platform/PlatformOverviewPage').then((module) => ({ default: module.PlatformOverviewPage })));
 const PlatformIntegrationsPage = lazy(() => import('./pages/platform/PlatformIntegrationsPage').then((module) => ({ default: module.PlatformIntegrationsPage })));
 
 const RouteLoading: React.FC = () => (
@@ -141,7 +143,7 @@ const AppRoutes: React.FC = () => {
             <Suspense fallback={<RouteLoading />}>
             <div className="bhon-page-enter">
             <Switch>
-              <Route path="/platform/overview"><PlatformUnavailablePage title="Visão Geral" description="Painel executivo de operação, clientes e saúde da plataforma BHON." /></Route>
+              <Route path="/platform/overview" component={PlatformOverviewPage} />
               <Route path="/platform/clinics/:id"><PlatformUnavailablePage title="Dossiê da Clínica" description="Visão administrativa detalhada de uma clínica da plataforma." /></Route>
               <Route path="/platform/clinics"><PlatformUnavailablePage title="Clínicas" description="Gestão de clínicas, contratos e situação operacional." /></Route>
               <Route path="/platform/subscriptions"><PlatformUnavailablePage title="Assinaturas" description="Planos, limites e ciclo de vida das assinaturas." /></Route>
@@ -175,7 +177,9 @@ const AppRoutes: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <OperationalDataProvider>
+        <AppRoutes />
+      </OperationalDataProvider>
     </AuthProvider>
   );
 };

@@ -442,6 +442,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
         },
         appointments: {
           include: {
+            patient: { select: { id: true, name: true, recordNumber: true, phone: true } },
             room: true,
             professional: {
               select: {

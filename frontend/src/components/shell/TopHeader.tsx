@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CalendarDays, Search } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useDailyAppointments } from '../../context/DailyAppointmentsContext';
 import { CLINIC_TIME_ZONE } from '../../lib/datetime';
 import { SearchModal } from '../common/SearchModal';
@@ -11,6 +11,7 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 const finishedStatuses = new Set(['CONCLUIDO', 'CANCELADO', 'FALTA']);
 
 export const TopHeader: React.FC = () => {
+  const [location] = useLocation();
   const { appointments, loading, error } = useDailyAppointments();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const inAttendanceCount = appointments?.filter((item) => item.status === 'EM_ATENDIMENTO').length;
@@ -22,16 +23,17 @@ export const TopHeader: React.FC = () => {
   const plural = (value: number, one: string, many: string) => `${value} ${value === 1 ? one : many}`;
   const fullPulse = appointments === null ? '' : `${plural(scheduledCount || 0, 'agendado', 'agendados')} · ${plural(completedCount || 0, 'concluído', 'concluídos')} · Ao vivo: ${inAttendanceCount || 0} em atendimento`;
   const dailyGreeting = `${greeting}.`;
+  const showDailyGreeting = location === '/clinic/overview';
 
   return (
     <>
       <header className="relative z-30 flex min-h-[72px] flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] bg-bhon-bg/90 px-4 py-3 backdrop-blur-xl sm:flex-nowrap sm:px-6 sm:py-0 lg:px-8 2xl:px-10">
-        <div className="min-w-0 flex-1">
+        {showDailyGreeting ? <div className="min-w-0 flex-1">
           <p className="bhon-eyebrow truncate">{dateFormatter.format(new Date())}</p>
           <div className="mt-1 flex min-w-0 items-center gap-2">
             <h1 className="truncate font-display text-xl font-semibold leading-none text-bhon-text sm:text-2xl">{dailyGreeting}</h1>
           </div>
-        </div>
+        </div> : <div className="flex-1" aria-hidden="true" />}
 
         <div className="flex shrink-0 items-center gap-2 sm:ml-4 sm:gap-3">
           <div className="order-last flex items-center gap-2 rounded-full border border-bhon-border bg-bhon-surface px-3 py-2 sm:order-none" aria-live="polite" aria-label={error ? 'Agenda indisponível' : loading || appointments === null ? 'Sincronizando agenda' : fullPulse}>

@@ -126,12 +126,14 @@ export type CreateAppointmentInput = {
   notes?: string;
 };
 
-function mapAppointment(value: ApiAppointment): Appointment {
+function mapAppointment(value: ApiAppointment, fallbackPatient?: Pick<Patient, 'id' | 'name' | 'recordNumber'>): Appointment {
   const scheduledAt = new Date(value.scheduledAt);
+  const patient = value.patient || fallbackPatient;
+  if (!patient) throw new Error('A resposta do agendamento não contém o paciente vinculado.');
   return {
     ...value,
-    patientName: value.patient.name,
-    patientRecordNumber: value.patient.recordNumber,
+    patientName: patient.name,
+    patientRecordNumber: patient.recordNumber,
     professionalName: value.professional.name,
     roomName: value.room.name,
     treatmentName: value.treatment?.name,
@@ -179,7 +181,7 @@ export async function getPatientDossier(id: string, signal?: AbortSignal): Promi
   };
   return {
     patient,
-    appointments: value.appointments.map(mapAppointment),
+    appointments: value.appointments.map((appointment) => mapAppointment(appointment, value)),
     treatments: value.treatments.map((treatment) => ({
       ...treatment,
       patientName: value.name,
@@ -234,7 +236,7 @@ export async function getPatientDossier(id: string, signal?: AbortSignal): Promi
 
 export async function listAppointments(date: string, signal?: AbortSignal): Promise<Appointment[]> {
   const values = await apiRequest<ApiAppointment[]>(`/api/appointments?date=${encodeURIComponent(date)}`, { signal });
-  return values.map(mapAppointment);
+  return values.map((appointment) => mapAppointment(appointment));
 }
 
 export function getSchedulingResources(signal?: AbortSignal) {

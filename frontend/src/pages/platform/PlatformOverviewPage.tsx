@@ -31,6 +31,7 @@ export const PlatformOverviewPage: React.FC = () => {
 
   const openTickets = supportTickets.filter((t) => t.status === 'OPEN' || t.status === 'IN_PROGRESS');
   const atRiskClinics = platformClinics.filter((c) => c.status === 'PAGAMENTO_PENDENTE' || c.status === 'SUSPENSA');
+  const maximumClinicMrr = Math.max(1, ...platformClinics.map((clinic) => clinic.mrr));
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto text-slate-100">
@@ -181,6 +182,17 @@ export const PlatformOverviewPage: React.FC = () => {
           <span className="text-[11px] text-slate-400 font-mono-data mt-1 block">Dentistas e recepcionistas</span>
         </div>
       </div>
+
+      <section aria-labelledby="platform-visualizations-title" className="grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(300px,.75fr)]">
+        <div className="rounded border border-slate-800 bg-slate-950 p-4">
+          <div className="flex items-start justify-between gap-3"><div><h2 id="platform-visualizations-title" className="text-sm font-bold text-white">Visualizações operacionais</h2><p className="mt-1 text-[11px] text-slate-400">Leitura da carteira atualmente disponível na plataforma.</p></div><span className="font-mono-data text-[10px] uppercase tracking-wide text-teal-300">Dados atuais</span></div>
+          <h3 className="mt-5 text-xs font-semibold text-slate-200">MRR por clínica</h3>
+          <ul className="mt-3 space-y-3" aria-label="Receita recorrente por clínica">
+            {platformClinics.map((clinic) => <li key={clinic.id}><div className="mb-1 flex justify-between gap-3 text-[11px]"><span className="truncate text-slate-300">{clinic.name}</span><span className="shrink-0 font-mono-data text-amber-300">R$ {clinic.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-teal-400" style={{ width: `${Math.round((clinic.mrr / maximumClinicMrr) * 100)}%` }} /></div></li>)}
+          </ul>
+        </div>
+        <div className="rounded border border-slate-800 bg-slate-950 p-4"><h3 className="text-xs font-semibold text-slate-200">Saúde da carteira</h3><p className="mt-1 text-[11px] text-slate-400">Distribuição por situação de acesso e pagamento.</p><div className="mt-5 flex h-3 overflow-hidden rounded-full bg-slate-800" aria-label="Distribuição da saúde da carteira"><span className="bg-emerald-400" style={{ width: `${platformClinics.length ? (activeClinicsCount / platformClinics.length) * 100 : 0}%` }} /><span className="bg-amber-400" style={{ width: `${platformClinics.length ? (newClinicsThisMonth / platformClinics.length) * 100 : 0}%` }} /><span className="bg-rose-400" style={{ width: `${platformClinics.length ? (atRiskClinics.length / platformClinics.length) * 100 : 0}%` }} /></div><dl className="mt-5 space-y-3 text-xs"><div className="flex justify-between"><dt className="text-slate-400">Ativas</dt><dd className="font-mono-data text-emerald-300">{activeClinicsCount}</dd></div><div className="flex justify-between"><dt className="text-slate-400">Em teste</dt><dd className="font-mono-data text-amber-300">{newClinicsThisMonth}</dd></div><div className="flex justify-between"><dt className="text-slate-400">Em atenção</dt><dd className="font-mono-data text-rose-300">{atRiskClinics.length}</dd></div></dl></div>
+      </section>
 
       {/* ============================================================
           TABELA DE CLÍNICAS OPERACIONAIS NO ECOSSISTEMA BHON

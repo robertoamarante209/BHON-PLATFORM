@@ -60,7 +60,7 @@ export const OverviewPage: React.FC = () => {
         ].map(({ label, value, icon: Icon }) => <div key={label} className="flex min-w-max items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-bhon-teal-subtle text-bhon-teal-dark"><Icon className="h-4 w-4" aria-hidden="true" /></span><div><p className="font-mono-data text-lg font-semibold text-bhon-navy">{value}</p><p className="text-[10px] font-medium text-bhon-muted">{label}</p></div></div>)}
       </section> : null}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,.75fr)]">
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,.75fr)]">
         <section aria-labelledby="next-title" className="bhon-panel overflow-hidden rounded-2xl">
           <div className="flex items-center justify-between border-b border-bhon-border px-5 py-4"><div><p className="bhon-eyebrow">Fluxo de atendimento</p><h2 id="next-title" className="mt-1 font-display text-xl text-bhon-navy">Próximos atendimentos</h2></div><span className="font-mono-data text-[10px] text-bhon-muted">{nextAppointments.length} em andamento</span></div>
           <div className="divide-y divide-bhon-border">

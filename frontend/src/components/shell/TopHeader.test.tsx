@@ -3,7 +3,12 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TopHeader } from './TopHeader';
 
-vi.mock('wouter', () => ({ Link: ({ children, href, ...props }: React.ComponentProps<'a'> & { href: string }) => <a href={href} {...props}>{children}</a> }));
+const router = vi.hoisted(() => ({ location: '/clinic/overview' }));
+
+vi.mock('wouter', () => ({
+  Link: ({ children, href, ...props }: React.ComponentProps<'a'> & { href: string }) => <a href={href} {...props}>{children}</a>,
+  useLocation: () => [router.location, vi.fn()],
+}));
 vi.mock('../../context/DailyAppointmentsContext', () => ({ useDailyAppointments: () => ({
   appointments: [
     { id: '1', status: 'EM_ATENDIMENTO' },
@@ -32,5 +37,14 @@ describe('TopHeader', () => {
     expect(date).not.toHaveClass('hidden');
     expect(screen.getByText('Ao vivo: 1')).toBeVisible();
     expect(screen.getByText('1 agendado · 1 concluído · Ao vivo: 1 em atendimento')).toHaveClass('sr-only');
+  });
+
+  it('mostra o cumprimento apenas na visão geral', () => {
+    router.location = '/clinic/agenda';
+
+    render(<TopHeader />);
+
+    expect(screen.queryByRole('heading', { name: /bom dia|boa tarde|boa noite/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/feira|sábado|domingo/i, { selector: 'p' })).not.toBeInTheDocument();
   });
 });

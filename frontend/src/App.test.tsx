@@ -18,7 +18,7 @@ describe('rotas durante a verificação da sessão', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível verificar sua sessão. Tente novamente.');
     expect(screen.queryByRole('heading', { name: 'Bem-vindo à BHON.' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
-    expect(await screen.findByText('Painel executivo de operação, clientes e saúde da plataforma BHON.')).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Visualizações operacionais' })).toBeVisible();
   });
 
   it('mantém um estado recuperável em /login quando a verificação inicial falha', async () => {

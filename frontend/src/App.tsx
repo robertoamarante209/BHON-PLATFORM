@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { Route, Switch, Redirect } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OperationalDataProvider } from './context/OperationalDataContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Layouts
 import { ClinicLayout } from './components/shell/ClinicLayout';
@@ -177,9 +178,11 @@ const AppRoutes: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <OperationalDataProvider>
-        <AppRoutes />
-      </OperationalDataProvider>
+      <ThemeProvider>
+        <OperationalDataProvider>
+          <AppRoutes />
+        </OperationalDataProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 };

@@ -21,7 +21,7 @@ Create a repeatable QA matrix for both roles. It covers authentication, logout, 
 
 ### Dashboard-wide dark theme
 
-The existing `ThemeContext` remains the source of truth and persists a user's choice under `bhon-clinic-theme`. A semantic token layer applies to every clinic and Owner page: page, surface, elevated surface, text, muted text, border, focus, action, success, warning, danger, and agenda states. Hard-coded white/slate backgrounds inside dashboards are replaced or locally overridden by these tokens. Text on all surfaces must meet WCAG AA contrast (4.5:1 for normal body text) and the theme toggle remains keyboard-accessible.
+The existing `ThemeContext` remains the source of truth and persists a user's choice under `bhon-clinic-theme`. A semantic token layer applies to every clinical dashboard page: page, surface, elevated surface, text, muted text, border, focus, action, success, warning, danger, and agenda states. Hard-coded white/slate backgrounds inside the clinical workspace are replaced or locally overridden by these tokens. The Owner workspace retains its current visual system. Text on all clinical surfaces must meet WCAG AA contrast (4.5:1 for normal body text) and the theme toggle remains keyboard-accessible.
 
 ### Agenda
 

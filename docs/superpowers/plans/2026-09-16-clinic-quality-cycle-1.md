@@ -4,7 +4,7 @@
 
 **Goal:** Validate the daily clinical and Owner journeys, make dark mode consistently readable across dashboards, render status-aware appointment cards, and provide reviewed WhatsApp copy for clinical follow-up.
 
-**Architecture:** Keep `OperationalDataContext` as the temporary in-app operation store and add focused presentation helpers rather than duplicating status and message rules in pages. The `ThemeContext` remains the persisted theme authority; CSS semantic tokens override legacy utility colors within both workspace roots. Journey tests exercise the routed application with a mocked session and seed data.
+**Architecture:** Keep `OperationalDataContext` as the temporary in-app operation store and add focused presentation helpers rather than duplicating status and message rules in pages. The `ThemeContext` remains the persisted clinical theme authority; CSS semantic tokens override legacy utility colors only within the clinic workspace. Journey tests exercise the routed application with a mocked session and seed data.
 
 **Tech Stack:** React, TypeScript, Wouter, Tailwind CSS, Vitest, Testing Library, Lucide.
 
@@ -74,48 +74,41 @@ git add frontend/src/App.test.tsx docs/qa/clinic-owner-journey-matrix.md
 git commit -m "test: define clinic and owner journey baseline"
 ```
 
-### Task 2: Make the dark theme semantic across both workspaces
+### Task 2: Make the dark theme semantic across the clinical workspace
 
 **Files:**
 - Modify: `frontend/src/index.css`
 - Modify: `frontend/src/components/shell/ClinicLayout.tsx`
-- Modify: `frontend/src/components/shell/PlatformLayout.tsx`
 - Modify: `frontend/src/components/shell/ClinicLayout.test.tsx`
-- Create: `frontend/src/components/shell/PlatformLayout.test.tsx`
 
 **Interfaces:**
-- Consumes: `useTheme(): { theme: 'light' | 'dark'; toggleTheme(): void }` and class roots `bhon-clinic-theme`, `bhon-platform-theme`.
+- Consumes: `useTheme(): { theme: 'light' | 'dark'; toggleTheme(): void }` and class root `bhon-clinic-theme`.
 - Produces: semantic CSS variables `--color-page`, `--color-surface`, `--color-surface-raised`, `--color-text`, `--color-muted`, `--color-border`, `--color-focus`, `--color-status-*` for child pages.
 
 - [ ] **Step 1: Write failing root-class tests**
 
 ```tsx
 expect(screen.getByTestId('clinic-workspace')).toHaveClass('bhon-clinic-theme--dark');
-expect(screen.getByTestId('platform-workspace')).toHaveClass('bhon-platform-theme--dark');
 ```
 
 - [ ] **Step 2: Run the layout tests to verify failure**
 
-Run: `node node_modules\\vitest\\vitest.mjs run src\\components\\shell\\ClinicLayout.test.tsx src\\components\\shell\\PlatformLayout.test.tsx --reporter=verbose --no-file-parallelism`
+Run: `node node_modules\\vitest\\vitest.mjs run src\\components\\shell\\ClinicLayout.test.tsx --reporter=verbose --no-file-parallelism`
 
-Expected: FAIL because the platform workspace is not yet linked to persisted theme tokens.
+Expected: FAIL because the clinical workspace root does not yet expose the semantic dark-theme contract.
 
 - [ ] **Step 3: Introduce scoped semantic token layers**
 
-Define light and dark values for page, surface, raised surface, text, muted, border, focus, teal, and all agenda status colors. Scope replacements to `.bhon-clinic-theme--dark` and `.bhon-platform-theme--dark`, including `bg-white`, slate backgrounds, text utilities, inputs, selects, tables, drawers, and status badges. Do not use blanket `filter` or opacity inversion.
-
-- [ ] **Step 4: Attach the platform root to the theme provider**
-
-Use `useTheme` in `PlatformLayout`, apply the corresponding root class and `data-testid="platform-workspace"`, and expose the same accessible toggle control in its header.
+Define light and dark values for page, surface, raised surface, text, muted, border, focus, teal, and all agenda status colors. Scope replacements to `.bhon-clinic-theme--dark`, including `bg-white`, slate backgrounds, text utilities, inputs, selects, tables, drawers, and status badges. Do not use blanket `filter` or opacity inversion. Preserve the existing Owner visual system.
 
 - [ ] **Step 5: Verify and commit**
 
-Run: `node node_modules\\vitest\\vitest.mjs run src\\context\\ThemeContext.test.tsx src\\components\\shell\\TopHeader.test.tsx src\\components\\shell\\ClinicLayout.test.tsx src\\components\\shell\\PlatformLayout.test.tsx --reporter=verbose --no-file-parallelism`
+Run: `node node_modules\\vitest\\vitest.mjs run src\\context\\ThemeContext.test.tsx src\\components\\shell\\TopHeader.test.tsx src\\components\\shell\\ClinicLayout.test.tsx --reporter=verbose --no-file-parallelism`
 
 Expected: PASS with light as default and dark persisted.
 
 ```bash
-git add frontend/src/index.css frontend/src/components/shell/ClinicLayout.tsx frontend/src/components/shell/PlatformLayout.tsx frontend/src/components/shell/ClinicLayout.test.tsx frontend/src/components/shell/PlatformLayout.test.tsx
+git add frontend/src/index.css frontend/src/components/shell/ClinicLayout.tsx frontend/src/components/shell/ClinicLayout.test.tsx
 git commit -m "fix: unify accessible dashboard dark theme"
 ```
 

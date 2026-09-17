@@ -5,6 +5,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { ConfirmationDialog } from '../../components/common/ConfirmationDialog';
 import { Building, Search, ArrowRight, ShieldAlert, CheckCircle2, PauseCircle } from 'lucide-react';
 import { PlatformClinic } from '../../types';
+import { updateClinicLifecycle } from '../../lib/platform';
 
 export const PlatformClinicsPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -13,6 +14,7 @@ export const PlatformClinicsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [suspendClinicId, setSuspendClinicId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const filteredClinics = platformClinics.filter((c) => {
     const matchesSearch =
@@ -23,12 +25,19 @@ export const PlatformClinicsPage: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const handleConfirmSuspend = () => {
+  const handleConfirmSuspend = async () => {
     if (suspendClinicId) {
       const target = platformClinics.find((c) => c.id === suspendClinicId);
       if (target) {
         const newStatus = target.status === 'SUSPENSA' ? 'ATIVA' : 'SUSPENSA';
-        toggleClinicStatus(suspendClinicId, newStatus);
+        setActionError(null);
+        try {
+          await updateClinicLifecycle(suspendClinicId, newStatus === 'SUSPENSA' ? 'SUSPENDED' : 'ACTIVE');
+          toggleClinicStatus(suspendClinicId, newStatus);
+        } catch (error) {
+          setActionError(error instanceof Error ? error.message : 'Não foi possível atualizar a clínica.');
+          return;
+        }
       }
       setSuspendClinicId(null);
     }
@@ -51,6 +60,8 @@ export const PlatformClinicsPage: React.FC = () => {
           {platformClinics.length} clínicas cadastradas
         </span>
       </div>
+
+      {actionError ? <div role="alert" className="rounded border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-200">{actionError}</div> : null}
 
       {/* Barra de Filtros */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950 p-3 border border-slate-800 rounded">
@@ -165,7 +176,7 @@ export const PlatformClinicsPage: React.FC = () => {
       <ConfirmationDialog
         isOpen={!!suspendClinicId}
         onClose={() => setSuspendClinicId(null)}
-        onConfirm={handleConfirmSuspend}
+        onConfirm={() => void handleConfirmSuspend()}
         title="Alterar Status de Acesso da Clínica"
         description="Ao suspender a clínica, todos os acessos dos seus usuários serão temporariamente bloqueados para entrada até que a assinatura seja regularizada. Os dados médicos permanecem íntegros e preservados."
         confirmText="Confirmar Alteração"

@@ -5,10 +5,65 @@ import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
 const READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
 export const PLATFORM_INTEGRATION_ROLES = ["PLATFORM_OWNER"] as const;
+const TICKET_STATUSES = ["OPEN", "IN_PROGRESS", "WAITING", "RESOLVED"] as const;
+const TICKET_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 
 export async function operationsRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
   app.addHook("preHandler", requireTenant);
+
+  app.get("/support/tickets", { preHandler: requireRole([...READ_ROLES, ...PLATFORM_INTEGRATION_ROLES]) }, async (request, reply) => {
+    const isPlatformOwner = request.user!.role === "PLATFORM_OWNER";
+    const tickets = await prisma.supportTicket.findMany({
+      where: isPlatformOwner ? {} : { tenantId: request.tenantId! },
+      include: {
+        tenant: { select: { id: true, name: true } },
+        openedByUser: { select: { id: true, name: true } },
+        assignedToUser: { select: { id: true, name: true } },
+      },
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    });
+    return reply.send(tickets);
+  });
+
+  app.post<{ Body: { title?: string; description?: string; priority?: typeof TICKET_PRIORITIES[number] } }>("/support/tickets", {
+    preHandler: requireRole(READ_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["title", "description"], properties: {
+      title: { type: "string", minLength: 5, maxLength: 160 }, description: { type: "string", minLength: 10, maxLength: 4000 },
+      priority: { type: "string", enum: TICKET_PRIORITIES },
+    } } },
+  }, async (request, reply) => {
+    const ticket = await prisma.$transaction(async (tx) => {
+      const created = await tx.supportTicket.create({ data: {
+        tenantId: request.tenantId!, openedByUserId: request.user!.id, title: request.body.title!.trim(),
+        description: request.body.description!.trim(), priority: request.body.priority || "MEDIUM",
+      } });
+      await tx.auditLog.create({ data: { tenantId: request.tenantId!, actorUserId: request.user!.id, action: "SUPPORT_TICKET_OPENED", resource: "SupportTicket", resourceId: created.id } });
+      return created;
+    });
+    return reply.code(201).send(ticket);
+  });
+
+  app.patch<{ Params: { id: string }; Body: { status?: typeof TICKET_STATUSES[number] } }>("/support/tickets/:id", {
+    preHandler: requireRole(PLATFORM_INTEGRATION_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["status"], properties: { status: { type: "string", enum: TICKET_STATUSES } } } },
+  }, async (request, reply) => {
+    const existing = await prisma.supportTicket.findUnique({ where: { id: request.params.id }, select: { id: true, tenantId: true, openedByUserId: true, title: true } });
+    if (!existing) return reply.code(404).send({ error: "Chamado não encontrado.", code: "SUPPORT_TICKET_NOT_FOUND" });
+    const status = request.body.status!;
+    const ticket = await prisma.$transaction(async (tx) => {
+      const updated = await tx.supportTicket.update({ where: { id: existing.id }, data: {
+        status, assignedToUserId: request.user!.id, resolvedAt: status === "RESOLVED" ? new Date() : null,
+      } });
+      await tx.auditLog.create({ data: { tenantId: existing.tenantId, actorUserId: request.user!.id, action: "SUPPORT_TICKET_STATUS_CHANGED", resource: "SupportTicket", resourceId: existing.id, metadata: { status } } });
+      if (status === "RESOLVED") await tx.notification.create({ data: {
+        tenantId: existing.tenantId, userId: existing.openedByUserId, type: "SUPPORT_TICKET_RESOLVED", priority: "MEDIUM",
+        title: "Chamado concluído", message: `O suporte concluiu o chamado: ${existing.title}.`, link: "/clinic/support",
+      } });
+      return updated;
+    });
+    return reply.send(ticket);
+  });
 
   app.get<{ Querystring: { search?: string } }>("/inventory", {
     preHandler: requireRole(READ_ROLES),

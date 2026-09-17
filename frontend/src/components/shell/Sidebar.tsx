@@ -3,7 +3,7 @@ import { Link, useLocation } from 'wouter';
 import {
   BarChart3, Boxes, CalendarDays, ChevronDown, CircleDollarSign, ClipboardCheck, FileText,
   Clock3, LayoutDashboard, LogOut, Menu, Settings, ShieldAlert, Sparkles,
-  MessageCircle, Stethoscope, Target, UserCheck, Users, X,
+  LifeBuoy, MessageCircle, Stethoscope, Target, UserCheck, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { hasClinicPermission, type ClinicPermission } from '../../lib/permissions';
@@ -32,6 +32,7 @@ const sections: NavigationSection[] = [
     { label: 'Indicadores', path: '/clinic/indicators', icon: BarChart3, permission: 'finance.view' },
     { label: 'Estoque', path: '/clinic/inventory', icon: Boxes, permission: 'team.manage' },
     { label: 'Documentos', path: '/clinic/documents', icon: FileText, permission: 'patients.view' },
+    { label: 'Suporte', path: '/clinic/support', icon: LifeBuoy },
     { label: 'Configurações', path: '/clinic/settings', icon: Settings, configuration: true },
   ] },
 ];

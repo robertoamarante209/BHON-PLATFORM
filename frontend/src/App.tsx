@@ -27,6 +27,7 @@ const SettingsPage = lazy(() => import('./pages/clinic/SettingsPage').then((modu
 const WhatsAppPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.WhatsAppPage })));
 const InventoryPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.InventoryPage })));
 const DocumentsPage = lazy(() => import('./pages/clinic/OperationsPages').then((module) => ({ default: module.DocumentsPage })));
+const SupportPage = lazy(() => import('./pages/clinic/SupportPage').then((module) => ({ default: module.SupportPage })));
 
 const PlatformOverviewPage = lazy(() => import('./pages/platform/PlatformOverviewPage').then((module) => ({ default: module.PlatformOverviewPage })));
 const PlatformIntegrationsPage = lazy(() => import('./pages/platform/PlatformIntegrationsPage').then((module) => ({ default: module.PlatformIntegrationsPage })));
@@ -133,6 +134,7 @@ const AppRoutes: React.FC = () => {
               <Route path="/clinic/whatsapp" component={WhatsAppPage} />
               <Route path="/clinic/inventory" component={InventoryPage} />
               <Route path="/clinic/documents" component={DocumentsPage} />
+              <Route path="/clinic/support" component={SupportPage} />
               <Route path="/clinic/settings" component={SettingsPage} />
               <Route>
                 <Redirect to="/clinic/overview" />

@@ -348,6 +348,46 @@ export async function clinicalRoutes(app: FastifyInstance) {
     return reply.code(201).send(patient);
   });
 
+  app.post<{ Body: { confirmed?: boolean; patients?: Array<{ name?: string; cpf?: string; phone?: string; email?: string; birthDate?: string; allergies?: string; observations?: string; source?: string }> } }>("/patients/import", {
+    preHandler: requirePermission('patients.create'),
+    schema: { body: { type: "object", additionalProperties: false, required: ["confirmed", "patients"], properties: {
+      confirmed: { type: "boolean", const: true }, patients: { type: "array", minItems: 1, maxItems: 500, items: { type: "object", additionalProperties: false, required: ["name"], properties: {
+        name: { type: "string", minLength: 2, maxLength: 160 }, cpf: { type: "string", maxLength: 20 }, phone: { type: "string", maxLength: 30 }, email: { type: "string", maxLength: 320 }, birthDate: { type: "string", format: "date" }, allergies: { type: "string", maxLength: 2000 }, observations: { type: "string", maxLength: 5000 }, source: { type: "string", maxLength: 120 },
+      } } },
+    } } },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const actor = request.user!;
+    const rows = request.body.patients || [];
+    const seen = new Set<string>();
+    const rejected: Array<{ row: number; reason: string }> = [];
+    const accepted = rows.filter((row, index) => {
+      const name = row.name?.trim() || "";
+      const identity = row.cpf?.trim() || row.email?.trim().toLowerCase() || "";
+      if (name.length < 2) { rejected.push({ row: index + 2, reason: "Nome inválido." }); return false; }
+      if (row.birthDate && Number.isNaN(new Date(row.birthDate).getTime())) { rejected.push({ row: index + 2, reason: "Data de nascimento inválida." }); return false; }
+      if (identity && seen.has(identity)) { rejected.push({ row: index + 2, reason: "CPF ou e-mail repetido na planilha." }); return false; }
+      if (identity) seen.add(identity);
+      return true;
+    });
+    if (rejected.length) return reply.code(400).send({ error: "Corrija as linhas indicadas antes de importar.", code: "PATIENT_IMPORT_INVALID_ROWS", rejected });
+    const result = await prisma.$transaction(async (tx: any) => {
+      const created = [];
+      for (const row of accepted) {
+        const cpf = row.cpf?.trim() || null;
+        const email = row.email?.trim().toLowerCase() || null;
+        if ((cpf && await tx.patient.findFirst({ where: { tenantId, cpf, deletedAt: null }, select: { id: true } })) || (email && await tx.patient.findFirst({ where: { tenantId, email, deletedAt: null }, select: { id: true } }))) {
+          throw Object.assign(new Error("Já existe paciente com o mesmo CPF ou e-mail."), { code: "PATIENT_IMPORT_DUPLICATE" });
+        }
+        const tenant = await tx.tenant.update({ where: { id: tenantId }, data: { patientRecordSequence: { increment: 1 } }, select: { patientRecordSequence: true } });
+        created.push(await tx.patient.create({ data: { tenantId, recordNumber: `#${String(tenant.patientRecordSequence).padStart(5, "0")}`, name: row.name!.trim(), cpf, phone: row.phone?.trim() || null, email, birthDate: row.birthDate ? new Date(row.birthDate) : null, allergies: row.allergies?.trim() || null, observations: row.observations?.trim() || null, source: row.source?.trim() || "Importação" } }));
+      }
+      await tx.auditLog.create({ data: { tenantId, actorUserId: actor.id, action: "PATIENTS_IMPORTED", resource: "Patient", metadata: { count: created.length } } });
+      return created;
+    });
+    return reply.code(201).send({ imported: result.length, patients: result });
+  });
+
   app.patch<{ Params: { id: string } }>("/patients/:id", {
     preHandler: requirePermission('patients.edit'),
     schema: {

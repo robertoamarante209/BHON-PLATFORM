@@ -154,6 +154,10 @@ export function createPatient(input: CreatePatientInput) {
   return apiRequest<Patient>('/api/patients', { method: 'POST', body: JSON.stringify(input) });
 }
 
+export function importPatients(patients: CreatePatientInput[]) {
+  return apiRequest<{ imported: number }>('/api/patients/import', { method: 'POST', body: JSON.stringify({ confirmed: true, patients }) });
+}
+
 export async function getPatientDossier(id: string, signal?: AbortSignal): Promise<PatientDossier> {
   const value = await apiRequest<ApiPatientDossier>(`/api/patients/${encodeURIComponent(id)}`, { signal });
   const lastAppointmentAt = value.appointments[0]?.scheduledAt;

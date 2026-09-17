@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
-import { AlertTriangle, ArrowRight, Plus, RefreshCw, Search } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Plus, RefreshCw, Search, Upload } from 'lucide-react';
 import type { Patient, PatientStatus } from '../../types';
-import { createPatient, listPatients } from '../../lib/clinic';
+import { createPatient, importPatients, listPatients, type CreatePatientInput } from '../../lib/clinic';
 import { useAuth } from '../../context/AuthContext';
 import { hasClinicPermission } from '../../lib/permissions';
 
@@ -20,6 +20,9 @@ export const PatientsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PatientStatus | 'ALL'>('ALL');
   const [isNewPatientOpen, setIsNewPatientOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importRows, setImportRows] = useState<CreatePatientInput[]>([]);
+  const [importing, setImporting] = useState(false);
 
   // Form State para Novo Paciente
   const [name, setName] = useState('');
@@ -75,6 +78,26 @@ export const PatientsPage: React.FC = () => {
     }
   };
 
+  const readCsv = async (file: File) => {
+    const text = await file.text();
+    const [header, ...lines] = text.replace(/^\uFEFF/, '').trim().split(/\r?\n/);
+    const columns = header.split(/[;,]/).map((value) => value.trim().toLowerCase());
+    const valueAt = (values: string[], aliases: string[]) => values[columns.findIndex((column) => aliases.includes(column))] || '';
+    const rows = lines.filter(Boolean).map((line) => {
+      const values = line.split(/[;,]/).map((value) => value.trim());
+      return { name: valueAt(values, ['nome', 'nome completo']), phone: valueAt(values, ['telefone', 'celular', 'whatsapp']), email: valueAt(values, ['email', 'e-mail']), cpf: valueAt(values, ['cpf']), birthDate: valueAt(values, ['nascimento', 'data de nascimento']), allergies: valueAt(values, ['alergias']), observations: valueAt(values, ['observações', 'observacoes']), source: valueAt(values, ['origem']) || 'Importação' };
+    }).filter((row) => row.name);
+    setImportRows(rows);
+  };
+
+  const confirmImport = async () => {
+    if (!importRows.length || importing) return;
+    setImporting(true); setError('');
+    try { await importPatients(importRows); setIsImportOpen(false); setImportRows([]); setReloadKey((value) => value + 1); }
+    catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Não foi possível importar a planilha.'); }
+    finally { setImporting(false); }
+  };
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Cabeçalho do Módulo de Pacientes */}
@@ -85,14 +108,14 @@ export const PatientsPage: React.FC = () => {
           <p className="mt-1 text-sm text-bhon-muted">Encontre rapidamente informações, histórico e próximos passos.</p>
         </div>
 
-        {canCreatePatient ? <button
+        {canCreatePatient ? <div className="flex gap-2 self-start sm:self-auto"><button onClick={() => setIsImportOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-bhon-border bg-white px-4 text-sm font-semibold text-bhon-text"><Upload className="h-4 w-4" />Importar</button><button
           onClick={() => setIsNewPatientOpen(true)}
           aria-label="Novo paciente"
           className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl bg-bhon-navy px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-bhon-navy-hover sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Novo paciente</span>
-        </button> : null}
+        </button></div> : null}
       </div>
 
       {error && (
@@ -307,6 +330,9 @@ export const PatientsPage: React.FC = () => {
             {submitting ? 'Salvando prontuário…' : 'Salvar e Abrir Prontuário'}
           </button>
         </form>
+      </Drawer>
+      <Drawer isOpen={canCreatePatient && isImportOpen} onClose={() => setIsImportOpen(false)} title="Importar pacientes" subtitle="Revise os dados antes de confirmar o cadastro." width="max-w-lg">
+        <div className="space-y-4 text-xs"><div className="rounded-xl border border-bhon-border bg-bhon-bg p-4"><p className="font-semibold text-bhon-text">Estrutura da planilha</p><p className="mt-1 text-bhon-muted">Envie um CSV com a coluna <strong>nome</strong>. Opcionalmente: telefone, email, cpf, nascimento, alergias, observações e origem. Exporte a planilha do Excel ou do sistema anterior como CSV.</p></div><input aria-label="Selecionar planilha CSV" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void readCsv(file); }} className="block w-full text-xs" />{importRows.length ? <><p className="font-semibold text-bhon-text">Prévia: {importRows.length} pacientes</p><ul className="max-h-40 space-y-1 overflow-auto rounded border border-bhon-border p-3 text-bhon-muted">{importRows.slice(0, 8).map((row, index) => <li key={`${row.name}-${index}`}>{row.name} {row.phone ? `· ${row.phone}` : ''}</li>)}</ul><button type="button" onClick={() => void confirmImport()} disabled={importing} className="w-full rounded bg-bhon-teal py-2.5 font-bold text-white disabled:opacity-50">{importing ? 'Importando…' : 'Confirmar importação'}</button></> : null}</div>
       </Drawer>
     </div>
   );

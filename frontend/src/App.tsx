@@ -11,6 +11,8 @@ import { PlatformLayout } from './components/shell/PlatformLayout';
 // Páginas de Autenticação
 import { LoginPage } from './pages/login/LoginPage';
 import { BhonLandingPage } from './pages/public/BhonLandingPage';
+import { StartTrialPage } from './pages/public/StartTrialPage';
+import { TrialSuccessPage } from './pages/public/TrialSuccessPage';
 
 // Cada área é carregada somente quando aberta, mantendo a entrada leve.
 const OverviewPage = lazy(() => import('./pages/clinic/OverviewPage').then((module) => ({ default: module.OverviewPage })));
@@ -111,6 +113,8 @@ const AppRoutes: React.FC = () => {
       <Route path="/">
         {isAuthenticated ? <Redirect to={home} /> : <BhonLandingPage />}
       </Route>
+      <Route path="/comece"><StartTrialPage /></Route>
+      <Route path="/teste-confirmado"><TrialSuccessPage /></Route>
       <Route path="/login"><LoginRoute /></Route>
 
       {/* Rotas do Ambiente Clínico (/clinic/*) */}

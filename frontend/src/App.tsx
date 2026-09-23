@@ -10,6 +10,7 @@ import { PlatformLayout } from './components/shell/PlatformLayout';
 
 // Páginas de Autenticação
 import { LoginPage } from './pages/login/LoginPage';
+import { BhonLandingPage } from './pages/public/BhonLandingPage';
 
 // Cada área é carregada somente quando aberta, mantendo a entrada leve.
 const OverviewPage = lazy(() => import('./pages/clinic/OverviewPage').then((module) => ({ default: module.OverviewPage })));
@@ -108,7 +109,7 @@ const AppRoutes: React.FC = () => {
     <Switch>
       {/* Rota Raiz e Login */}
       <Route path="/">
-        <Redirect to={!isAuthenticated ? "/login" : home} />
+        {isAuthenticated ? <Redirect to={home} /> : <BhonLandingPage />}
       </Route>
       <Route path="/login"><LoginRoute /></Route>
 

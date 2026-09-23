@@ -18,14 +18,19 @@ verificados. O escopo não inclui cobranças de pacientes pelas clínicas.
 
 ## Fluxo escolhido
 
-1. O owner mantém os planos internos da BHON (`SubscriptionPlan`). Cada plano
-   ativo possui dois preços Stripe autorizados: mensal e anual.
+1. A BHON comercializa um único produto de operação clínica, mantido no domínio
+   interno como `BHON_CLINIC`, com dois ciclos autorizados: **R$ 290/mês** e
+   **R$ 2.900/ano**. O anual equivale a dez mensalidades por doze meses de uso;
+   os três preços legados não são uma oferta comercial válida. Cada ciclo possui
+   seu preço Stripe autorizado.
 2. Um administrador autenticado de uma clínica solicita Checkout para um dos
    preços permitidos. O servidor resolve o plano e o preço; o navegador nunca
    envia valor, moeda, `priceId` arbitrário ou `tenantId`.
 3. O servidor cria/reutiliza um `Customer` Stripe associado à clínica e cria
-   uma Checkout Session em modo `subscription`, com chave de idempotência
-   ligada à tentativa de contratação.
+   uma Checkout Session em modo `subscription`, com teste de 14 dias e chave de
+   idempotência ligada à tentativa de contratação. O Checkout informa de forma
+   explícita a data e o valor da primeira cobrança; cartão é solicitado antes
+   do teste, mas não é cobrado durante os 14 dias.
 4. O navegador apenas redireciona para a URL devolvida pela Stripe. O retorno
    de sucesso informa a interface, mas não libera acesso.
 5. A Stripe envia webhooks ao endpoint da BHON. O backend usa o corpo bruto,

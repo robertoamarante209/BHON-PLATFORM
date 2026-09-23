@@ -132,4 +132,3 @@ Termos e Política precisam de revisão jurídica antes do lançamento público.
    pacientes.
 9. Cancelamento e falha de pagamento obedecem ao estado Stripe processado,
    nunca somente ao retorno do navegador.
-

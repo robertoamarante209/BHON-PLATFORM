@@ -150,6 +150,9 @@ model Tenant {
   integrationConnections IntegrationConnection[]
   availabilitySchedules ClinicAvailability[]
   protocols              ClinicProtocol[]
+  trialSignups           TrialSignup[]
+  onboardingProgress     OnboardingProgress?
+  notificationOutbox     NotificationOutbox[]
 
   @@index([status])
   @@index([createdAt])
@@ -877,6 +880,20 @@ enum BillingCycle {
   ANNUAL
 }
 
+enum TrialSignupStatus {
+  PENDING
+  CHECKOUT_STARTED
+  CHECKOUT_COMPLETED
+  PROVISIONED
+  EXPIRED
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
+
 model SubscriptionPlan {
   id               String  @id @default(uuid())
   name             String
@@ -907,17 +924,124 @@ model Subscription {
   renewalDate        DateTime @map("renewal_date") @db.Timestamptz(3)
   amount             Decimal  @db.Decimal(10, 2)
 
+  stripeCustomerId     String? @unique @map("stripe_customer_id")
+  stripeSubscriptionId String? @unique @map("stripe_subscription_id")
+  stripePriceId        String? @map("stripe_price_id")
+  stripeLivemode       Boolean @default(false) @map("stripe_livemode")
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   plan     SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
   invoices PlatformInvoice[]
+  transitions SubscriptionTransition[]
 
   @@index([tenantId])
   @@index([planId])
   @@index([status])
   @@map("subscriptions")
+}
+
+model TrialSignup {
+  id String @id @default(uuid())
+
+  clinicName          String @map("clinic_name")
+  ownerName           String @map("owner_name")
+  ownerEmail          String @map("owner_email")
+  ownerEmailNormalized String @map("owner_email_normalized")
+  username            String
+  passwordHash        String @map("password_hash")
+  phone               String?
+  billingCycle        BillingCycle @map("billing_cycle")
+  status              TrialSignupStatus @default(PENDING)
+  stripeCheckoutSessionId String? @unique @map("stripe_checkout_session_id")
+  tenantId            String? @map("tenant_id")
+  expiresAt           DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  legalConsents LegalConsent[]
+
+  @@index([ownerEmailNormalized, status])
+  @@index([expiresAt])
+  @@map("trial_signups")
+}
+
+model LegalConsent {
+  id String @id @default(uuid())
+  trialSignupId String @map("trial_signup_id")
+  documentType String @map("document_type")
+  documentVersion String @map("document_version")
+  acceptedAt DateTime @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  trialSignup TrialSignup @relation(fields: [trialSignupId], references: [id], onDelete: Cascade)
+
+  @@unique([trialSignupId, documentType])
+  @@map("legal_consents")
+}
+
+model StripeWebhookEvent {
+  id String @id @default(uuid())
+  stripeEventId String @unique @map("stripe_event_id")
+  eventType String @map("event_type")
+  livemode Boolean
+  payload Json
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
+  processingError String? @map("processing_error")
+
+  @@index([processedAt])
+  @@map("stripe_webhook_events")
+}
+
+model SubscriptionTransition {
+  id String @id @default(uuid())
+  subscriptionId String @map("subscription_id")
+  fromStatus SubscriptionStatus? @map("from_status")
+  toStatus SubscriptionStatus @map("to_status")
+  stripeEventId String? @map("stripe_event_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@map("subscription_transitions")
+}
+
+model OnboardingProgress {
+  id String @id @default(uuid())
+  tenantId String @unique @map("tenant_id")
+  clinicProfileReadyAt DateTime? @map("clinic_profile_ready_at") @db.Timestamptz(3)
+  teamReadyAt DateTime? @map("team_ready_at") @db.Timestamptz(3)
+  patientReadyAt DateTime? @map("patient_ready_at") @db.Timestamptz(3)
+  appointmentReadyAt DateTime? @map("appointment_ready_at") @db.Timestamptz(3)
+  followUpReadyAt DateTime? @map("follow_up_ready_at") @db.Timestamptz(3)
+  firstValueAt DateTime? @map("first_value_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("onboarding_progress")
+}
+
+model NotificationOutbox {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  channel String
+  templateKey String @map("template_key")
+  status NotificationOutboxStatus @default(PENDING)
+  scheduledFor DateTime? @map("scheduled_for") @db.Timestamptz(3)
+  sentAt DateTime? @map("sent_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@map("notification_outbox")
 }
 
 model PlatformInvoice {

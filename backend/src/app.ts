@@ -14,6 +14,7 @@ import { settingsRoutes } from "./routes/settings.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { operationsRoutes } from "./routes/operations.js";
 import { clinicConfigurationRoutes } from "./routes/clinic-configuration.js";
+import { publicSignupRoutes } from "./routes/public-signup.js";
 
 export type BuildAppOptions = {
   logger?: boolean;
@@ -79,6 +80,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   app.register(authRoutes);
+  app.register(publicSignupRoutes);
   app.register(tenantRoutes);
   app.register(clinicalRoutes, { prefix: "/api" });
   app.register(recoveryRoutes, { prefix: "/api" });

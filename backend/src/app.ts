@@ -33,7 +33,10 @@ function configuredOrigins() {
 }
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? true });
+  const app = Fastify({
+    logger: options.logger ?? true,
+    ajv: { customOptions: { removeAdditional: false } },
+  });
   const allowedOrigins = options.allowedOrigins ?? configuredOrigins();
   const cookieSecret = options.cookieSecret ?? process.env.COOKIE_SECRET;
   if (!cookieSecret) throw new Error("COOKIE_SECRET não está definida.");

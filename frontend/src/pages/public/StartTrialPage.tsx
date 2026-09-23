@@ -15,6 +15,10 @@ export const StartTrialPage: React.FC = () => {
         clinicName: String(form.get('clinicName') || ''), ownerName: String(form.get('ownerName') || ''), ownerEmail: String(form.get('ownerEmail') || ''), username: String(form.get('username') || ''), password: String(form.get('password') || ''), phone: String(form.get('phone') || ''), billingCycle: cycle, termsVersion: LEGAL_VERSION, privacyVersion: LEGAL_VERSION,
         acceptedTerms: form.get('acceptedTerms') === 'on', acceptedPrivacy: form.get('acceptedPrivacy') === 'on',
       });
+      if (signup.next === 'EXISTING_SIGNUP') {
+        setError('Não foi possível iniciar este teste agora. Verifique os dados ou tente novamente mais tarde.');
+        return;
+      }
       const checkout = await startCheckout(signup.id);
       window.location.assign(checkout.checkoutUrl);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível iniciar seu teste.'); }

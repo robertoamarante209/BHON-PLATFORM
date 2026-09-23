@@ -8,10 +8,27 @@ import { SlidingWindowRateLimiter } from "../domain/security.js";
 
 const signupLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
 const CHECKOUT_EXPIRY_MS = 60 * 60 * 1_000;
+const trialSignupBodySchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    clinicName: { type: "string" },
+    ownerName: { type: "string" },
+    ownerEmail: { type: "string" },
+    username: { type: "string" },
+    password: { type: "string" },
+    phone: { type: "string" },
+    billingCycle: { type: "string", enum: ["MONTHLY", "ANNUAL"] },
+    termsVersion: { type: "string" },
+    privacyVersion: { type: "string" },
+    acceptedTerms: { type: "boolean" },
+    acceptedPrivacy: { type: "boolean" },
+  },
+} as const;
 
 export async function publicSignupRoutes(app: FastifyInstance) {
   app.post<{ Body: Record<string, unknown> }>("/public/trials", {
-    schema: { body: { type: "object", additionalProperties: false } },
+    schema: { body: trialSignupBodySchema },
   }, async (request, reply) => {
     const parsed = validateTrialSignup(request.body || {});
     if (parsed.errors.length) return reply.code(400).send({ error: parsed.errors[0], code: "INVALID_TRIAL_SIGNUP" });
@@ -23,7 +40,7 @@ export async function publicSignupRoutes(app: FastifyInstance) {
       where: { ownerEmailNormalized: value.ownerEmailNormalized, status: { in: ["PENDING", "CHECKOUT_STARTED", "CHECKOUT_COMPLETED"] }, expiresAt: { gt: new Date() } },
       select: { id: true },
     });
-    if (pending) return reply.code(202).send({ id: pending.id, next: "CHECKOUT" });
+    if (pending) return reply.code(202).send({ next: "EXISTING_SIGNUP" });
 
     const passwordHash = await hashPassword(value.password);
     const signup = await prisma.trialSignup.create({

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { Route, Switch, Redirect } from 'wouter';
+import { Route, Switch, Redirect, useLocation } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OperationalDataProvider } from './context/OperationalDataContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -10,9 +10,11 @@ import { PlatformLayout } from './components/shell/PlatformLayout';
 
 // Páginas de Autenticação
 import { LoginPage } from './pages/login/LoginPage';
-import { BhonLandingPage } from './pages/public/BhonLandingPage';
 import { StartTrialPage } from './pages/public/StartTrialPage';
 import { TrialSuccessPage } from './pages/public/TrialSuccessPage';
+
+const BhonLandingPage = lazy(() => import('./pages/public/BhonLandingPage').then((module) => ({ default: module.BhonLandingPage })));
+const LegalPage = lazy(() => import('./pages/public/LegalPage').then((module) => ({ default: module.LegalPage })));
 
 // Cada área é carregada somente quando aberta, mantendo a entrada leve.
 const OverviewPage = lazy(() => import('./pages/clinic/OverviewPage').then((module) => ({ default: module.OverviewPage })));
@@ -103,15 +105,17 @@ const LoginRoute: React.FC = () => {
 };
 
 const AppRoutes: React.FC = () => {
+  const [publicPath] = useLocation();
   const { isAuthenticated, isLoadingAuth, sessionError, refreshSession, currentUser } = useAuth();
   const home = currentUser.role === 'PLATFORM_OWNER' ? '/platform/overview' : '/clinic/overview';
+  if (publicPath === '/termos' || publicPath === '/privacidade') return <Suspense fallback={<RouteLoading />}><LegalPage kind={publicPath === '/termos' ? 'terms' : 'privacy'} /></Suspense>;
   if (isLoadingAuth) return <RouteLoading />;
   if (sessionError && !isAuthenticated) return <SessionRecovery retry={refreshSession} />;
   return (
     <Switch>
       {/* Rota Raiz e Login */}
       <Route path="/">
-        {isAuthenticated ? <Redirect to={home} /> : <BhonLandingPage />}
+        {isAuthenticated ? <Redirect to={home} /> : <Suspense fallback={<RouteLoading />}><BhonLandingPage /></Suspense>}
       </Route>
       <Route path="/comece"><StartTrialPage /></Route>
       <Route path="/teste-confirmado"><TrialSuccessPage /></Route>

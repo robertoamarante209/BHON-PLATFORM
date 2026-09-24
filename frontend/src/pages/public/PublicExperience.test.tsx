@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BhonLandingPage } from './BhonLandingPage';
 
 describe('public navigation', () => {
@@ -21,5 +21,11 @@ describe('public navigation', () => {
     expect(screen.getByRole('link', { name: 'Política de Privacidade' })).toHaveAttribute('href', '/privacidade');
     expect(screen.getByRole('link', { name: 'bhonsuport@gmail.com' })).toHaveAttribute('href', 'mailto:bhonsuport@gmail.com');
   });
+  it('restores the requested section when the landing page mounts after navigation', async () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    window.history.replaceState(null, '', '/#planos');
+    render(<BhonLandingPage />);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+  });
 });
-

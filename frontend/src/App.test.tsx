@@ -9,6 +9,7 @@ describe('rotas durante a verificação da sessão', () => {
     render(<App />);
     expect(await screen.findByRole('heading', { name: title })).toBeVisible();
     expect(screen.getByRole('link', { name: 'bhonsuport@gmail.com' })).toHaveAttribute('href', 'mailto:bhonsuport@gmail.com');
+    expect(screen.getByText(/documento em versão inicial/i)).toBeVisible();
   });
   beforeEach(() => {
     window.history.replaceState(null, '', '/');

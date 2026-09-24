@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowDown, ArrowUpRight, CalendarDays, Users, ClipboardList, UserRoundCheck, ShieldCheck, Sparkles } from 'lucide-react';
 import { PublicShell } from '../../components/public/PublicShell';
@@ -27,6 +27,26 @@ function Hero() {
   </section>;
 }
 export function BhonLandingPage() {
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+
+    const scrollToTarget = () => {
+      const target = document.getElementById(decodeURIComponent(hash));
+      target?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    };
+
+    scrollToTarget();
+    const timer = window.setTimeout(scrollToTarget, 700);
+    void document.fonts?.ready.then(scrollToTarget);
+    window.addEventListener('load', scrollToTarget, { once: true });
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('load', scrollToTarget);
+    };
+  }, []);
+
   return <PublicShell>
     <Hero />
     <div className="public-marquee" aria-hidden="true"><div>{[0,1].map(n => <span key={n}>AGENDA <b>↗</b> PACIENTES <b>↗</b> EQUIPE <b>↗</b> RECUPERAÇÃO <b>↗</b> A CLÍNICA NO CONTROLE <b>↗</b> </span>)}</div></div>

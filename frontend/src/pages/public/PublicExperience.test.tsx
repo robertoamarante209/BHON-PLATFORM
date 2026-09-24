@@ -10,13 +10,17 @@ describe('public navigation', () => {
     trigger.focus();
     fireEvent.click(trigger);
     const navigation = screen.getByRole('dialog', { name: 'Navegação' });
-    expect(within(navigation).getByRole('link', { name: 'Entrar' })).toHaveAttribute('href', '/login');
+    expect(within(navigation).getByRole('link', { name: /entrar no dashboard/i })).toHaveAttribute('href', '/login');
     fireEvent.keyDown(navigation, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
   });
   it('provides real destinations for legal documents and support', () => {
     render(<BhonLandingPage />);
+    expect(screen.getByText(/transformamos faltas em faturamento/i)).toBeVisible();
+    expect(screen.queryByText('01 / A ROTINA MERECE MAIS CLAREZA')).not.toBeInTheDocument();
+    expect(screen.queryByText('05 / ANTES DE COMEÇAR')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /entrar no dashboard/i })[0]).toHaveAttribute('href', '/login');
     expect(screen.getByRole('link', { name: 'Termos de Uso' })).toHaveAttribute('href', '/termos');
     expect(screen.getByRole('link', { name: 'Política de Privacidade' })).toHaveAttribute('href', '/privacidade');
     expect(screen.getByRole('link', { name: 'bhonsuport@gmail.com' })).toHaveAttribute('href', 'mailto:bhonsuport@gmail.com');

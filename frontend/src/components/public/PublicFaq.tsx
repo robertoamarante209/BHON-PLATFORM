@@ -8,6 +8,5 @@ export function PublicFaq() {
     ['Como faço para cancelar?', 'Você pode solicitar o cancelamento pelo suporte em bhonsuport@gmail.com. Informe o e-mail da clínica. Para evitar a primeira cobrança, faça a solicitação antes do término dos 14 dias de teste.'],
     ['Minha equipe pode ter acessos próprios?', 'Sim. A clínica pode criar acessos para a equipe e definir permissões por função, mantendo as rotinas organizadas e cada pessoa com acesso ao que precisa.'],
   ];
-  return <section id="duvidas" className="public-section public-faq"><div className="public-container public-faq-grid"><div><p className="public-kicker">05 / ANTES DE COMEÇAR</p><h2>Vamos deixar<br />tudo claro.</h2><p>Uma boa escolha começa<br />com boas respostas.</p></div><div>{questions.map(([question, answer], i) => <details key={question}><summary><span><small>0{i+1}</small>{question}</span><b aria-hidden="true">+</b></summary><p>{answer}</p></details>)}</div></div></section>;
+  return <section id="duvidas" className="public-section public-faq"><div className="public-container public-faq-grid"><div><h2>Vamos deixar<br />tudo claro.</h2><p>Uma boa escolha começa<br />com boas respostas.</p></div><div>{questions.map(([question, answer], i) => <details key={question}><summary><span><small>0{i+1}</small>{question}</span><b aria-hidden="true">+</b></summary><p>{answer}</p></details>)}</div></div></section>;
 }
-

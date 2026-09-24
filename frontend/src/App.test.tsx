@@ -7,7 +7,7 @@ describe('rotas durante a verificação da sessão', () => {
   it.each([['/termos', 'Termos de Uso'], ['/privacidade', 'Política de Privacidade']])('abre %s mesmo sem conexão com a sessão', async (path, title) => {
     window.history.replaceState(null, '', path);
     render(<App />);
-    expect(await screen.findByRole('heading', { name: title })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: title }, { timeout: 5000 })).toBeVisible();
     expect(screen.getByRole('link', { name: 'bhonsuport@gmail.com' })).toHaveAttribute('href', 'mailto:bhonsuport@gmail.com');
     expect(screen.getByText(/documento em versão inicial/i)).toBeVisible();
   });

@@ -116,6 +116,17 @@ export async function processStripeEvent(eventId: string, database: any = prisma
       },
       select: { id: true },
     });
+    if (signup.phone) {
+      await tx.integrationConnection.create({
+        data: {
+          tenantId: tenant.id,
+          provider: "WHATSAPP",
+          displayName: "WhatsApp da clínica",
+          status: "PENDING",
+          configuration: { clinicPhone: signup.phone, onboardingSource: "trial_signup" },
+        },
+      });
+    }
     const now = new Date();
     const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1_000);
     const subscription = await tx.subscription.create({

@@ -153,6 +153,7 @@ model Tenant {
   trialSignups           TrialSignup[]
   onboardingProgress     OnboardingProgress?
   notificationOutbox     NotificationOutbox[]
+  secretaryConversations SecretaryConversation[]
 
   @@index([status])
   @@index([createdAt])
@@ -190,6 +191,8 @@ model User {
 
   emailNormalized String @map("email_normalized")
   passwordHash    String? @map("password_hash")
+  googleSubject   String? @unique @map("google_subject")
+  googleEmail     String? @map("google_email")
 
   role   UserRole   @default(RECEPTIONIST)
   status UserStatus @default(ACTIVE)
@@ -231,6 +234,7 @@ model User {
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, role])
+  @@index([googleEmail])
   @@map("users")
 }
 
@@ -332,6 +336,7 @@ model Patient {
   financialTransactions FinancialTransaction[]
   timelineEvents TimelineEvent[]
   clinicDocuments ClinicDocument[]
+  secretaryConversations SecretaryConversation[]
 
   @@unique([tenantId, recordNumber])
   @@index([tenantId])
@@ -1042,6 +1047,69 @@ model NotificationOutbox {
 
   @@index([status, scheduledFor])
   @@map("notification_outbox")
+}
+
+// ============================================================
+// SECRETÁRIA BHON
+// Conversas operacionais com pacientes. O conteúdo é auditável e isolado
+// por clínica; integrações externas somente podem criar eventos depois de
+// validação do provedor e do consentimento aplicável.
+// ============================================================
+
+enum SecretaryConversationStatus {
+  OPEN
+  WAITING_DETAILS
+  HUMAN_HANDOFF
+  CLOSED
+}
+
+enum SecretaryMessageDirection {
+  INBOUND
+  OUTBOUND
+  SYSTEM
+}
+
+model SecretaryConversation {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  patientId String? @map("patient_id")
+
+  contactPhone String @map("contact_phone")
+  contactName  String? @map("contact_name")
+  status       SecretaryConversationStatus @default(OPEN)
+  lastIntent   String? @map("last_intent")
+  lastMessageAt DateTime @default(now()) @map("last_message_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  messages SecretaryMessage[]
+
+  @@index([tenantId, contactPhone, lastMessageAt])
+  @@index([tenantId, status, lastMessageAt])
+  @@index([patientId])
+  @@map("secretary_conversations")
+}
+
+model SecretaryMessage {
+  id             String @id @default(uuid())
+  conversationId String @map("conversation_id")
+
+  direction    SecretaryMessageDirection
+  channel      String @default("DASHBOARD")
+  content      String
+  intent       String?
+  action       String?
+  actionStatus String? @map("action_status")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation SecretaryConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([intent])
+  @@map("secretary_messages")
 }
 
 model PlatformInvoice {

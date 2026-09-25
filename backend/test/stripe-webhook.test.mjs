@@ -63,7 +63,7 @@ test("Stripe webhook persists one verified event before acknowledging it", async
 });
 
 test("Stripe webhook provisions a trial signup exactly once from the durable inbox", async () => {
-  const calls = { tenant: 0, user: 0, subscription: 0, onboarding: 0, outbox: 0, processed: 0 };
+  const calls = { tenant: 0, user: 0, integration: 0, subscription: 0, onboarding: 0, outbox: 0, processed: 0 };
   const inbox = {
     id: "inbox-trial-start",
     stripeEventId: "evt_trial_start",
@@ -82,6 +82,7 @@ test("Stripe webhook provisions a trial signup exactly once from the durable inb
     subscriptionPlan: { upsert: async () => ({ id: "plan-bhon-clinic" }) },
     tenant: { create: async () => { calls.tenant += 1; return { id: "tenant-trial" }; } },
     user: { create: async () => { calls.user += 1; return { id: "owner-trial" }; } },
+    integrationConnection: { create: async () => { calls.integration += 1; return { id: "whatsapp-trial" }; } },
     subscription: { create: async () => { calls.subscription += 1; return { id: "subscription-trial" }; } },
     subscriptionTransition: { create: async () => ({ id: "transition-trial" }) },
     auditLog: { create: async () => ({ id: "audit-trial" }) },
@@ -100,7 +101,7 @@ test("Stripe webhook provisions a trial signup exactly once from the durable inb
   await processStripeEvent("evt_trial_start", store);
   await processStripeEvent("evt_trial_start", { ...store, stripeWebhookEvent: { ...store.stripeWebhookEvent, findUnique: async () => ({ ...inbox, processedAt: new Date() }) } });
 
-  assert.deepEqual(calls, { tenant: 1, user: 1, subscription: 1, onboarding: 1, outbox: 3, processed: 1 });
+  assert.deepEqual(calls, { tenant: 1, user: 1, integration: 1, subscription: 1, onboarding: 1, outbox: 3, processed: 1 });
 });
 
 test("Stripe webhook records a cancellation without returning a clinic to active access", async () => {

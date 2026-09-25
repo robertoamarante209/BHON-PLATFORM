@@ -67,7 +67,7 @@ export const OverviewPage: React.FC = () => {
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bhon-teal text-white shadow-sm"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
             <div>
-              <p className="bhon-eyebrow text-bhon-teal-dark">Secretária BHON</p>
+              <p className="bhon-eyebrow text-bhon-teal-dark">Secretária Sarah</p>
               <h2 id="secretary-title" className="mt-1 text-base font-bold text-bhon-navy">{confirmationQueue.length > 0 ? `${confirmationQueue.length} confirmação${confirmationQueue.length === 1 ? '' : 'ões'} precisa${confirmationQueue.length === 1 ? '' : 'm'} de atenção` : nextPriority ? 'O próximo atendimento está organizado' : 'Sua agenda está em ordem'}</h2>
               <p className="mt-1 max-w-2xl text-xs leading-5 text-bhon-muted">{confirmationQueue.length > 0 ? 'Revise a confirmação antes de acionar a comunicação com o paciente.' : nextPriority ? `${nextPriority.patientName} é a próxima pessoa na jornada de hoje.` : 'Quando houver uma confirmação, retorno ou atendimento prioritário, ele aparecerá aqui.'}</p>
             </div>

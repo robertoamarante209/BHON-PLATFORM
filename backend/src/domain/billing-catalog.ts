@@ -25,7 +25,10 @@ export function getStripeConfiguration(env: BillingEnvironment = process.env) {
   const annualPriceId = env.STRIPE_PRICE_BHON_CLINIC_ANNUAL;
 
   if (!secretKey) throw new Error("STRIPE_SECRET_KEY não está definida.");
-  if (!secretKey.startsWith("sk_test_")) throw new Error("Este ciclo aceita somente Stripe Test Mode.");
+  const isTestKey = secretKey.startsWith("sk_test_");
+  const isLiveKey = secretKey.startsWith("sk_live_");
+  if (!isTestKey && !isLiveKey) throw new Error("STRIPE_SECRET_KEY não possui um formato aceito.");
+  if (env.NODE_ENV === "production" && !isLiveKey) throw new Error("Produção exige uma chave Stripe live (sk_live_). ");
   if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET não está definida.");
   if (!monthlyPriceId) throw new Error("STRIPE_PRICE_BHON_CLINIC_MONTHLY não está definida.");
   if (!annualPriceId) throw new Error("STRIPE_PRICE_BHON_CLINIC_ANNUAL não está definida.");
@@ -35,5 +38,5 @@ export function getStripeConfiguration(env: BillingEnvironment = process.env) {
     ? configuredGraceDays
     : 7;
 
-  return { secretKey, webhookSecret, monthlyPriceId, annualPriceId, billingGraceDays, livemode: false };
+  return { secretKey, webhookSecret, monthlyPriceId, annualPriceId, billingGraceDays, livemode: isLiveKey };
 }

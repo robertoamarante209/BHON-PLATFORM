@@ -9,7 +9,7 @@ import { updateClinicLifecycle } from '../../lib/platform';
 
 export const PlatformClinicsPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const { platformClinics, toggleClinicStatus } = useOperationalData();
+  const { platformClinics, toggleClinicStatus, platformLoading, platformError, refreshPlatformData } = useOperationalData();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -56,12 +56,11 @@ export const PlatformClinicsPage: React.FC = () => {
           </p>
         </div>
 
-        <span className="font-mono-data text-xs text-slate-400 self-start sm:self-auto">
-          {platformClinics.length} clínicas cadastradas
-        </span>
+        <div className="flex items-center gap-3"><button onClick={() => void refreshPlatformData()} className="text-xs font-semibold text-teal-300 hover:text-teal-100">Atualizar</button><span className="font-mono-data text-xs text-slate-400 self-start sm:self-auto">{platformLoading ? 'Carregando…' : `${platformClinics.length} clínicas cadastradas`}</span></div>
       </div>
 
       {actionError ? <div role="alert" className="rounded border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-200">{actionError}</div> : null}
+      {platformError ? <div role="alert" className="rounded border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-200">{platformError}</div> : null}
 
       {/* Barra de Filtros */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950 p-3 border border-slate-800 rounded">
@@ -108,6 +107,7 @@ export const PlatformClinicsPage: React.FC = () => {
                 <th className="p-3">Próxima Cobrança</th>
                 <th className="p-3">MRR</th>
                 <th className="p-3">Data Entrada</th>
+                <th className="p-3">Sarah / WhatsApp</th>
                 <th className="p-3 text-right">Ações</th>
               </tr>
             </thead>
@@ -145,6 +145,7 @@ export const PlatformClinicsPage: React.FC = () => {
                   <td className="p-3 font-mono-data text-slate-500 whitespace-nowrap">
                     {new Date(c.createdAt).toLocaleDateString('pt-BR')}
                   </td>
+                  <td className="p-3 whitespace-nowrap"><span className={`rounded border px-2 py-1 font-mono-data text-[10px] ${c.secretaryStatus === 'CONNECTED' ? 'border-emerald-800 bg-emerald-950 text-emerald-300' : c.secretaryStatus === 'PENDING' ? 'border-amber-800 bg-amber-950 text-amber-300' : 'border-slate-700 bg-slate-900 text-slate-400'}`}>{c.secretaryStatus === 'CONNECTED' ? 'CONECTADA' : c.secretaryStatus === 'PENDING' ? 'AGUARDANDO' : 'NÃO CONFIGURADA'}</span></td>
                   <td className="p-3 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                       <button

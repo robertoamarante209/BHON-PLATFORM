@@ -30,7 +30,10 @@ export const PlatformOverviewPage: React.FC = () => {
   const overdueAmount = overdueInvoices.reduce((acc, i) => acc + i.amount, 0);
 
   const openTickets = supportTickets.filter((t) => t.status === 'OPEN' || t.status === 'IN_PROGRESS');
+  const criticalTickets = openTickets.filter((t) => t.priority === 'CRITICAL').length;
   const atRiskClinics = platformClinics.filter((c) => c.status === 'PAGAMENTO_PENDENTE' || c.status === 'SUSPENSA');
+  const connectedSarah = platformClinics.filter((c) => c.secretaryStatus === 'CONNECTED').length;
+  const totalUsers = platformClinics.reduce((total, clinic) => total + clinic.usersCount, 0);
   const maximumClinicMrr = Math.max(1, ...platformClinics.map((clinic) => clinic.mrr));
 
   return (
@@ -104,14 +107,14 @@ export const PlatformOverviewPage: React.FC = () => {
                   {openTickets.length} CHAMADOS EM ABERTO
                 </span>
                 <span className="font-mono-data text-xs text-rose-300 font-bold">
-                  1 CRÍTICO
+                  {criticalTickets} CRÍTICO{criticalTickets === 1 ? '' : 'S'}
                 </span>
               </div>
               <p className="text-xs font-bold text-slate-200">
                 Suporte Técnico das Clínicas
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                Clínica Bucal relatou falha de sincronização de agenda no Consultório 02.
+                {openTickets.length ? 'Acompanhe os chamados abertos e mantenha cada clínica informada.' : 'Nenhum chamado operacional aberto no momento.'}
               </p>
             </div>
             <button
@@ -159,7 +162,7 @@ export const PlatformOverviewPage: React.FC = () => {
         <div className="p-3.5 bg-slate-950 border border-slate-800 rounded">
           <span className="text-xs text-slate-400 block mb-1">Clínicas Ativas na BHON</span>
           <div className="font-mono-data text-2xl font-bold text-white">{activeClinicsCount}</div>
-          <span className="text-[11px] text-emerald-400 font-mono-data mt-1 block">+1 este mês</span>
+          <span className="text-[11px] text-emerald-400 font-mono-data mt-1 block">{newClinicsThisMonth} em período de teste</span>
         </div>
 
         <div className="p-3.5 bg-slate-950 border border-slate-800 rounded border-l-4 border-l-amber-500">
@@ -171,15 +174,15 @@ export const PlatformOverviewPage: React.FC = () => {
         </div>
 
         <div className="p-3.5 bg-slate-950 border border-slate-800 rounded">
-          <span className="text-xs text-slate-400 block mb-1">Taxa de Retenção Líquida</span>
-          <div className="font-mono-data text-2xl font-bold text-emerald-400">96.8%</div>
-          <span className="text-[11px] text-slate-400 font-mono-data mt-1 block">Churn mensal: 1.2%</span>
+          <span className="text-xs text-slate-400 block mb-1">Sarah / WhatsApp conectada</span>
+          <div className="font-mono-data text-2xl font-bold text-emerald-400">{connectedSarah}</div>
+          <span className="text-[11px] text-slate-400 font-mono-data mt-1 block">Das {platformClinics.length} clínicas cadastradas</span>
         </div>
 
         <div className="p-3.5 bg-slate-950 border border-slate-800 rounded">
           <span className="text-xs text-slate-400 block mb-1">Usuários Clínicos Ativos</span>
-          <div className="font-mono-data text-2xl font-bold text-white">42</div>
-          <span className="text-[11px] text-slate-400 font-mono-data mt-1 block">Dentistas e recepcionistas</span>
+          <div className="font-mono-data text-2xl font-bold text-white">{totalUsers}</div>
+          <span className="text-[11px] text-slate-400 font-mono-data mt-1 block">Usuários cadastrados nas clínicas</span>
         </div>
       </div>
 

@@ -2,16 +2,14 @@ import React, { useState } from 'react';
 import { useOperationalData } from '../../context/OperationalDataContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { MetricCard } from '../../components/common/MetricCard';
-import { ConfirmationDialog } from '../../components/common/ConfirmationDialog';
 import { Receipt, Search, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { PlatformInvoice } from '../../types';
 
 export const PlatformBillingPage: React.FC = () => {
-  const { platformInvoices, markPlatformInvoicePaid, platformClinics } = useOperationalData();
+  const { platformInvoices, platformClinics } = useOperationalData();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [confirmInvoiceId, setConfirmInvoiceId] = useState<string | null>(null);
 
   // Métricas do Faturamento da BHON cobrado das clínicas (Seção 31)
   const totalReceived = platformInvoices
@@ -41,13 +39,6 @@ export const PlatformBillingPage: React.FC = () => {
     const matchesStatus = statusFilter === 'ALL' || inv.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
-  const handleConfirmPaid = () => {
-    if (confirmInvoiceId) {
-      markPlatformInvoicePaid(confirmInvoiceId);
-      setConfirmInvoiceId(null);
-    }
-  };
 
   return (
     <div className="space-y-5 max-w-7xl mx-auto text-slate-100">
@@ -182,20 +173,7 @@ export const PlatformBillingPage: React.FC = () => {
                   <td className="p-3 font-mono-data text-slate-300 whitespace-nowrap">
                     {inv.nextBillingDate}
                   </td>
-                  <td className="p-3 text-right whitespace-nowrap">
-                    {inv.status !== 'PAGO' ? (
-                      <button
-                        onClick={() => setConfirmInvoiceId(inv.id)}
-                        className="px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded transition-colors"
-                      >
-                        Confirmar Pagamento
-                      </button>
-                    ) : (
-                      <span className="font-mono-data text-[10px] text-emerald-400 font-bold">
-                        LIQUIDADO
-                      </span>
-                    )}
-                  </td>
+                  <td className="p-3 text-right whitespace-nowrap"><span className="font-mono-data text-[10px] text-slate-400">Atualizado pelo Stripe</span></td>
                 </tr>
               ))}
             </tbody>
@@ -203,15 +181,6 @@ export const PlatformBillingPage: React.FC = () => {
         </div>
       </div>
 
-      <ConfirmationDialog
-        isOpen={!!confirmInvoiceId}
-        onClose={() => setConfirmInvoiceId(null)}
-        onConfirm={handleConfirmPaid}
-        title="Baixar Fatura da Plataforma BHON"
-        description="A fatura de mensalidade será confirmada como PAGA no faturamento da BHON. A clínica cliente terá a licença renovada automaticamente para o próximo ciclo."
-        confirmText="Confirmar Baixa"
-        isDestructive={false}
-      />
     </div>
   );
 };

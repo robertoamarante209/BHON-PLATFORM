@@ -1,18 +1,12 @@
-import React, { useState } from 'react';
-import { initialSubscriptionPlans } from '../../data/initialData';
-import { CreditCard, Check, Sliders, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
 import { SubscriptionPlan } from '../../types';
+import { loadSubscriptionPlans } from '../../lib/platform-owner';
 
 export const PlatformSubscriptionsPage: React.FC = () => {
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(initialSubscriptionPlans);
-  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
-
-  const handleUpdatePrice = (planId: string, newMonthly: number) => {
-    setPlans(prev =>
-      prev.map(p => (p.id === planId ? { ...p, monthlyPrice: newMonthly, annualPrice: newMonthly * 10 } : p))
-    );
-    setEditingPlan(null);
-  };
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [error, setError] = useState('');
+  useEffect(() => { void loadSubscriptionPlans().then(setPlans).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'Não foi possível carregar os planos.')); }, []);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto text-slate-100">
@@ -27,6 +21,7 @@ export const PlatformSubscriptionsPage: React.FC = () => {
           </p>
         </div>
       </div>
+      {error ? <p role="alert" className="rounded border border-rose-800 bg-rose-950/50 p-3 text-xs text-rose-200">{error}</p> : null}
 
       {/* Cards dos Planos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -78,20 +73,7 @@ export const PlatformSubscriptionsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-800">
-              <button
-                onClick={() => {
-                  const newPrice = prompt(`Novo valor mensal para ${plan.name}:`, String(plan.monthlyPrice));
-                  if (newPrice && !isNaN(Number(newPrice))) {
-                    handleUpdatePrice(plan.id, Number(newPrice));
-                  }
-                }}
-                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 text-xs font-semibold rounded flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>Ajustar Precificação</span>
-              </button>
-            </div>
+            <div className="pt-4 mt-4 border-t border-slate-800 text-[11px] text-slate-400">Valores sincronizados com o catálogo de assinatura da BHON.</div>
           </div>
         ))}
       </div>

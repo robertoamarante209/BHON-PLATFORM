@@ -372,6 +372,9 @@ export interface PlatformClinic {
   nextBillingDate: string;
   mrr: number;
   createdAt: string;
+  clinicPhone?: string;
+  ownerPhone?: string;
+  secretaryStatus?: string;
 }
 
 export interface SubscriptionPlan {

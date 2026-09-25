@@ -6,7 +6,7 @@ import { LifeBuoy, Search, CheckCircle2, Clock, MessageSquare, AlertTriangle } f
 import { SupportTicket } from '../../types';
 
 export const PlatformSupportPage: React.FC = () => {
-  const { supportTickets, updateTicketStatus } = useOperationalData();
+  const { supportTickets, updateTicketStatus, platformError, refreshPlatformData } = useOperationalData();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -22,10 +22,14 @@ export const PlatformSupportPage: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const handleStatusUpdate = (newStatus: SupportTicket['status']) => {
+  const handleStatusUpdate = async (newStatus: SupportTicket['status']) => {
     if (selectedTicket) {
-      updateTicketStatus(selectedTicket.id, newStatus);
-      setSelectedTicket((prev) => (prev ? { ...prev, status: newStatus } : null));
+      try {
+        await updateTicketStatus(selectedTicket.id, newStatus);
+        setSelectedTicket((prev) => (prev ? { ...prev, status: newStatus } : null));
+      } catch {
+        await refreshPlatformData();
+      }
     }
   };
 
@@ -46,6 +50,7 @@ export const PlatformSupportPage: React.FC = () => {
           {supportTickets.filter(t => t.status !== 'RESOLVED').length} chamados em aberto
         </span>
       </div>
+      {platformError ? <div role="alert" className="rounded border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-200">{platformError}</div> : null}
 
       {/* Barra de Filtros */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950 p-3 border border-slate-800 rounded">

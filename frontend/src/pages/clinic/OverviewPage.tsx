@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowRight, CalendarDays, Check, Clock3, MoreHorizontal, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, Check, Clock3, MoreHorizontal, Sparkles, Users } from 'lucide-react';
 import { Drawer } from '../../components/common/Drawer';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { RecoveryQueue } from '../../components/recovery/RecoveryQueue';
@@ -27,6 +27,8 @@ export const OverviewPage: React.FC = () => {
     completed: appointments.filter((item) => item.status === 'CONCLUIDO').length,
   }), [appointments]);
   const nextAppointments = appointments.filter((item) => actionable.includes(item.status)).slice(0, 7);
+  const confirmationQueue = appointments.filter((item) => item.status === 'AGUARDANDO_CONFIRMACAO');
+  const nextPriority = confirmationQueue[0] || nextAppointments[0] || null;
 
   const changeStatus = async (status: AppointmentStatus) => {
     if (!selected || actionLoading || !appointmentTransitions[selected.status].includes(status)) return;
@@ -58,6 +60,21 @@ export const OverviewPage: React.FC = () => {
           { label: 'Agendados', value: summary.total, icon: CalendarDays }, { label: 'Aguardando', value: summary.waiting, icon: Clock3 },
           { label: 'Em atendimento', value: summary.inProgress, icon: Users }, { label: 'Concluídos', value: summary.completed, icon: Check },
         ].map(({ label, value, icon: Icon }) => <div key={label} className="flex min-w-max items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-bhon-teal-subtle text-bhon-teal-dark"><Icon className="h-4 w-4" aria-hidden="true" /></span><div><p className="font-mono-data text-lg font-semibold text-bhon-navy">{value}</p><p className="text-[10px] font-medium text-bhon-muted">{label}</p></div></div>)}
+      </section> : null}
+
+      {!loadFailed ? <section aria-labelledby="secretary-title" className="overflow-hidden rounded-2xl border border-teal-100 bg-gradient-to-r from-bhon-teal-subtle via-white to-white shadow-[0_8px_28px_rgba(31,49,60,0.045)]">
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bhon-teal text-white shadow-sm"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
+            <div>
+              <p className="bhon-eyebrow text-bhon-teal-dark">Secretária BHON</p>
+              <h2 id="secretary-title" className="mt-1 text-base font-bold text-bhon-navy">{confirmationQueue.length > 0 ? `${confirmationQueue.length} confirmação${confirmationQueue.length === 1 ? '' : 'ões'} precisa${confirmationQueue.length === 1 ? '' : 'm'} de atenção` : nextPriority ? 'O próximo atendimento está organizado' : 'Sua agenda está em ordem'}</h2>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-bhon-muted">{confirmationQueue.length > 0 ? 'Revise a confirmação antes de acionar a comunicação com o paciente.' : nextPriority ? `${nextPriority.patientName} é a próxima pessoa na jornada de hoje.` : 'Quando houver uma confirmação, retorno ou atendimento prioritário, ele aparecerá aqui.'}</p>
+            </div>
+          </div>
+          {nextPriority ? <button type="button" onClick={() => setSelected(nextPriority)} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-semibold text-white transition-colors hover:bg-bhon-navy-hover">{confirmationQueue.length > 0 ? 'Revisar confirmação' : 'Abrir próximo atendimento'} <ArrowRight className="h-3.5 w-3.5 text-bhon-teal" aria-hidden="true" /></button> : <Link href="/clinic/agenda" className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-bhon-border bg-white px-4 text-xs font-semibold text-bhon-navy hover:border-bhon-teal">Abrir agenda <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>}
+        </div>
+        <p className="border-t border-teal-100/80 bg-white/70 px-5 py-2 text-[11px] text-bhon-muted">Sugestões baseadas na agenda atual. Nenhuma mensagem ou mudança é executada sem uma ação da equipe.</p>
       </section> : null}
 
       <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,.75fr)]">

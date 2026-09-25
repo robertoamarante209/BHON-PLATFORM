@@ -18,6 +18,8 @@ describe('public navigation', () => {
   it('provides real destinations for legal documents and support', () => {
     const { container } = render(<BhonLandingPage />);
     expect(container.querySelector('.public-marquee')).toBeNull();
+    expect(screen.queryByText('GESTÃO PARA CLÍNICAS DE TODAS AS ESPECIALIDADES')).not.toBeInTheDocument();
+    expect(screen.queryByText('BHON / 001')).not.toBeInTheDocument();
     expect(screen.getByText(/transformamos faltas em faturamento/i)).toBeVisible();
     expect(screen.queryByText('01 / A ROTINA MERECE MAIS CLAREZA')).not.toBeInTheDocument();
     expect(screen.queryByText('05 / ANTES DE COMEÇAR')).not.toBeInTheDocument();

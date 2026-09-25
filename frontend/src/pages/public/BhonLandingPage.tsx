@@ -19,7 +19,6 @@ function Hero() {
     <div className="public-hero-grid" aria-hidden="true" />
     <motion.div className="public-orbit" aria-hidden="true" animate={reduced ? undefined : { rotate: 360 }} transition={{ duration: 70, repeat: Infinity, ease: 'linear' }}><i /><i /><i /></motion.div>
     <div className="public-container public-hero-content">
-      <div className="public-hero-top"><span className="public-kicker"><i className="public-live-dot" /> GESTÃO PARA CLÍNICAS DE TODAS AS ESPECIALIDADES</span><span className="public-hero-index">BHON / 001</span></div>
       <h1 aria-label="A clínica no controle.">{['A clínica', 'no controle.'].map((line, index) => <span key={line} className="public-title-line"><motion.span className={index ? 'public-outline-text' : ''} initial={reduced ? false : { y: '105%' }} animate={{ y: 0 }} transition={{ duration: 0.9, delay: index * 0.12, ease: [0.22, 1, 0.36, 1] }}>{line}</motion.span></span>)}</h1>
       <div className="public-hero-bottom"><p>Da primeira consulta ao retorno que estava faltando.<br />Agenda, pacientes e oportunidades no mesmo lugar.<br /><strong>Transformamos faltas em faturamento.</strong></p><div><a className="public-button" href="/comece">Começar teste grátis <ArrowUpRight size={19} /></a><small>14 dias para testar na sua rotina.</small></div></div>
       <a className="public-explore" href="#produto"><span>CONHEÇA A BHON</span><ArrowDown size={16} /></a>

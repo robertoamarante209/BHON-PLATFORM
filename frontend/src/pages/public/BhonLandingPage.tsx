@@ -49,7 +49,6 @@ export function BhonLandingPage() {
 
   return <PublicShell>
     <Hero />
-    <div className="public-marquee" aria-hidden="true"><div>{[0,1].map(n => <span key={n}>AGENDA <b>↗</b> PACIENTES <b>↗</b> EQUIPE <b>↗</b> RECUPERAÇÃO <b>↗</b> A CLÍNICA NO CONTROLE <b>↗</b> </span>)}</div></div>
     <section id="produto" className="public-section public-product"><div className="public-container">
       <PublicReveal><div className="public-section-heading"><h2>Seu dia já é cheio.<br /><span>A gestão pode ser simples.</span></h2><p>Entre um atendimento e outro, a clínica precisa continuar funcionando. A BHON aproxima as informações de quem precisa agir.</p></div></PublicReveal>
       <div className="public-pillars">{pillars.map(({ icon: Icon, title, text }, i) => <PublicReveal key={title} delay={i * 0.06} className="public-pillar"><div><span>0{i+1}</span><Icon size={22} /></div><h3>{title}</h3><p>{text}</p></PublicReveal>)}</div>

@@ -16,7 +16,8 @@ describe('public navigation', () => {
     expect(trigger).toHaveFocus();
   });
   it('provides real destinations for legal documents and support', () => {
-    render(<BhonLandingPage />);
+    const { container } = render(<BhonLandingPage />);
+    expect(container.querySelector('.public-marquee')).toBeNull();
     expect(screen.getByText(/transformamos faltas em faturamento/i)).toBeVisible();
     expect(screen.queryByText('01 / A ROTINA MERECE MAIS CLAREZA')).not.toBeInTheDocument();
     expect(screen.queryByText('05 / ANTES DE COMEÇAR')).not.toBeInTheDocument();

@@ -470,6 +470,60 @@ export async function clinicalRoutes(app: FastifyInstance) {
     return reply.send(updated);
   });
 
+  app.post<{ Params: { id: string }; Body: { content: string; category?: "CLINICAL" | "ORIENTATION" | "FOLLOW_UP" } }>("/patients/:id/evolutions", {
+    preHandler: requirePermission('patients.edit'),
+    schema: {
+      body: {
+        type: "object",
+        additionalProperties: false,
+        required: ["content"],
+        properties: {
+          content: { type: "string", minLength: 3, maxLength: 4_000 },
+          category: { type: "string", enum: ["CLINICAL", "ORIENTATION", "FOLLOW_UP"] },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const actor = request.user!;
+    const patient = await prisma.patient.findFirst({
+      where: { id: request.params.id, tenantId, deletedAt: null },
+      select: { id: true, name: true },
+    });
+    if (!patient) return reply.code(404).send({ error: "Paciente não encontrado.", code: "PATIENT_NOT_FOUND" });
+
+    const body = request.body;
+    const content = body.content.trim();
+    if (content.length < 3) return reply.code(400).send({ error: "Descreva a evolução do paciente.", code: "EVOLUTION_CONTENT_INVALID" });
+
+    const event = await prisma.$transaction(async (tx) => {
+      const created = await tx.timelineEvent.create({
+        data: {
+          tenantId,
+          patientId: patient.id,
+          actorUserId: actor.id,
+          type: "CLINICAL_EVOLUTION",
+          description: content,
+          metadata: { category: body.category || "CLINICAL" },
+        },
+        include: { actorUser: { select: { id: true, name: true } } },
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          actorUserId: actor.id,
+          action: "CREATE_EVOLUTION",
+          resource: "Patient",
+          resourceId: patient.id,
+          metadata: { category: body.category || "CLINICAL", contentLength: content.length },
+        },
+      });
+      return created;
+    });
+
+    return reply.code(201).send(event);
+  });
+
   app.get<{ Params: { id: string } }>("/patients/:id", { preHandler: requirePermission('patients.view') }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     const tenantId = request.tenantId!;
     const { id } = request.params;

@@ -11,6 +11,9 @@ import {
   ChevronRight,
   ArrowUpRight,
   RefreshCw,
+  CalendarCheck2,
+  Clock3,
+  ShieldCheck,
 } from 'lucide-react';
 import type { Appointment, AppointmentStatus, Patient, Room } from '../../types';
 import { appointmentTransitions, createAppointment, getSchedulingResources, listAppointments, listPatients, updateAppointmentStatus } from '../../lib/clinic';
@@ -24,6 +27,22 @@ function moveDate(value: string, days: number): string {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
+
+function minutesFromTime(value: string): number {
+  const [hours, minutes] = value.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function overlaps(startA: number, durationA: number, startB: number, durationB: number): boolean {
+  return startA < startB + durationB && startB < startA + durationA;
+}
+
+const timeSlots = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+  '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+  '17:00', '17:30', '18:00',
+];
 
 const appointmentCardTones: Record<AppointmentStatus, { tone: string; label: string; className: string }> = {
   CONFIRMADO: { tone: 'teal', label: 'Confirmado', className: 'border-teal-300 bg-teal-50/90' },
@@ -60,14 +79,6 @@ export const AgendaPage: React.FC = () => {
 
   // Filtros operacionais
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-
-  // Horários operacionais clínicos: 08:00 até 18:30 a cada 30 min
-  const timeSlots = [
-    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-    '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
-    '17:00', '17:30', '18:00'
-  ];
 
   // Formulário de Nova Consulta
   const [newPatientId, setNewPatientId] = useState('');
@@ -107,6 +118,18 @@ export const AgendaPage: React.FC = () => {
   const appointmentsBySlot = useMemo(() => new Map(appointments.map((appointment) => [`${appointment.professionalId}-${appointment.time}`, appointment])), [appointments]);
   const visibleAppointments = statusFilter === 'ALL' ? appointments : appointments.filter((appointment) => appointment.status === statusFilter);
   const canTransition = (appointment: Appointment, status: AppointmentStatus) => appointmentTransitions[appointment.status].includes(status);
+  const pendingConfirmations = appointments.filter((appointment) => appointment.status === 'AGUARDANDO_CONFIRMACAO');
+  const schedulingAssistant = useMemo(() => {
+    const candidateStart = minutesFromTime(newTime);
+    const activeAppointments = appointments.filter((appointment) => !['CANCELADO', 'FALTA'].includes(appointment.status));
+    const conflictsAt = (time: string) => activeAppointments.filter((appointment) => {
+      const sharesResource = appointment.roomId === newRoomId || appointment.professionalId === newProfessionalId;
+      return sharesResource && overlaps(minutesFromTime(appointment.time), appointment.durationMinutes, minutesFromTime(time), 30);
+    });
+    const conflicts = conflictsAt(newTime);
+    const suggestions = timeSlots.filter((time) => time !== newTime && conflictsAt(time).length === 0).slice(0, 3);
+    return { conflicts, suggestions };
+  }, [appointments, newProfessionalId, newRoomId, newTime]);
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +138,10 @@ export const AgendaPage: React.FC = () => {
     const room = rooms.find(r => r.id === newRoomId);
     const professional = professionals.find(value => value.id === newProfessionalId);
     if (!patient || !room || !professional || !newProcedure.trim() || actionLoading) return;
+    if (schedulingAssistant.conflicts.length > 0) {
+      setError('Escolha um horário sugerido. A BHON bloqueou este agendamento para evitar conflito de sala ou profissional.');
+      return;
+    }
     setActionLoading(true);
     setError('');
     try {
@@ -205,6 +232,7 @@ export const AgendaPage: React.FC = () => {
           <span><strong className="font-mono-data text-bhon-navy">{visibleAppointments.length}</strong> atendimentos visíveis</span>
           <span><strong className="font-mono-data text-bhon-navy">{rooms.length}</strong> ambientes clínicos</span>
           <span><strong className="font-mono-data text-bhon-navy">{professionals.length}</strong> profissionais disponíveis</span>
+          {pendingConfirmations.length > 0 ? <span className="inline-flex items-center gap-1.5 font-semibold text-amber-800"><CalendarCheck2 aria-hidden="true" className="h-3.5 w-3.5" />{pendingConfirmations.length} {pendingConfirmations.length === 1 ? 'confirmação pendente' : 'confirmações pendentes'}</span> : null}
         </div>
       </section>
 
@@ -426,6 +454,19 @@ export const AgendaPage: React.FC = () => {
               </div>
             </div> : null}
 
+            {canEditAgenda && selectedApt.status === 'AGUARDANDO_CONFIRMACAO' ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-bold text-amber-950">Confirmação de consulta</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-amber-800">Registre a resposta do paciente. Quando a integração de mensagens estiver ativa, a BHON atualizará este status automaticamente.</p>
+              <button
+                type="button"
+                disabled={actionLoading || !canTransition(selectedApt, 'CONFIRMADO')}
+                onClick={() => void changeStatus(selectedApt, 'CONFIRMADO')}
+                className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-amber-900 px-3 text-[11px] font-bold text-white transition-colors hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <CalendarCheck2 aria-hidden="true" className="h-3.5 w-3.5" /> Confirmar consulta
+              </button>
+            </div> : null}
+
             {/* Informar Atraso */}
             {canEditAgenda ? <div className="pt-3 border-t border-bhon-border">
               <label className="block font-bold text-bhon-text uppercase tracking-wider text-[11px] mb-1.5">
@@ -555,6 +596,16 @@ export const AgendaPage: React.FC = () => {
             </div>
           </div>
 
+          <section aria-label="Assistente de agenda" className={`rounded-xl border p-3 ${schedulingAssistant.conflicts.length > 0 ? 'border-rose-200 bg-rose-50' : 'border-teal-200 bg-teal-50/70'}`}>
+            {schedulingAssistant.conflicts.length > 0 ? <>
+              <div className="flex items-start gap-2 text-rose-900" role="alert">
+                <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <div><p className="font-bold">Conflito de agenda detectado</p><p className="mt-0.5 text-[11px] leading-relaxed">Este horário já utiliza {schedulingAssistant.conflicts.some((appointment) => appointment.professionalId === newProfessionalId) ? 'o profissional selecionado' : 'a sala selecionada'}.</p></div>
+              </div>
+              {schedulingAssistant.suggestions.length > 0 ? <div className="mt-3"><p className="text-[10px] font-bold uppercase tracking-wider text-rose-800">Horários sugeridos</p><div className="mt-2 flex flex-wrap gap-2">{schedulingAssistant.suggestions.map((time) => <button key={time} type="button" onClick={() => setNewTime(time)} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-rose-300 bg-white px-2.5 font-mono-data text-[11px] font-bold text-rose-900 transition-colors hover:bg-rose-100"><Clock3 aria-hidden="true" className="h-3 w-3" />{time}</button>)}</div></div> : null}
+            </> : <div className="flex items-start gap-2 text-teal-950" role="status"><ShieldCheck aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" /><div><p className="font-bold">Horário disponível</p><p className="mt-0.5 text-[11px] leading-relaxed text-teal-800">Sala e profissional estão livres para este atendimento de 30 minutos.</p></div></div>}
+          </section>
+
           <div>
             <label htmlFor="new-appointment-professional" className="block font-semibold text-bhon-text mb-1">Profissional</label>
             <select
@@ -586,7 +637,7 @@ export const AgendaPage: React.FC = () => {
 
           <button
             type="submit"
-            disabled={actionLoading || !newPatientId || !newRoomId || !newProfessionalId}
+            disabled={actionLoading || !newPatientId || !newRoomId || !newProfessionalId || schedulingAssistant.conflicts.length > 0}
             className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
           >
             {actionLoading ? 'Salvando agendamento…' : 'Confirmar e Inserir na Agenda'}

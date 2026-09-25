@@ -80,6 +80,22 @@ describe('AgendaPage', () => {
     expect(card).toHaveTextContent('Paciente real');
   });
 
+  it('antecipa conflito de sala ou profissional e sugere outro horário antes de salvar', async () => {
+    api.listAppointments.mockResolvedValue([{
+      id: 'appointment-conflict', tenantId: 'tenant-1', patientId: 'patient-1', patientName: 'Paciente real', patientRecordNumber: '#00001',
+      professionalId: 'user-1', professionalName: 'Profissional', roomId: 'room-1', roomName: 'Sala 1', scheduledAt: '2026-09-14T14:30:00.000Z',
+      time: '14:30', durationMinutes: 30, procedureName: 'Avaliação inicial', status: 'CONFIRMADO', delayMinutes: 0,
+    }]);
+    render(<AgendaPage />);
+
+    const openButton = await screen.findByRole('button', { name: 'Novo agendamento' });
+    fireEvent.click(openButton);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Conflito de agenda detectado');
+    expect(screen.getByText('Horários sugeridos')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirmar e inserir na agenda/i })).toBeDisabled();
+  });
+
   it('não oferece novo agendamento para acesso somente leitura', async () => {
     auth.currentUser = { role: 'VIEWER', permissions: ['agenda.view'] };
     render(<AgendaPage />);

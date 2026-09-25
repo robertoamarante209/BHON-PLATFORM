@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { hasClinicPermission, type ClinicPermission } from '../../lib/permissions';
 import { canManageClinicConfiguration } from '../../lib/clinicConfiguration';
 
-type NavigationItem = { label: string; path: string; icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>; permission?: ClinicPermission; configuration?: boolean };
+type NavigationItem = { label: string; mobileLabel?: string; path: string; icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>; permission?: ClinicPermission; configuration?: boolean };
 type NavigationSection = { label: string; items: NavigationItem[] };
 
 const sections: NavigationSection[] = [
@@ -20,7 +20,7 @@ const sections: NavigationSection[] = [
     { label: 'Tratamentos', path: '/clinic/treatments', icon: Stethoscope, permission: 'patients.view' },
   ] },
   { label: 'Relacionamento', items: [
-    { label: 'Recuperar orçamentos', path: '/clinic/follow-ups?category=ORCAMENTO', icon: Sparkles, permission: 'recovery.view' },
+    { label: 'Recuperar orçamentos', mobileLabel: 'Recuperar', path: '/clinic/follow-ups?category=ORCAMENTO', icon: Sparkles, permission: 'recovery.view' },
     { label: 'Oportunidades', path: '/clinic/opportunities', icon: Target, permission: 'recovery.view' },
     { label: 'Acompanhamentos', path: '/clinic/follow-ups', icon: Clock3, permission: 'recovery.view' },
     { label: 'Orçamentos', path: '/clinic/budgets', icon: ClipboardCheck, permission: 'recovery.view' },
@@ -135,7 +135,7 @@ export const Sidebar: React.FC = () => {
           return (
             <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${active ? 'text-bhon-teal-dark' : 'text-bhon-muted'}`}>
               <Icon aria-hidden="true" className="h-5 w-5" />
-              <span>{item.label.replace(' clínica', '')}</span>
+              <span>{item.mobileLabel || item.label.replace(' clínica', '')}</span>
             </Link>
           );
         })}

@@ -174,6 +174,38 @@
 .bhon-clinic-theme--dark input::placeholder,
 .bhon-clinic-theme--dark textarea::placeholder { color: #90A59E; }
 
+/* A mesma variável "navy" é usada para títulos e botões no legado. No escuro,
+   superfícies de ação recebem uma tinta própria para não gerar texto branco em fundo claro. */
+.bhon-clinic-theme--dark .bg-bhon-navy {
+  background-color: #DDF2EA;
+  color: #102C24;
+}
+.bhon-clinic-theme--dark .bg-bhon-navy:hover,
+.bhon-clinic-theme--dark .hover\:bg-bhon-navy-hover:hover { background-color: #C5E5D9; }
+.bhon-clinic-theme--dark .bg-bhon-teal {
+  background-color: #66CBB9;
+  color: #082D26;
+}
+.bhon-clinic-theme--dark .bg-bhon-teal.text-white { color: #082D26; }
+.bhon-clinic-theme--dark .bg-white\/70 { background-color: rgba(26, 42, 37, 0.94); }
+
+/* Estados operacionais mantêm significado sem depender de texto escuro sobre superfícies claras. */
+.bhon-clinic-theme--dark :is(.bg-rose-50, .bg-rose-100, .bg-rose-50\/30, .bg-rose-50\/40, .bg-rose-50\/70) { background-color: #3C2028; }
+.bhon-clinic-theme--dark :is(.border-rose-100, .border-rose-200, .border-rose-300) { border-color: #8A4653; }
+.bhon-clinic-theme--dark :is(.text-rose-700, .text-rose-800, .text-rose-900) { color: #FECED5; }
+.bhon-clinic-theme--dark :is(.bg-amber-50, .bg-amber-100, .bg-amber-50\/30, .bg-amber-50\/70) { background-color: #3B2D1A; }
+.bhon-clinic-theme--dark :is(.border-amber-200, .border-amber-300) { border-color: #8C6A31; }
+.bhon-clinic-theme--dark :is(.text-amber-700, .text-amber-800, .text-amber-900) { color: #FDE6A7; }
+.bhon-clinic-theme--dark :is(.bg-emerald-50, .bg-emerald-100) { background-color: #17372C; }
+.bhon-clinic-theme--dark :is(.border-emerald-200, .border-emerald-300) { border-color: #397C64; }
+.bhon-clinic-theme--dark :is(.text-emerald-700, .text-emerald-800, .text-emerald-900) { color: #B7F2D0; }
+.bhon-clinic-theme--dark :is(.bg-blue-50, .bg-sky-50) { background-color: #172F45; }
+.bhon-clinic-theme--dark :is(.border-blue-200, .border-sky-200) { border-color: #3D709A; }
+.bhon-clinic-theme--dark :is(.text-blue-800, .text-sky-800) { color: #C3E3FF; }
+.bhon-clinic-theme--dark :is(.bg-purple-50) { background-color: #302347; }
+.bhon-clinic-theme--dark :is(.border-purple-200) { border-color: #7357A0; }
+.bhon-clinic-theme--dark :is(.text-purple-800) { color: #E3D2FF; }
+
 /* A agenda usa camadas próprias para preservar a leitura da grade em modo escuro. */
 .bhon-clinic-theme--dark .bg-\[\#FBFCF9\],
 .bhon-clinic-theme--dark .bg-\[\#FEFFFC\],

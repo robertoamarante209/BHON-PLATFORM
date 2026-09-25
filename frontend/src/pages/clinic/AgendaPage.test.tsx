@@ -96,6 +96,19 @@ describe('AgendaPage', () => {
     expect(screen.getByRole('button', { name: /confirmar e inserir na agenda/i })).toBeDisabled();
   });
 
+  it('direciona a equipe para as confirmações pendentes do dia', async () => {
+    api.listAppointments.mockResolvedValue([{
+      id: 'appointment-confirmation', tenantId: 'tenant-1', patientId: 'patient-1', patientName: 'Paciente real', patientRecordNumber: '#00001',
+      professionalId: 'user-1', professionalName: 'Profissional', roomId: 'room-1', roomName: 'Sala 1', scheduledAt: '2026-09-14T14:30:00.000Z',
+      time: '14:30', durationMinutes: 30, procedureName: 'Avaliação inicial', status: 'AGUARDANDO_CONFIRMACAO', delayMinutes: 0,
+    }]);
+    render(<AgendaPage />);
+
+    const pending = await screen.findByRole('button', { name: '1 confirmação pendente' });
+    fireEvent.click(pending);
+    expect(screen.getByLabelText('Filtrar por status')).toHaveValue('AGUARDANDO_CONFIRMACAO');
+  });
+
   it('não oferece novo agendamento para acesso somente leitura', async () => {
     auth.currentUser = { role: 'VIEWER', permissions: ['agenda.view'] };
     render(<AgendaPage />);

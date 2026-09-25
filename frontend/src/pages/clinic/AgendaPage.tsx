@@ -217,6 +217,7 @@ export const AgendaPage: React.FC = () => {
             <option value="ALL">Todos os status</option>
             <option value="EM_ATENDIMENTO">Em Atendimento</option>
             <option value="NA_RECEPCAO">Na Recepção</option>
+            <option value="AGUARDANDO_CONFIRMACAO">Aguardando confirmação</option>
             <option value="CONFIRMADO">Confirmados</option>
             <option value="FALTA">Faltas</option>
           </select>
@@ -232,7 +233,7 @@ export const AgendaPage: React.FC = () => {
           <span><strong className="font-mono-data text-bhon-navy">{visibleAppointments.length}</strong> atendimentos visíveis</span>
           <span><strong className="font-mono-data text-bhon-navy">{rooms.length}</strong> ambientes clínicos</span>
           <span><strong className="font-mono-data text-bhon-navy">{professionals.length}</strong> profissionais disponíveis</span>
-          {pendingConfirmations.length > 0 ? <span className="inline-flex items-center gap-1.5 font-semibold text-amber-800"><CalendarCheck2 aria-hidden="true" className="h-3.5 w-3.5" />{pendingConfirmations.length} {pendingConfirmations.length === 1 ? 'confirmação pendente' : 'confirmações pendentes'}</span> : null}
+          {pendingConfirmations.length > 0 ? <button type="button" onClick={() => setStatusFilter('AGUARDANDO_CONFIRMACAO')} className="inline-flex items-center gap-1.5 rounded-lg font-semibold text-amber-800 underline-offset-2 transition-colors hover:text-amber-950 hover:underline"><CalendarCheck2 aria-hidden="true" className="h-3.5 w-3.5" />{pendingConfirmations.length} {pendingConfirmations.length === 1 ? 'confirmação pendente' : 'confirmações pendentes'}</button> : null}
         </div>
       </section>
 

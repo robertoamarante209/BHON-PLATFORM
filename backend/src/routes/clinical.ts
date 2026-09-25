@@ -7,6 +7,7 @@ import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgre
 import { zonedCalendarDayRange, zonedDayRange } from "../domain/time.js";
 import { hasPermission, permissionForAppointmentStatus } from "../domain/permissions.js";
 import { calculateBudget } from "../domain/budget.js";
+import { planAppointmentReminders } from "../domain/appointment-reminders.js";
 
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const CLINIC_WRITE_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
@@ -658,7 +659,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
           durationMinutes,
           procedureName: body.procedureName.trim(),
           treatmentStageId: body.treatmentStageId || null,
-          status: AppointmentStatus.CONFIRMADO,
+          status: AppointmentStatus.AGUARDANDO_CONFIRMACAO,
           notes: body.notes?.trim() || null,
         },
         include: {
@@ -678,6 +679,17 @@ export async function clinicalRoutes(app: FastifyInstance) {
           description: `Agendado para ${scheduledAt.toLocaleDateString("pt-BR")} às ${scheduledAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (${created.procedureName}).`
         }
       });
+      const reminders = planAppointmentReminders(created.id, scheduledAt);
+      if (reminders.length > 0) {
+        await tx.notificationOutbox.createMany({
+          data: reminders.map((reminder) => ({
+            tenantId,
+            channel: reminder.channel,
+            templateKey: reminder.templateKey,
+            scheduledFor: reminder.scheduledFor,
+          })),
+        });
+      }
       await tx.auditLog.create({
         data: {
           tenantId,
@@ -699,6 +711,43 @@ export async function clinicalRoutes(app: FastifyInstance) {
     }
 
     return reply.code(201).send(appointment);
+  });
+
+  app.get("/appointment-confirmations", { preHandler: requirePermission('agenda.view') }, async (request: FastifyRequest) => {
+    const tenantId = request.tenantId!;
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1_000);
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        tenantId,
+        status: { in: [AppointmentStatus.AGUARDANDO_CONFIRMACAO, AppointmentStatus.CONFIRMADO] },
+        scheduledAt: { gte: now, lte: windowEnd },
+      },
+      include: {
+        patient: { select: { id: true, name: true, phone: true, recordNumber: true } },
+        professional: { select: { id: true, name: true } },
+        room: { select: { id: true, name: true } },
+      },
+      orderBy: { scheduledAt: "asc" },
+      take: 80,
+    });
+    const appointmentIds = appointments.map((appointment) => appointment.id);
+    const outbox = appointmentIds.length === 0 ? [] : await prisma.notificationOutbox.findMany({
+      where: {
+        tenantId,
+        templateKey: { in: appointmentIds.flatMap((id) => [
+          `APPOINTMENT_CONFIRMATION:${id}`,
+          `APPOINTMENT_REMINDER_PATIENT_24H:${id}`,
+          `APPOINTMENT_REMINDER_PROFESSIONAL_1H:${id}`,
+        ]) },
+      },
+      select: { templateKey: true, channel: true, status: true, scheduledFor: true },
+      orderBy: { scheduledFor: "asc" },
+    });
+    return appointments.map((appointment) => ({
+      ...appointment,
+      reminders: outbox.filter((item) => item.templateKey.endsWith(`:${appointment.id}`)),
+    }));
   });
 
   app.patch<{ Params: { id: string } }>("/appointments/:id/reschedule", {
@@ -839,6 +888,20 @@ export async function clinicalRoutes(app: FastifyInstance) {
           notes: body.notes !== undefined ? body.notes.trim() || null : appointment.notes,
         },
       });
+
+      if (body.status === AppointmentStatus.CONFIRMADO || body.status === AppointmentStatus.CANCELADO || body.status === AppointmentStatus.FALTA) {
+        const templatePrefixes = body.status === AppointmentStatus.CONFIRMADO
+          ? [`APPOINTMENT_CONFIRMATION:${appointment.id}`]
+          : [
+            `APPOINTMENT_CONFIRMATION:${appointment.id}`,
+            `APPOINTMENT_REMINDER_PATIENT_24H:${appointment.id}`,
+            `APPOINTMENT_REMINDER_PROFESSIONAL_1H:${appointment.id}`,
+          ];
+        await tx.notificationOutbox.updateMany({
+          where: { tenantId, templateKey: { in: templatePrefixes }, status: "PENDING" },
+          data: { status: "CANCELLED" },
+        });
+      }
 
       if (body.status === AppointmentStatus.FALTA) {
         await tx.followUp.create({

@@ -35,3 +35,20 @@ export function recoverableQuotes(items: RecoveryItem[]) {
   const known = quotes.filter(item => item.valueAtRisk !== null && Number.isFinite(item.valueAtRisk) && item.valueAtRisk >= 0);
   return { value: known.reduce((sum, item) => sum + item.valueAtRisk!, 0), count: quotes.length, unknown: quotes.length - known.length };
 }
+
+export function recoveryDestination(item: RecoveryItem) {
+  if (item.source === 'TREATMENT' || item.source === 'OPPORTUNITY') {
+    return { href: `/clinic/patients/${encodeURIComponent(item.patient.id)}`, label: 'Abrir prontuário' };
+  }
+  return { href: item.href, label: 'Abrir acompanhamento' };
+}
+
+export function recoveryDeadline(item: RecoveryItem, timeZone?: string) {
+  if (!item.deadline) return 'Sem prazo definido';
+  // Payment deadlines are calendar dates serialized at midnight UTC, not local instants.
+  const date = new Date(item.deadline);
+  if (!Number.isFinite(date.getTime())) return 'Prazo indisponível';
+  return `Prazo: ${date.toLocaleDateString('pt-BR', {
+    timeZone: item.source === 'PAYMENT' ? 'UTC' : timeZone,
+  })}`;
+}

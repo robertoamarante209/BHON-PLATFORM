@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Appointment } from '../types';
-import { agendaBriefing, prioritizeRecovery, recoverableQuotes, type RecoveryItem } from './overview';
+import { agendaBriefing, prioritizeRecovery, recoverableQuotes, recoveryDestination, recoveryDeadline, type RecoveryItem } from './overview';
 
 const appointment = (id: string, status: Appointment['status'], time: string): Appointment => ({
   id, status, scheduledAt: `2026-09-14T${time}:00Z`, time, tenantId: 'clinic', patientId: 'same-patient',
@@ -15,6 +15,25 @@ const recovery = (id: string, patch: Partial<RecoveryItem> = {}): RecoveryItem =
 });
 
 describe('daily briefing derivation', () => {
+  it('opens contextual patient records for sources without focus support', () => {
+    for (const source of ['TREATMENT', 'OPPORTUNITY'] as const) {
+      expect(recoveryDestination(recovery('source', { source,
+        patient: { id: 'patient /1', name: 'Ana', recordNumber: '001', phone: null },
+      }))).toEqual({ href: '/clinic/patients/patient%20%2F1', label: 'Abrir prontuário' });
+    }
+    for (const source of ['QUOTE', 'PAYMENT', 'FOLLOW_UP'] as const) {
+      const item = recovery('source', { source, href: '/clinic/example?focus=a%2Fb&status=OPEN' });
+      expect(recoveryDestination(item)).toEqual({ href: item.href, label: 'Abrir acompanhamento' });
+    }
+  });
+  it('preserves payment calendar dates in Sao Paulo while other deadlines use local time', () => {
+    const deadline = '2026-09-14T00:00:00.000Z';
+    expect(recoveryDeadline(recovery('p', { source: 'PAYMENT', deadline }), 'America/Sao_Paulo')).toBe('Prazo: 14/09/2026');
+    expect(recoveryDeadline(recovery('f', { source: 'FOLLOW_UP', deadline }), 'America/Sao_Paulo')).toBe('Prazo: 13/09/2026');
+    expect(recoveryDeadline(recovery('p', { source: 'PAYMENT', deadline: '2026-09-14' }), 'America/Sao_Paulo')).toBe('Prazo: 14/09/2026');
+    expect(recoveryDeadline(recovery('none'))).toBe('Sem prazo definido');
+    expect(recoveryDeadline(recovery('invalid', { deadline: 'invalid' }))).toBe('Prazo indisponível');
+  });
   it('orders by instant and separates appointments from distinct patients without treating past slots as next', () => {
     const input = [appointment('future', 'CONFIRMADO', '15:00'), appointment('missed', 'FALTA', '12:00'),
       appointment('past', 'AGUARDANDO_CONFIRMACAO', '13:00'), appointment('done', 'CONCLUIDO', '11:00')];

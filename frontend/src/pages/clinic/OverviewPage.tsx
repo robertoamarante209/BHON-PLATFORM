@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { listAppointments } from '../../lib/clinic';
 import { apiRequest } from '../../lib/api';
-import { agendaBriefing, prioritizeRecovery, recoverableQuotes, type RecoveryItem } from '../../lib/overview';
+import { agendaBriefing, prioritizeRecovery, recoverableQuotes, recoveryDestination, recoveryDeadline, type RecoveryItem } from '../../lib/overview';
 import type { Appointment } from '../../types';
 
 const actionClass = 'inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold text-bhon-navy hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bhon-teal focus-visible:ring-offset-2';
@@ -94,8 +94,8 @@ export const OverviewPage: React.FC = () => {
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-bhon-muted">Soma dos valores conhecidos de {potential.count} orçamentos únicos nesta consulta. Não representa receita garantida nem inclui tratamentos ou pagamentos. {potential.unknown > 0 ? `${potential.unknown} sem valor informado. ` : ''}A consulta retorna até 50 acompanhamentos e 25 registros por outra origem; não é o total da clínica.</p></div>
           {orderedRecovery.length === 0 ? <p className="rounded-xl border border-bhon-border bg-bhon-surface p-6 text-sm text-bhon-muted">Nenhuma ação de recuperação retornada nesta consulta. Continue acompanhando os pacientes pela agenda.</p>
             : <ol className="divide-y divide-bhon-border rounded-xl border border-bhon-border bg-bhon-surface">{orderedRecovery.slice(0, 8).map(item => <li key={item.id} className="grid min-w-0 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
-              <div className="min-w-0 break-words"><p className="text-sm font-semibold text-bhon-muted">Prioridade {priorities[item.priority].toLowerCase()} · {item.ageDays} dias</p><h3 className="mt-2 font-semibold">{item.patient.name} · {item.signal}</h3><p className="mt-2 text-sm leading-relaxed text-bhon-muted">{item.reason}</p><p className="mt-2 text-sm text-bhon-muted">{item.responsible?.name || 'Sem responsável definido'} · {item.deadline ? `Prazo: ${new Date(item.deadline).toLocaleDateString('pt-BR')}` : 'Sem prazo definido'}</p></div>
-              <div className="min-w-0 break-words"><p className="text-sm leading-relaxed">{item.nextAction}</p><Link href={item.href} className={`${actionClass} -ml-3 mt-2`}>Abrir acompanhamento<span className="sr-only"> de {item.patient.name}: {item.signal}</span> →</Link></div>
+              <div className="min-w-0 break-words"><p className="text-sm font-semibold text-bhon-muted">Prioridade {priorities[item.priority].toLowerCase()} · {item.ageDays} dias</p><h3 className="mt-2 font-semibold">{item.patient.name} · {item.signal}</h3><p className="mt-2 text-sm leading-relaxed text-bhon-muted">{item.reason}</p><p className="mt-2 text-sm text-bhon-muted">{item.responsible?.name || 'Sem responsável definido'} · {recoveryDeadline(item)}</p></div>
+              <div className="min-w-0 break-words"><p className="text-sm leading-relaxed">{item.nextAction}</p><Link href={recoveryDestination(item).href} className={`${actionClass} -ml-3 mt-2`}>{recoveryDestination(item).label}<span className="sr-only"> de {item.patient.name}: {item.signal}</span> →</Link></div>
             </li>)}</ol>}
           {orderedRecovery.length > 8 && <p className="mt-3 text-sm text-bhon-muted">Exibindo as 8 primeiras de {orderedRecovery.length} ações retornadas. Consulte os acompanhamentos e os módulos de origem para continuar.</p>}
         </>}

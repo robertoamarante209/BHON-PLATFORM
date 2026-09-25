@@ -16,6 +16,7 @@ async function findSchedulingConflict(
   client: SchedulingClient,
   input: {
     tenantId: string;
+    patientId: string;
     professionalId: string;
     roomId: string;
     scheduledAt: Date;
@@ -31,17 +32,20 @@ async function findSchedulingConflict(
       ...(input.excludeAppointmentId ? { id: { not: input.excludeAppointmentId } } : {}),
       status: { notIn: [AppointmentStatus.CANCELADO, AppointmentStatus.FALTA] },
       scheduledAt: { gte: earliestRelevantStart, lt: endsAt },
-      OR: [{ roomId: input.roomId }, { professionalId: input.professionalId }],
+      OR: [{ roomId: input.roomId }, { professionalId: input.professionalId }, { patientId: input.patientId }],
     },
-    select: { id: true, roomId: true, professionalId: true, scheduledAt: true, durationMinutes: true },
+    select: { id: true, patientId: true, roomId: true, professionalId: true, scheduledAt: true, durationMinutes: true },
   });
 
-  return candidates.find((candidate) => intervalsOverlap(
+  const overlap = candidates.find((candidate) => intervalsOverlap(
     candidate.scheduledAt,
     candidate.durationMinutes,
     input.scheduledAt,
     input.durationMinutes,
   )) || null;
+  if (!overlap) return null;
+  const conflict = overlap.patientId === input.patientId ? 'PATIENT' : overlap.professionalId === input.professionalId ? 'PROFESSIONAL' : 'ROOM';
+  return { code: 'SCHEDULE_CONFLICT', conflict, error: `${conflict === 'PATIENT' ? 'Paciente' : conflict === 'PROFESSIONAL' ? 'Profissional' : 'Ambiente'} já possui atendimento nesse intervalo.` };
 }
 
 async function validateAppointmentRelations(tenantId: string, body: any) {
@@ -597,12 +601,13 @@ export async function clinicalRoutes(app: FastifyInstance) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`;
       const conflict = await findSchedulingConflict(tx, {
         tenantId,
+        patientId: body.patientId,
         professionalId,
         roomId: body.roomId,
         scheduledAt,
         durationMinutes,
       });
-      if (conflict) return null;
+      if (conflict) return conflict;
 
       const created = await tx.appointment.create({
         data: {
@@ -648,12 +653,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
       return created;
     });
 
-    if (!appointment) {
-      return reply.code(409).send({
-        error: "O profissional ou o consultório já possui atendimento nesse intervalo.",
-        code: "SCHEDULE_CONFLICT",
-      });
-    }
+    if ('conflict' in appointment) return reply.code(409).send(appointment);
 
     return reply.code(201).send(appointment);
   });
@@ -666,6 +666,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
         additionalProperties: false,
         required: ["scheduledAt"],
         properties: {
+          procedureName: { type: "string", minLength: 2, maxLength: 240 },
           scheduledAt: { type: "string", format: "date-time" },
           roomId: { type: "string", minLength: 1, maxLength: 100 },
           professionalId: { type: "string", minLength: 1, maxLength: 100 },
@@ -677,19 +678,21 @@ export async function clinicalRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const tenantId = request.tenantId!;
     const actor = request.user!;
-    const body = request.body as { scheduledAt: string; roomId?: string; professionalId?: string; durationMinutes?: number; notes?: string };
-    const current = await prisma.appointment.findFirst({ where: { id: request.params.id, tenantId } });
-    if (!current) return reply.code(404).send({ error: "Agendamento não encontrado.", code: "APPOINTMENT_NOT_FOUND" });
+    const body = request.body as { scheduledAt: string; roomId?: string; professionalId?: string; durationMinutes?: number; notes?: string; procedureName?: string };
+    const updated = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`;
+    const current = await tx.appointment.findFirst({ where: { id: request.params.id, tenantId } });
+    if (!current) return { httpStatus: 404, error: "Agendamento não encontrado.", code: "APPOINTMENT_NOT_FOUND" };
     if (current.status === AppointmentStatus.CONCLUIDO) {
-      return reply.code(409).send({ error: "Um atendimento concluído não pode ser reagendado.", code: "APPOINTMENT_COMPLETED" });
+      return { httpStatus: 409, error: "Um atendimento concluído não pode ser reagendado.", code: "APPOINTMENT_COMPLETED" };
     }
 
     const scheduledAt = new Date(body.scheduledAt);
     if (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() < Date.now() - 5 * 60_000) {
-      return reply.code(400).send({ error: "Informe uma data futura válida.", code: "INVALID_RESCHEDULE_DATE" });
+      return { httpStatus: 400, error: "Informe uma data futura válida.", code: "INVALID_RESCHEDULE_DATE" };
     }
     const durationMinutes = parseAppointmentDuration(body.durationMinutes ?? current.durationMinutes);
-    if (!durationMinutes) return reply.code(400).send({ error: "A duração deve estar entre 5 e 480 minutos.", code: "INVALID_DURATION" });
+    if (!durationMinutes) return { httpStatus: 400, error: "A duração deve estar entre 5 e 480 minutos.", code: "INVALID_DURATION" };
     const roomId = body.roomId || current.roomId;
     const professionalId = body.professionalId || current.professionalId;
     const relationError = await validateAppointmentRelations(tenantId, {
@@ -699,22 +702,20 @@ export async function clinicalRoutes(app: FastifyInstance) {
       treatmentId: current.treatmentId,
       treatmentStageId: current.treatmentStageId,
     });
-    if (relationError) return reply.code(400).send({ error: relationError });
-
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`;
+    if (relationError) return { httpStatus: 400, error: relationError };
       const conflict = await findSchedulingConflict(tx, {
         tenantId,
+        patientId: current.patientId,
         professionalId,
         roomId,
         scheduledAt,
         durationMinutes,
         excludeAppointmentId: current.id,
       });
-      if (conflict) return null;
+      if (conflict) return { httpStatus: 409, ...conflict };
       const appointment = await tx.appointment.update({
-        where: { id: current.id },
-        data: { scheduledAt, roomId, professionalId, durationMinutes, notes: body.notes?.trim() || current.notes },
+        where: { id: current.id, tenantId },
+        data: { scheduledAt, roomId, professionalId, durationMinutes, procedureName: body.procedureName?.trim() ?? current.procedureName, notes: body.notes === undefined ? current.notes : body.notes.trim() || null },
         include: {
           patient: { select: { id: true, name: true, recordNumber: true, phone: true } },
           room: { select: { id: true, name: true } },
@@ -744,7 +745,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
       });
       return appointment;
     });
-    if (!updated) return reply.code(409).send({ error: "O profissional ou o consultório já possui atendimento nesse intervalo.", code: "SCHEDULE_CONFLICT" });
+    if ('httpStatus' in updated) { const { httpStatus, ...error } = updated; return reply.code(httpStatus).send(error); }
     return reply.send(updated);
   });
 
@@ -770,7 +771,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
     const body = request.body as { status: AppointmentStatus; delayMinutes?: number; notes?: string };
 
     const result = await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`;
       const appointment = await tx.appointment.findFirst({
         where: { id, tenantId },
         include: {
@@ -784,8 +785,13 @@ export async function clinicalRoutes(app: FastifyInstance) {
         return { kind: "INVALID_TRANSITION" as const, from: appointment.status };
       }
 
+      if ([AppointmentStatus.CANCELADO, AppointmentStatus.FALTA].includes(appointment.status as 'CANCELADO' | 'FALTA') && ![AppointmentStatus.CANCELADO, AppointmentStatus.FALTA].includes(body.status as 'CANCELADO' | 'FALTA')) {
+        const conflict = await findSchedulingConflict(tx, { ...appointment, tenantId, excludeAppointmentId: id });
+        if (conflict) return { kind: 'CONFLICT' as const, conflict };
+      }
+
       const updated = await tx.appointment.update({
-        where: { id },
+        where: { id, tenantId },
         data: {
           status: body.status,
           delayMinutes: body.delayMinutes ?? appointment.delayMinutes,
@@ -866,6 +872,7 @@ export async function clinicalRoutes(app: FastifyInstance) {
       return { kind: "UPDATED" as const, appointment: updated };
     });
 
+    if (result.kind === 'CONFLICT') return reply.code(409).send(result.conflict);
     if (result.kind === "NOT_FOUND") return reply.code(404).send({ error: "Agendamento não encontrado.", code: "APPOINTMENT_NOT_FOUND" });
     if (result.kind === "INVALID_TRANSITION") {
       return reply.code(409).send({ error: `Transição de agenda inválida: ${result.from} → ${body.status}.`, code: "INVALID_STATUS_TRANSITION" });

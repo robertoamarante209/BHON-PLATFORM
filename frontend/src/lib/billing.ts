@@ -1,7 +1,7 @@
 import { apiRequest } from './api';
 
 export type TrialSignupInput = {
-  clinicName: string; ownerName: string; ownerEmail: string; username: string; password: string; phone: string;
+  clinicName: string; ownerName: string; ownerEmail: string; username: string; password: string; clinicPhone: string; ownerPhone: string;
   billingCycle: 'MONTHLY' | 'ANNUAL'; termsVersion: string; privacyVersion: string; acceptedTerms: boolean; acceptedPrivacy: boolean;
 };
 

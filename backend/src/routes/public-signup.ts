@@ -17,7 +17,8 @@ const trialSignupBodySchema = {
     ownerEmail: { type: "string" },
     username: { type: "string" },
     password: { type: "string" },
-    phone: { type: "string" },
+    clinicPhone: { type: "string" },
+    ownerPhone: { type: "string" },
     billingCycle: { type: "string", enum: ["MONTHLY", "ANNUAL"] },
     termsVersion: { type: "string" },
     privacyVersion: { type: "string" },
@@ -47,7 +48,7 @@ export async function publicSignupRoutes(app: FastifyInstance) {
       data: {
         clinicName: value.clinicName, ownerName: value.ownerName, ownerEmail: value.ownerEmail,
         ownerEmailNormalized: value.ownerEmailNormalized, username: value.username, passwordHash,
-        phone: value.phone, billingCycle: value.billingCycle, expiresAt: new Date(Date.now() + CHECKOUT_EXPIRY_MS),
+        clinicPhone: value.clinicPhone, ownerPhone: value.ownerPhone, billingCycle: value.billingCycle, expiresAt: new Date(Date.now() + CHECKOUT_EXPIRY_MS),
         legalConsents: { create: [
           { documentType: "TERMS", documentVersion: value.termsVersion },
           { documentType: "PRIVACY", documentVersion: value.privacyVersion },

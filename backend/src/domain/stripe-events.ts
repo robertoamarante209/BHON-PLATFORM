@@ -97,7 +97,7 @@ export async function processStripeEvent(eventId: string, database: any = prisma
         tradeName: signup.clinicName,
         slug: `${clinicSlug(signup.clinicName) || "clinica"}-${signup.id.slice(0, 8)}`,
         email: signup.ownerEmail,
-        phone: signup.phone,
+        phone: signup.clinicPhone || signup.phone,
         status: "TEST",
         planCode: "BHON_CLINIC",
       },
@@ -112,18 +112,19 @@ export async function processStripeEvent(eventId: string, database: any = prisma
         passwordHash: signup.passwordHash,
         role: "OWNER",
         status: "ACTIVE",
-        phone: signup.phone,
+        phone: signup.ownerPhone || signup.phone,
       },
       select: { id: true },
     });
-    if (signup.phone) {
+    const clinicPhone = signup.clinicPhone || signup.phone;
+    if (clinicPhone) {
       await tx.integrationConnection.create({
         data: {
           tenantId: tenant.id,
           provider: "WHATSAPP",
           displayName: "WhatsApp da clínica",
           status: "PENDING",
-          configuration: { clinicPhone: signup.phone, onboardingSource: "trial_signup" },
+          configuration: { clinicPhone, onboardingSource: "trial_signup" },
         },
       });
     }

@@ -1,28 +1,80 @@
-import React, { useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { startCheckout, startTrial, type TrialSignupInput } from '../../lib/billing';
+import React, { FormEvent, useState } from 'react';
+import { ArrowUpRight, Check, ShieldCheck } from 'lucide-react';
+import { startCheckout, startTrial } from '../../lib/billing';
 
-const LEGAL_VERSION = '2026-09-23';
+const fieldClass = 'mt-2 w-full rounded-xl border border-[#cad9d2] bg-white px-4 py-3 text-sm text-[#12231c] outline-none transition placeholder:text-[#789087] focus:border-[#15987e] focus:ring-4 focus:ring-[#15987e]/10';
 
-export const StartTrialPage: React.FC = () => {
-  const [cycle, setCycle] = useState<TrialSignupInput['billingCycle']>('MONTHLY');
-  const [error, setError] = useState(''); const [submitting, setSubmitting] = useState(false);
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setError(''); setSubmitting(true);
+export const StartTrialPage = () => {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     const form = new FormData(event.currentTarget);
+    setStatus('loading');
+    setMessage('');
+
     try {
-      const signup = await startTrial({
-        clinicName: String(form.get('clinicName') || ''), ownerName: String(form.get('ownerName') || ''), ownerEmail: String(form.get('ownerEmail') || ''), username: String(form.get('username') || ''), password: String(form.get('password') || ''), phone: String(form.get('phone') || ''), billingCycle: cycle, termsVersion: LEGAL_VERSION, privacyVersion: LEGAL_VERSION,
-        acceptedTerms: form.get('acceptedTerms') === 'on', acceptedPrivacy: form.get('acceptedPrivacy') === 'on',
+      const response = await startTrial({
+        clinicName: String(form.get('clinicName') || ''),
+        ownerName: String(form.get('ownerName') || ''),
+        ownerEmail: String(form.get('ownerEmail') || ''),
+        clinicPhone: String(form.get('clinicPhone') || ''),
+        ownerPhone: String(form.get('ownerPhone') || ''),
+        username: String(form.get('username') || ''),
+        password: String(form.get('password') || ''),
+        billingCycle: String(form.get('billingCycle') || 'MONTHLY') as 'MONTHLY' | 'ANNUAL',
+        termsVersion: '2026-09',
+        privacyVersion: '2026-09',
+        acceptedTerms: form.get('acceptedTerms') === 'on',
+        acceptedPrivacy: form.get('acceptedPrivacy') === 'on',
       });
-      if (signup.next === 'EXISTING_SIGNUP') {
-        setError('Não foi possível iniciar este teste agora. Verifique os dados ou tente novamente mais tarde.');
+
+      if (response.next === 'CHECKOUT') {
+        const checkout = await startCheckout(response.id);
+        window.location.assign(checkout.checkoutUrl);
         return;
       }
-      const checkout = await startCheckout(signup.id);
-      window.location.assign(checkout.checkoutUrl);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível iniciar seu teste.'); }
-    finally { setSubmitting(false); }
+      window.location.assign('/entrar');
+    } catch (error) {
+      setStatus('error');
+      setMessage(error instanceof Error ? error.message : 'Não foi possível iniciar o teste. Tente novamente.');
+    }
   };
-  return <main className="min-h-screen bg-[#0b1211] px-5 py-6 text-[#f3f7f5] sm:px-8"><div className="mx-auto max-w-5xl"><header className="flex items-center justify-between"><a href="/" className="inline-flex items-center gap-2 text-sm text-[#b5c7c1] hover:text-white"><ArrowLeft size={16} /> Voltar</a><img src="/logo-bhon-dark.svg" alt="BHON" className="h-8" /></header><div className="mt-12 grid gap-10 lg:grid-cols-[.82fr_1.18fr]"><aside><p className="text-xs font-bold tracking-[.17em] text-[#7ee3ce] uppercase">Teste BHON</p><h1 className="mt-4 font-display text-4xl tracking-[-.05em]">Comece com 14 dias para sentir a operação mais leve.</h1><p className="mt-5 leading-7 text-[#a9bfb7]">Você confirma o plano agora e informa o cartão no ambiente seguro da Stripe. A primeira cobrança só acontece após o teste.</p><div className="mt-8 space-y-3 text-sm text-[#cfdfd9]">{['Sem cobrança nos primeiros 14 dias', 'Cancele antes do fim do teste pelo painel', 'Sua clínica só é ativada após confirmação segura'].map(item => <p key={item} className="flex gap-3"><CheckCircle2 className="mt-.5 shrink-0 text-[#5ee0c5]" size={18} />{item}</p>)}</div></aside><form onSubmit={submit} className="rounded-[2rem] border border-white/[.1] bg-white/[.045] p-6 shadow-2xl sm:p-8"><fieldset><legend className="text-sm font-semibold">Escolha seu ciclo</legend><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className={`cursor-pointer rounded-2xl border p-4 ${cycle === 'MONTHLY' ? 'border-[#56d9bf] bg-[#15342d]' : 'border-white/[.12]'}`}><input className="sr-only" type="radio" name="cycle" checked={cycle === 'MONTHLY'} onChange={() => setCycle('MONTHLY')} /><span className="block font-semibold">Mensal · R$ 290</span><span className="mt-1 block text-xs text-[#a7bfb7]">por mês</span></label><label className={`cursor-pointer rounded-2xl border p-4 ${cycle === 'ANNUAL' ? 'border-[#56d9bf] bg-[#15342d]' : 'border-white/[.12]'}`}><input className="sr-only" type="radio" name="cycle" checked={cycle === 'ANNUAL'} onChange={() => setCycle('ANNUAL')} /><span className="block font-semibold">Anual · R$ 2.900</span><span className="mt-1 block text-xs text-[#a7bfb7]">12 meses pelo valor de 10</span></label></div></fieldset><div className="mt-7 grid gap-4 sm:grid-cols-2"><label className="text-sm">Clínica<input required name="clinicName" className="mt-2 w-full rounded-xl border border-white/[.12] bg-[#0d1916] p-3 text-white" /></label><label className="text-sm">Responsável<input required name="ownerName" className="mt-2 w-full rounded-xl border border-white/[.12] bg-[#0d1916] p-3 text-white" /></label><label className="text-sm">E-mail operacional<input required type="email" name="ownerEmail" className="mt-2 w-full rounded-xl border border-white/[.12] bg-[#0d1916] p-3 text-white" /></label><label className="text-sm">WhatsApp da clínica<input name="phone" inputMode="tel" className="mt-2 w-full rounded-xl border border-white/[.12] bg-[#0d1916] p-3 text-white" /></label><label className="text-sm">Usuário<input required name="username" autoCapitalize="none" className="mt-2 w-full rounded-xl border border-white/[.12] bg-[#0d1916] p-3 text-white" /></label><label className="text-sm">Senha<input required name="password" type="password" minLength={12} autoComplete="new-password" className="mt-2 w-full rounded-xl border border-white/[.12] bg-[#0d1916] p-3 text-white" /></label></div><div className="mt-6 space-y-3 rounded-2xl border border-white/[.08] bg-black/[.13] p-4 text-xs leading-5 text-[#b8cbc4]"><label className="flex gap-3"><input required aria-label="Termos de Uso" name="acceptedTerms" type="checkbox" className="mt-1" />Li e aceito os <a href="/termos" className="underline">Termos de Uso</a>.</label><label className="flex gap-3"><input required aria-label="Política de Privacidade" name="acceptedPrivacy" type="checkbox" className="mt-1" />Li e aceito a <a href="/privacidade" className="underline">Política de Privacidade</a>.</label></div>{error ? <p role="alert" className="mt-4 rounded-xl border border-rose-400/30 bg-rose-400/10 p-3 text-sm text-rose-100">{error}</p> : null}<button disabled={submitting} className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#d9f7ef] px-5 py-3.5 font-semibold text-[#0a201a] transition hover:bg-white disabled:opacity-60">{submitting ? 'Preparando checkout…' : 'Continuar com segurança'} <ArrowRight size={18} /></button><p className="mt-4 flex items-center justify-center gap-2 text-center text-xs text-[#8ca79e]"><ShieldCheck size={15} />Pagamento processado pela Stripe.</p></form></div></div></main>;
+
+  return (
+    <main className="min-h-screen bg-[#edf4f0] px-5 py-8 text-[#12231c] sm:px-8 lg:px-12">
+      <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+        <section className="pt-4 lg:sticky lg:top-8">
+          <a href="/" className="text-xl font-black tracking-[0.17em] text-[#12231c]">BHON</a>
+          <h2 className="mt-12 text-xs font-bold uppercase tracking-[0.18em] text-[#14826d]">Comece com 14 dias</h2>
+          <h1 className="mt-4 max-w-xl text-4xl font-medium leading-[1.02] tracking-[-0.055em] sm:text-6xl">Sua clínica no controle, desde o primeiro dia.</h1>
+          <p className="mt-6 max-w-lg text-base leading-7 text-[#4a6258]">Você terá 14 dias para conhecer a BHON. Cadastre os contatos certos e deixe a estrutura pronta para sua operação.</p>
+          <ul className="mt-9 space-y-4 text-sm text-[#334a40]">
+            <li className="flex gap-3"><Check className="mt-0.5 size-4 text-[#15987e]" />WhatsApp da clínica preparado para a conexão da Secretária Sarah</li>
+            <li className="flex gap-3"><Check className="mt-0.5 size-4 text-[#15987e]" />Contato do responsável separado para assuntos administrativos</li>
+            <li className="flex gap-3"><Check className="mt-0.5 size-4 text-[#15987e]" />Sem cobrança hoje; cancelamento antes do fim do teste</li>
+          </ul>
+        </section>
+
+        <section className="rounded-[2rem] border border-[#d6e3dc] bg-white p-6 shadow-[0_24px_70px_rgba(23,62,48,0.12)] sm:p-9">
+          <div className="flex items-start gap-3 border-b border-[#e2ebe6] pb-6"><ShieldCheck className="mt-0.5 size-5 text-[#15987e]" /><div><h2 className="font-semibold">Crie o acesso da clínica</h2><p className="mt-1 text-sm text-[#647b70]">Os dados são usados somente para montar sua conta BHON.</p></div></div>
+          <form className="mt-7 grid gap-5 sm:grid-cols-2" onSubmit={handleSubmit}>
+            <label className="text-sm font-medium">Nome da clínica<input required name="clinicName" className={fieldClass} placeholder="Ex.: Clínica Horizonte" /></label>
+            <label className="text-sm font-medium">Seu nome<input required name="ownerName" className={fieldClass} placeholder="Nome do responsável" /></label>
+            <label className="text-sm font-medium">E-mail administrativo<input required type="email" name="ownerEmail" className={fieldClass} placeholder="voce@clinica.com.br" /></label>
+            <label className="text-sm font-medium">WhatsApp do responsável<input required type="tel" name="ownerPhone" className={fieldClass} placeholder="(11) 99999-9999" /><span className="mt-1 block text-xs font-normal text-[#6f857b]">Para avisos administrativos. Não atende pacientes.</span></label>
+            <label className="text-sm font-medium sm:col-span-2">WhatsApp da clínica<input required type="tel" name="clinicPhone" className={fieldClass} placeholder="(11) 99999-9999" /><span className="mt-1 block text-xs font-normal text-[#6f857b]">Este é o número que será vinculado à Secretária Sarah após a autorização oficial do WhatsApp Business.</span></label>
+            <label className="text-sm font-medium">Usuário de acesso<input required name="username" className={fieldClass} placeholder="clinica-horizonte" /></label>
+            <label className="text-sm font-medium">Crie uma senha<input required minLength={8} type="password" name="password" className={fieldClass} placeholder="Mínimo de 8 caracteres" /></label>
+            <fieldset className="sm:col-span-2"><legend className="text-sm font-medium">Plano após o teste</legend><div className="mt-2 grid gap-3 sm:grid-cols-2"><label className="rounded-xl border border-[#cad9d2] p-4 text-sm"><input className="mr-2 accent-[#15987e]" type="radio" name="billingCycle" value="MONTHLY" defaultChecked />Mensal — R$ 290/mês</label><label className="rounded-xl border border-[#cad9d2] p-4 text-sm"><input className="mr-2 accent-[#15987e]" type="radio" name="billingCycle" value="ANNUAL" />Anual — R$ 240/mês</label></div></fieldset>
+            <label className="flex gap-3 text-sm leading-5 text-[#4a6258] sm:col-span-2"><input required name="acceptedTerms" type="checkbox" className="mt-1 size-4 accent-[#15987e]" />Li e aceito os <a className="underline" href="/termos">Termos de Uso</a>.</label>
+            <label className="flex gap-3 text-sm leading-5 text-[#4a6258] sm:col-span-2"><input required name="acceptedPrivacy" type="checkbox" className="mt-1 size-4 accent-[#15987e]" />Li e aceito a <a className="underline" href="/privacidade">Política de Privacidade</a>.</label>
+            {status === 'error' && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 sm:col-span-2">{message}</p>}
+            <button disabled={status === 'loading'} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#10251c] px-5 py-4 text-sm font-bold text-white transition hover:bg-[#1c3c2e] disabled:cursor-wait disabled:opacity-70 sm:col-span-2">{status === 'loading' ? 'Preparando seu teste…' : 'Começar teste gratuito'}<ArrowUpRight className="size-4" /></button>
+          </form>
+        </section>
+      </div>
+    </main>
+  );
 };

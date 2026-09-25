@@ -6,7 +6,8 @@ export type TrialSignupInput = {
   ownerEmail?: unknown;
   username?: unknown;
   password?: unknown;
-  phone?: unknown;
+  clinicPhone?: unknown;
+  ownerPhone?: unknown;
   billingCycle?: unknown;
   termsVersion?: unknown;
   privacyVersion?: unknown;
@@ -21,7 +22,8 @@ export type ValidatedTrialSignup = {
   ownerEmailNormalized: string;
   username: string;
   password: string;
-  phone: string | null;
+  clinicPhone: string;
+  ownerPhone: string;
   billingCycle: BillingCycle;
   termsVersion: string;
   privacyVersion: string;
@@ -36,7 +38,8 @@ export function validateTrialSignup(input: TrialSignupInput): { errors: string[]
   const ownerEmailNormalized = ownerEmail.toLowerCase();
   const username = asTrimmedString(input.username).toLowerCase();
   const password = typeof input.password === "string" ? input.password : "";
-  const phone = asTrimmedString(input.phone) || null;
+  const clinicPhone = asTrimmedString(input.clinicPhone);
+  const ownerPhone = asTrimmedString(input.ownerPhone);
   const termsVersion = asTrimmedString(input.termsVersion);
   const privacyVersion = asTrimmedString(input.privacyVersion);
   const cycle = asTrimmedString(input.billingCycle);
@@ -47,7 +50,8 @@ export function validateTrialSignup(input: TrialSignupInput): { errors: string[]
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmailNormalized) || ownerEmailNormalized.length > 320) errors.push("Informe um e-mail operacional válido.");
   if (!/^[a-z0-9._-]{3,64}$/.test(username)) errors.push("Escolha um usuário entre 3 e 64 caracteres.");
   if (password.length < 12 || password.length > 200) errors.push("A senha deve ter entre 12 e 200 caracteres.");
-  if (phone && phone.length > 32) errors.push("Informe um telefone válido.");
+  if (clinicPhone.length < 8 || clinicPhone.length > 32) errors.push("Informe o WhatsApp da clínica com DDD.");
+  if (ownerPhone.length < 8 || ownerPhone.length > 32) errors.push("Informe o WhatsApp do responsável com DDD.");
   if (!resolveBhonOffer(cycle)) errors.push("Escolha um ciclo mensal ou anual.");
   if (!termsVersion) errors.push("A versão dos Termos de Uso é obrigatória.");
   if (!privacyVersion) errors.push("A versão da Política de Privacidade é obrigatória.");
@@ -57,7 +61,7 @@ export function validateTrialSignup(input: TrialSignupInput): { errors: string[]
   return {
     errors,
     value: {
-      clinicName, ownerName, ownerEmail, ownerEmailNormalized, username, password, phone,
+      clinicName, ownerName, ownerEmail, ownerEmailNormalized, username, password, clinicPhone, ownerPhone,
       billingCycle: cycle as BillingCycle, termsVersion, privacyVersion,
     },
   };

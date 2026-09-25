@@ -9,6 +9,7 @@ type StripeInboxPayload = {
   trialSignupId: string | null;
   billingCycle: "MONTHLY" | "ANNUAL" | null;
   status: string | null;
+  livemode: boolean;
 };
 
 function subscriptionState(stripeStatus: string | null) {
@@ -41,6 +42,7 @@ export function serializeStripeEvent(event: Stripe.Event): StripeInboxPayload {
     trialSignupId: typeof metadata.trialSignupId === "string" ? metadata.trialSignupId : null,
     billingCycle: metadata.billingCycle === "MONTHLY" || metadata.billingCycle === "ANNUAL" ? metadata.billingCycle : null,
     status: typeof object.status === "string" ? object.status : null,
+    livemode: event.livemode,
   };
 }
 
@@ -142,7 +144,7 @@ export async function processStripeEvent(eventId: string, database: any = prisma
         amount: payload.billingCycle === "MONTHLY" ? 290 : 2900,
         stripeCustomerId: payload.customerId,
         stripeSubscriptionId: payload.subscriptionId,
-        stripeLivemode: false,
+        stripeLivemode: payload.livemode,
       },
       select: { id: true },
     });

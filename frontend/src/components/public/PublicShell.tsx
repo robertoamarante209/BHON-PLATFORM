@@ -31,7 +31,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
     <a href="#public-main" className="public-skip">Ir para o conteúdo</a>
     <header className={'public-header' + (scrolled ? ' is-scrolled' : '')}>
       <div className="public-container public-nav">
-        <a className="public-brand" href="/" aria-label="BHON, página inicial"><img src="/logo-bhon-public.png" width="1536" height="1024" alt="BHON — A clínica no controle." /></a>
+        <a className="public-brand" href="/" aria-label="BHON, página inicial"><span className="public-brand-wordmark">BHON</span></a>
         <nav className="public-desktop-nav" aria-label="Navegação principal">{links.map(([name, href]) => <a key={name} href={href}>{name}</a>)}</nav>
         <div className="public-nav-actions"><a className="public-button small outline" href="/login">Entrar no dashboard <ArrowUpRight size={14} /></a><a className="public-button small" href="/comece">Começar teste <ArrowUpRight size={15} /></a></div>
         <button ref={trigger} className="public-menu-trigger" aria-label="Abrir navegação" aria-expanded={open} aria-controls="public-navigation" onClick={() => setOpen(true)}><Menu /></button>

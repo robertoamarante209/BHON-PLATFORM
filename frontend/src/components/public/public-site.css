@@ -21,7 +21,7 @@
 @media(prefers-reduced-motion:reduce){.bhon-public *,.bhon-public *:before,.bhon-public *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.public-marquee>div{animation:none!important}.public-outline-text{color:#d4e4d4;-webkit-text-stroke:0}}
 
 /* Preserve every supplied logo pixel while framing only its transparent canvas. */
-.public-brand{width:240px;height:86px;overflow:hidden;border-radius:6px;background:#eff1e8}
+.public-brand{width:240px;height:86px;overflow:hidden;border-radius:6px;background:#47704c}
 .public-brand img{width:400px;max-width:none;height:auto;flex:none;object-fit:initial}
 .public-nav-actions{gap:12px}
 .public-hero-bottom p{max-width:560px}

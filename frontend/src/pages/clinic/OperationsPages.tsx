@@ -71,11 +71,13 @@ export const IntegrationsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const canConfigure = canManage(currentUser.role);
   const integrations = [
-    { name: 'WhatsApp Business', description: 'Envio assistido, histórico e consentimento em uma conexão oficial.', icon: MessageCircle, requirement: 'Número empresarial e provedor homologado' },
+    { name: 'WhatsApp Business App', description: 'Começo sem custo: rascunhos revisados pela equipe e conversa aberta manualmente no número da clínica.', icon: MessageCircle, requirement: 'Aplicativo WhatsApp Business no número da clínica' },
+    { name: 'Meta WhatsApp Cloud API', description: 'Canal oficial para automação futura, com consentimento, templates aprovados e webhooks verificados.', icon: MessageCircle, requirement: 'Meta Business verificado e número empresarial' },
     { name: 'Stripe', description: 'Assinatura BHON e cobrança da clínica com webhooks verificados.', icon: CreditCard, requirement: 'Conta Stripe e chaves de produção' },
     { name: 'Entrar com Apple', description: 'Acesso alternativo da equipe com vínculo de identidade protegido.', icon: Apple, requirement: 'Apple Developer e Service ID' },
     { name: 'Google Agenda', description: 'Sincronização de disponibilidade somente após autorização explícita.', icon: CalendarDays, requirement: 'Projeto Google OAuth aprovado' },
-    { name: 'Emissão fiscal', description: 'Preparada para o provedor fiscal escolhido pela clínica.', icon: ReceiptText, requirement: 'Certificado e provedor fiscal' },
+    { name: 'Prescrição eletrônica CFO', description: 'Caminho gratuito para dentistas ativos: acesso guiado à plataforma oficial e registro do documento no prontuário.', icon: ReceiptText, requirement: 'CRO ativo e certificado ICP-Brasil' },
+    { name: 'Memed', description: 'Integração por API para prescritores vinculados à clínica, incluindo profissionais com CRO.', icon: ReceiptText, requirement: 'Credenciamento e chaves de produção Memed' },
   ];
   return <div className="mx-auto max-w-[1480px] space-y-6">
     <PageHeader eyebrow="Ecossistema" title="Integrações" description="Conecte serviços essenciais sem expor a operação a sincronizações improvisadas." icon={PlugZap} />

@@ -251,7 +251,7 @@ export function updateAppointmentStatus(id: string, status: AppointmentStatus, d
   });
 }
 
-export function rescheduleAppointment(id: string, input: { scheduledAt: string; roomId?: string; professionalId?: string; durationMinutes?: number }) {
+export function rescheduleAppointment(id: string, input: { scheduledAt: string; roomId?: string; professionalId?: string; durationMinutes?: number; procedureName?: string; notes?: string }) {
   return apiRequest(`/api/appointments/${encodeURIComponent(id)}/reschedule`, {
     method: 'PATCH',
     body: JSON.stringify(input),

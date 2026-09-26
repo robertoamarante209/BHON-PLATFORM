@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'wouter';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useSearch } from 'wouter';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
 import { ConfirmationDialog } from '../../components/common/ConfirmationDialog';
@@ -13,7 +13,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { Appointment, AppointmentStatus, Patient, Room } from '../../types';
-import { appointmentTransitions, createAppointment, getSchedulingResources, listAppointments, listPatients, updateAppointmentStatus } from '../../lib/clinic';
+import { appointmentTransitions, createAppointment, getSchedulingResources, listAppointments, listPatients, rescheduleAppointment, updateAppointmentStatus } from '../../lib/clinic';
 import type { ProfessionalOption } from '../../lib/clinic';
 import { clinicCalendarDate, zonedLocalDateTimeToIso } from '../../lib/datetime';
 import { canChangeAppointmentStatus, canManageAppointments } from '../../lib/clinicalPermissions';
@@ -25,27 +25,53 @@ function moveDate(value: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+function validDate(value: string | null): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 export const AgendaPage: React.FC = () => {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const query = new URLSearchParams(search);
+  const requestedDate = query.get('date');
+  const selectedDate = validDate(requestedDate) ? requestedDate : clinicCalendarDate();
+  const focusId = query.get('focus');
+  const routeRef = useRef(search);
+  routeRef.current = search;
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const setSelectedDate = (value: string | ((current: string) => string)) => {
+    const next = typeof value === 'function' ? value(selectedDate) : value;
+    if (validDate(next)) setLocation(`/clinic/agenda?date=${next}`);
+  };
   const { currentUser } = useAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalOption[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [selectedDate, setSelectedDate] = useState(clinicCalendarDate());
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
-  const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(focusId);
+  const selectedApt = appointments.find((appointment) => appointment.id === selectedId) ?? null;
+  const setSelectedApt = (appointment: Appointment | null) => { setSelectedId(appointment?.id ?? null); setActionError(''); };
   const [isNewAptOpen, setIsNewAptOpen] = useState(false);
   const [confirmFaltaId, setConfirmFaltaId] = useState<string | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formDate, setFormDate] = useState(selectedDate);
+  const [duration, setDuration] = useState(30);
+  const [notes, setNotes] = useState('');
 
   // Filtros operacionais
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   // Horários operacionais clínicos: 08:00 até 18:30 a cada 30 min
-  const timeSlots = [
+  const standardTimeSlots = [
     '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
     '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
     '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
@@ -60,14 +86,25 @@ export const AgendaPage: React.FC = () => {
   const [newProfessionalId, setNewProfessionalId] = useState('');
 
   useEffect(() => {
+    setSelectedId(focusId);
+    setIsNewAptOpen(false);
+    setEditingId(null);
+    setConfirmFaltaId(null);
+    setConfirmCancelId(null);
+    setActionError('');
+  }, [selectedDate, focusId]);
+
+  useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError('');
+    setAppointments([]);
     void Promise.all([
       listAppointments(selectedDate, controller.signal),
       getSchedulingResources(controller.signal),
       listPatients({ status: 'ACTIVE', limit: 50 }, controller.signal),
     ]).then(([appointmentData, resources, patientData]) => {
+      if (controller.signal.aborted) return;
       setAppointments(appointmentData);
       setRooms(resources.rooms);
       setProfessionals(resources.professionals);
@@ -76,6 +113,7 @@ export const AgendaPage: React.FC = () => {
       setNewRoomId((current) => current || resources.rooms[0]?.id || '');
       setNewProfessionalId((current) => current || resources.professionals[0]?.id || '');
     }).catch((requestError) => {
+      if (controller.signal.aborted) return;
       if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
       setError(requestError instanceof Error ? requestError.message : 'Não foi possível carregar a agenda.');
     }).finally(() => {
@@ -85,49 +123,74 @@ export const AgendaPage: React.FC = () => {
   }, [selectedDate, reloadKey]);
 
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(`${selectedDate}T12:00:00`)), [selectedDate]);
-  const appointmentsBySlot = useMemo(() => new Map(appointments.map((appointment) => [`${appointment.roomId}-${appointment.time}`, appointment])), [appointments]);
-  const visibleAppointments = statusFilter === 'ALL' ? appointments : appointments.filter((appointment) => appointment.status === statusFilter);
-  const canTransition = (appointment: Appointment, status: AppointmentStatus) => appointmentTransitions[appointment.status].includes(status);
+  const visibleAppointments = useMemo(() => appointments.filter((appointment) => statusFilter === 'ALL' || appointment.status === statusFilter).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt) || a.patientName.localeCompare(b.patientName)), [appointments, statusFilter]);
+  const timeSlots = Array.from(new Set([...standardTimeSlots, ...visibleAppointments.map((apt) => apt.time)])).sort();
+  // Historical appointments remain visible even if their room has been deactivated.
+  const displayRooms = [...rooms];
+  for (const apt of visibleAppointments) {
+    if (!displayRooms.some((room) => room.id === apt.roomId)) displayRooms.push({ id: apt.roomId, name: apt.roomName, tenantId: apt.tenantId, orderIndex: 0, isActive: false });
+  }
+  const canTransition = (appointment: Appointment, status: AppointmentStatus) => (appointmentTransitions[appointment.status] ?? []).includes(status);
+  const openForm = (appointment?: Appointment) => {
+    setEditingId(appointment?.id ?? null);
+    setFormDate(selectedDate);
+    setNewPatientId(appointment?.patientId ?? patients[0]?.id ?? '');
+    setNewRoomId(appointment?.roomId ?? rooms[0]?.id ?? '');
+    setNewProfessionalId(appointment?.professionalId ?? professionals[0]?.id ?? '');
+    setNewTime(appointment?.time ?? '14:30');
+    setNewProcedure(appointment?.procedureName ?? '');
+    setDuration(appointment?.durationMinutes ?? 30);
+    setNotes(appointment?.notes ?? '');
+    setActionError('');
+    setIsNewAptOpen(true);
+  };
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     const patient = patients.find(p => p.id === newPatientId);
     const room = rooms.find(r => r.id === newRoomId);
     const professional = professionals.find(value => value.id === newProfessionalId);
-    if (!patient || !room || !professional || !newProcedure.trim() || actionLoading) return;
+    if ((!editingId && !patient) || !room || !professional || !newProcedure.trim() || actionLoading || !canManageAppointments(currentUser.role)) return;
+    const actionRoute = routeRef.current;
     setActionLoading(true);
-    setError('');
+    setActionError('');
     try {
-      await createAppointment({
-        patientId: patient.id,
+      const input = {
         professionalId: professional.id,
         roomId: room.id,
-        scheduledAt: zonedLocalDateTimeToIso(selectedDate, newTime),
-        durationMinutes: 30,
+        scheduledAt: zonedLocalDateTimeToIso(formDate, newTime),
+        durationMinutes: duration,
         procedureName: newProcedure.trim(),
-      });
+        notes: notes.trim(),
+      };
+      if (editingId) await rescheduleAppointment(editingId, input);
+      else await createAppointment({ ...input, patientId: patient!.id });
+      if (!mounted.current || routeRef.current !== actionRoute) return;
       setIsNewAptOpen(false);
+      setSelectedId(null);
       setNewProcedure('');
-      setReloadKey((value) => value + 1);
+      if (formDate !== selectedDate) setSelectedDate(formDate);
+      else setReloadKey((value) => value + 1);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Não foi possível criar o agendamento.');
+      if (mounted.current && routeRef.current === actionRoute) setActionError(requestError instanceof Error ? requestError.message : 'Não foi possível salvar o agendamento.');
     } finally {
-      setActionLoading(false);
+      if (mounted.current) setActionLoading(false);
     }
   };
 
   const changeStatus = async (appointment: Appointment, status: AppointmentStatus, delayMinutes?: number) => {
-    if (actionLoading) return;
+    if (actionLoading || !canChangeAppointmentStatus(currentUser.role) || !canTransition(appointment, status)) return;
+    const actionRoute = routeRef.current;
     setActionLoading(true);
-    setError('');
+    setActionError('');
     try {
       await updateAppointmentStatus(appointment.id, status, delayMinutes);
-      setSelectedApt((current) => current?.id === appointment.id ? { ...current, status, delayMinutes: delayMinutes ?? current.delayMinutes } : current);
+      if (!mounted.current || routeRef.current !== actionRoute) return;
       setReloadKey((value) => value + 1);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Não foi possível atualizar o atendimento.');
+      if (mounted.current && routeRef.current === actionRoute) setActionError(requestError instanceof Error ? requestError.message : 'Não foi possível atualizar o atendimento.');
     } finally {
-      setActionLoading(false);
+      if (mounted.current) setActionLoading(false);
     }
   };
 
@@ -158,13 +221,18 @@ export const AgendaPage: React.FC = () => {
             <label className="sr-only" htmlFor="agenda-status">Filtrar por status</label>
             <select id="agenda-status" name="agenda-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-11 rounded-full border border-bhon-border bg-white px-4 text-xs text-bhon-text shadow-sm">
             <option value="ALL">Todos os status</option>
+            <option value="AGUARDANDO_CONFIRMACAO">Aguardando confirmação</option>
             <option value="EM_ATENDIMENTO">Em Atendimento</option>
             <option value="NA_RECEPCAO">Na Recepção</option>
             <option value="CONFIRMADO">Confirmados</option>
             <option value="FALTA">Faltas</option>
+            <option value="ATRASADO">Atrasados</option>
+            <option value="ENCAIXE">Encaixes</option>
+            <option value="CONCLUIDO">Concluídos</option>
+            <option value="CANCELADO">Cancelados</option>
           </select>
 
-          {canManageAppointments(currentUser.role) && <button type="button" onClick={() => setIsNewAptOpen(true)} disabled={loading || rooms.length === 0 || professionals.length === 0 || patients.length === 0} className="flex h-11 items-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(18,27,42,0.2)] transition-[background-color,transform,opacity] hover:bg-bhon-navy-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45">
+          {canManageAppointments(currentUser.role) && <button type="button" onClick={() => openForm()} disabled={loading || !!error || rooms.length === 0 || professionals.length === 0 || patients.length === 0} className="flex h-11 items-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(18,27,42,0.2)] transition-[background-color,transform,opacity] hover:bg-bhon-navy-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45">
             <Plus aria-hidden="true" className="h-4 w-4 text-bhon-teal" />
             <span>Novo agendamento</span>
           </button>}
@@ -186,12 +254,16 @@ export const AgendaPage: React.FC = () => {
         </div>
       ) : null}
 
+      {!canManageAppointments(currentUser.role) && <p className="text-xs text-bhon-muted">Seu perfil permite consultar a agenda. Alterações devem ser feitas pela equipe responsável.</p>}
+      {!loading && !error && focusId && selectedId === focusId && !selectedApt && <p role="status" className="bhon-panel rounded-xl p-4 text-sm text-bhon-muted">O atendimento solicitado não foi encontrado nesta data. Confira o dia selecionado.</p>}
+      {!loading && !error && canManageAppointments(currentUser.role) && (patients.length === 0 || professionals.length === 0) && <p className="text-xs text-bhon-muted">Para agendar, cadastre um paciente ativo e um profissional na equipe.</p>}
+
       {loading && appointments.length === 0 ? <div className="bhon-panel rounded-2xl px-4 py-12 text-center text-xs text-bhon-muted">Preparando agenda e ambientes clínicos…</div> : null}
 
       {/* ============================================================
           MATRIZ DA AGENDA: EIXO VERTICAL DE HORÁRIOS + COLUNAS DE SALAS
           ============================================================ */}
-      {!loading && rooms.length === 0 ? (
+      {!loading && !error && displayRooms.length === 0 ? (
         <section className="bhon-panel rounded-[22px] px-6 py-14 text-center sm:px-10" aria-labelledby="empty-rooms-title">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-bhon-border bg-[#F8F5EF] text-bhon-teal">
             <Building2 aria-hidden="true" className="h-5 w-5" />
@@ -202,7 +274,7 @@ export const AgendaPage: React.FC = () => {
         </section>
       ) : null}
 
-      {!loading && rooms.length > 0 ? <div className="space-y-3">
+      {!loading && !error && displayRooms.length > 0 ? <div className="space-y-3">
         <section aria-label="Agenda do dia no celular" className="space-y-2 sm:hidden">
           {visibleAppointments.length === 0 ? <div className="bhon-panel rounded-2xl p-8 text-center text-sm text-bhon-muted">Nenhum atendimento para este filtro.</div> : visibleAppointments.map((apt) => (
             <button key={apt.id} type="button" onClick={() => setSelectedApt(apt)} className="bhon-panel flex w-full items-start gap-3 rounded-2xl p-4 text-left">
@@ -213,11 +285,11 @@ export const AgendaPage: React.FC = () => {
         </section>
         <div className="bhon-panel hidden overflow-x-auto rounded-2xl sm:block">
         {/* Cabeçalho das Colunas de Consultórios */}
-        <div style={{ gridTemplateColumns: `86px repeat(${Math.max(rooms.length, 1)}, minmax(240px, 1fr))` }} className="sticky top-0 z-10 grid min-w-max border-b border-bhon-border bg-[#F8F5EF] text-[10px] font-bold uppercase tracking-[0.15em] text-bhon-text">
+        <div style={{ gridTemplateColumns: `86px repeat(${Math.max(displayRooms.length, 1)}, minmax(240px, 1fr))` }} className="sticky top-0 z-10 grid min-w-max border-b border-bhon-border bg-[#F8F5EF] text-[10px] font-bold uppercase tracking-[0.15em] text-bhon-text">
           <div className="border-r border-bhon-border p-4 text-center font-mono-data text-bhon-muted">
             Hora
           </div>
-          {rooms.map((room) => (
+          {displayRooms.map((room) => (
             <div
               key={room.id}
               className="flex items-center justify-between border-r border-bhon-border p-4 last:border-r-0"
@@ -234,26 +306,23 @@ export const AgendaPage: React.FC = () => {
         <div className="bhon-long-list divide-y divide-bhon-border">
           {timeSlots.map((time) => {
             return (
-              <div key={time} style={{ gridTemplateColumns: `86px repeat(${Math.max(rooms.length, 1)}, minmax(240px, 1fr))` }} className="grid min-h-[82px] min-w-max">
+              <div key={time} style={{ gridTemplateColumns: `86px repeat(${Math.max(displayRooms.length, 1)}, minmax(240px, 1fr))` }} className="grid min-h-[82px] min-w-max">
                 {/* Eixo Vertical de Tempo */}
                 <div className="flex items-center justify-center border-r border-bhon-border bg-[#FAF8F3] p-3 text-center font-mono-data text-[11px] font-semibold text-bhon-muted">
                   {time}
                 </div>
 
                 {/* Colunas dos Consultórios */}
-                {rooms.map((room) => {
-                  const apt = appointmentsBySlot.get(`${room.id}-${time}`);
-
-                  const isVisible =
-                    !apt || statusFilter === 'ALL' || apt.status === statusFilter;
+                {displayRooms.map((room) => {
+                  const slotAppointments = visibleAppointments.filter((apt) => apt.roomId === room.id && apt.time === time);
 
                   return (
                     <div
                       key={room.id}
-                      className="relative border-r border-bhon-border p-2 last:border-r-0 hover:bg-bhon-bg/60"
+                      className="relative space-y-2 border-r border-bhon-border p-2 last:border-r-0 hover:bg-bhon-bg/60"
                     >
-                      {apt && isVisible ? (
-                        <button type="button" onClick={() => setSelectedApt(apt)} className={`flex h-full w-full flex-col justify-between rounded-xl border p-3 text-left text-xs transition-[border-color,box-shadow,background-color] ${
+                      {slotAppointments.map((apt) => (
+                        <button key={apt.id} type="button" onClick={() => setSelectedApt(apt)} className={`flex w-full flex-col justify-between rounded-xl border p-3 text-left text-xs transition-[border-color,box-shadow,background-color] ${
                             apt.status === 'EM_ATENDIMENTO'
                               ? 'bg-teal-50/80 border-teal-400 shadow-[0_8px_20px_rgba(19,170,153,0.12)]'
                               : apt.status === 'NA_RECEPCAO'
@@ -305,7 +374,7 @@ export const AgendaPage: React.FC = () => {
                             ) : null}
                           </div>
                         </button>
-                      ) : null}
+                      ))}
                     </div>
                   );
                 })}
@@ -320,13 +389,14 @@ export const AgendaPage: React.FC = () => {
           DRAWER DE AÇÕES DA CONSULTA DA AGENDA
           ============================================================ */}
       <Drawer
-        isOpen={!!selectedApt}
-        onClose={() => setSelectedApt(null)}
-        title="Controle de Atendimento da Agenda"
+        isOpen={!!selectedApt && !isNewAptOpen}
+        onClose={() => { if (!actionLoading) setSelectedApt(null); }}
+        title="Atendimento"
         subtitle={selectedApt ? `${selectedApt.time} • ${selectedApt.patientName} (${selectedApt.patientRecordNumber})` : ''}
       >
         {selectedApt && (
           <div className="space-y-4">
+            {actionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">{actionError}</p>}
             {/* Detalhes Clínicos da Consulta */}
             <div className="p-3 bg-slate-50 border border-bhon-border rounded space-y-2 text-xs">
               <div className="flex items-center justify-between">
@@ -363,6 +433,7 @@ export const AgendaPage: React.FC = () => {
               </p>
 
               <div className="grid grid-cols-2 gap-2">
+                {canTransition(selectedApt, 'CONFIRMADO') && <button type="button" disabled={actionLoading} onClick={() => void changeStatus(selectedApt, 'CONFIRMADO')} className="rounded border border-teal-300 bg-teal-50 p-2.5 text-left text-xs font-semibold text-teal-950 disabled:opacity-40">Confirmar agendamento</button>}
                 <button
                   type="button"
                   disabled={actionLoading || !canTransition(selectedApt, 'NA_RECEPCAO')}
@@ -436,6 +507,11 @@ export const AgendaPage: React.FC = () => {
             </div>
             </>}
 
+            {canManageAppointments(currentUser.role) && <div className="grid grid-cols-2 gap-2 border-t border-bhon-border pt-3 text-xs">
+              <button type="button" disabled={actionLoading || selectedApt.status === 'CONCLUIDO'} onClick={() => openForm(selectedApt)} className="rounded-lg border border-bhon-border p-3 font-semibold disabled:opacity-40">Editar ou reagendar</button>
+              <button type="button" disabled={actionLoading || !canTransition(selectedApt, 'CANCELADO')} onClick={() => setConfirmCancelId(selectedApt.id)} className="rounded-lg border border-rose-200 p-3 font-semibold text-rose-800 disabled:opacity-40">Cancelar agendamento</button>
+            </div>}
+
             {/* Links Rápidos Navegáveis */}
             <div className="pt-3 border-t border-bhon-border space-y-2">
               <button
@@ -468,20 +544,25 @@ export const AgendaPage: React.FC = () => {
           ============================================================ */}
       <Drawer
         isOpen={isNewAptOpen}
-        onClose={() => setIsNewAptOpen(false)}
-        title="Novo Agendamento Clínico"
+        onClose={() => { if (!actionLoading) setIsNewAptOpen(false); }}
+        title={editingId ? 'Editar ou reagendar' : 'Novo Agendamento Clínico'}
         subtitle="Vincule paciente, consultório e procedimento"
       >
         <form onSubmit={handleCreateAppointment} className="space-y-4 text-xs">
+          {actionError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-900">{actionError}</p>}
+          {editingId && <p className="rounded-lg bg-bhon-bg p-3 text-bhon-muted">O reagendamento preserva o status atual. Para retomar um atendimento cancelado ou uma falta, confirme-o depois de salvar.</p>}
+          <fieldset disabled={actionLoading} className="space-y-4">
           <div>
             <label htmlFor="new-appointment-patient" className="block font-semibold text-bhon-text mb-1">Paciente</label>
             <select
               id="new-appointment-patient"
               name="patientId"
+              disabled={!!editingId}
               value={newPatientId}
               onChange={(e) => setNewPatientId(e.target.value)}
               className="w-full px-2.5 py-2 border border-bhon-border rounded bg-white text-bhon-text"
             >
+              {editingId && !patients.some((p) => p.id === newPatientId) && <option value={newPatientId}>{selectedApt?.patientName}</option>}
               {patients.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.recordNumber})
@@ -491,21 +572,21 @@ export const AgendaPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2">
+              <label htmlFor="appointment-form-date" className="mb-1 block font-semibold text-bhon-text">Data do atendimento</label>
+              <input id="appointment-form-date" type="date" required value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-full rounded border border-bhon-border px-2.5 py-2" />
+            </div>
             <div>
               <label htmlFor="new-appointment-time" className="block font-semibold text-bhon-text mb-1">Horário</label>
-              <select
+              <input
                 id="new-appointment-time"
                 name="time"
+                type="time"
+                required
                 value={newTime}
                 onChange={(e) => setNewTime(e.target.value)}
                 className="w-full px-2.5 py-2 border border-bhon-border rounded bg-white font-mono-data text-bhon-text"
-              >
-                {timeSlots.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
@@ -551,8 +632,19 @@ export const AgendaPage: React.FC = () => {
               onChange={(e) => setNewProcedure(e.target.value)}
               placeholder="Ex: Consulta de Avaliação Inicial / Ajuste Oclusal"
               required
+              minLength={2}
+              maxLength={240}
               className="w-full px-2.5 py-2 border border-bhon-border rounded text-bhon-text"
             />
+          </div>
+
+          <div>
+            <label htmlFor="appointment-duration" className="mb-1 block font-semibold">Duração em minutos</label>
+            <input id="appointment-duration" type="number" required min={5} max={480} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full rounded border border-bhon-border px-2.5 py-2" />
+          </div>
+          <div>
+            <label htmlFor="appointment-notes" className="mb-1 block font-semibold">Observações</label>
+            <textarea id="appointment-notes" maxLength={5000} rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded border border-bhon-border px-2.5 py-2" />
           </div>
 
           <button
@@ -560,8 +652,9 @@ export const AgendaPage: React.FC = () => {
             disabled={actionLoading || !newPatientId || !newRoomId || !newProfessionalId}
             className="w-full py-2.5 bg-bhon-teal hover:bg-bhon-teal-dark text-white font-bold rounded uppercase tracking-wider text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.99]"
           >
-            {actionLoading ? 'Salvando agendamento…' : 'Confirmar e Inserir na Agenda'}
+            {actionLoading ? 'Salvando agendamento…' : editingId ? 'Salvar alterações' : 'Confirmar e Inserir na Agenda'}
           </button>
+          </fieldset>
         </form>
       </Drawer>
 
@@ -574,6 +667,15 @@ export const AgendaPage: React.FC = () => {
         description="A consulta será mantida no slot de horário com o status de FALTA. Automaticamente, um chamado de retorno será aberto na fila de acompanhamentos da recepção e a ausência constará na linha do tempo do prontuário."
         confirmText="Confirmar Falta"
         isDestructive={true}
+      />
+      <ConfirmationDialog
+        isOpen={!!confirmCancelId}
+        onClose={() => setConfirmCancelId(null)}
+        onConfirm={() => { const appointment = appointments.find((apt) => apt.id === confirmCancelId); if (appointment) void changeStatus(appointment, 'CANCELADO'); }}
+        title="Cancelar agendamento"
+        description="O horário será liberado e o atendimento continuará no histórico do paciente como cancelado."
+        confirmText="Confirmar cancelamento"
+        isDestructive
       />
     </div>
   );

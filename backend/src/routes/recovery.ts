@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { ContactConsent, Prisma, RecoverySequence } from "../lib/prisma-types.js";
 import {
   FollowUpStatus,
   OpportunityStatus,
@@ -13,12 +14,183 @@ import {
   asMoney,
   daysSince,
   financialExposure,
+  isOutboundEligible,
+  revokeConsent,
   sortRecoveryItems,
   type RecoveryItem,
 } from "../domain/recovery.js";
 
 const RECOVERY_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const RECOVERY_ACTION_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST"] as const;
+const SARAH_ACTION_ROLES = ["OWNER", "ADMIN", "MANAGER", "RECEPTIONIST"] as const;
+const CONSENT_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
+// A closed catalog deliberately rejects all free-form additions, including clinical
+// information that a keyword blacklist cannot reliably recognize.
+const DRAFT_TEMPLATES = [
+  { id: "CONTINUE", text: "Olá! Aqui é Sarah, assistente virtual da clínica. Podemos ajudar com seu próximo atendimento? Se preferir, solicite atendimento humano ou responda SAIR." },
+  { id: "RESCHEDULE", text: "Olá! Aqui é Sarah, assistente virtual da clínica. Gostaria de conversar com nossa equipe para encontrar um novo horário? Se preferir, solicite atendimento humano ou responda SAIR." },
+  { id: "FINAL_INVITATION", text: "Olá! Aqui é Sarah, assistente virtual da clínica. Nossa equipe está disponível quando desejar conversar. Se preferir, solicite atendimento humano ou responda SAIR." },
+] as const;
+
+function consentForEligibility(consent: ContactConsent | null) {
+  // The persistence model has no authorization field. Only this explicit capture
+  // path's source marker, policy version and timestamp constitute authorization.
+  if (!consent || !consent.source.startsWith("EXPLICIT:") || !consent.policyVersion ||
+      consent.channel !== "WHATSAPP" || consent.purpose !== "RECOVERY") return null;
+  return { channel: "WHATSAPP" as const, authorization: "EXPLICIT" as const,
+    status: consent.revokedAt ? "REVOKED" as const : consent.status };
+}
+
+function sequenceForEligibility(sequence: RecoverySequence | null) {
+  return sequence?.status === "ACTIVE" && !sequence.endedAt && !sequence.handoffAt
+    ? { status: "ACTIVE" as const, scheduledAction: "OUTREACH" as const }
+    : { status: "ENDED" as const, scheduledAction: null };
+}
+
+function canDraft(consent: ContactConsent | null, sequence: RecoverySequence | null, stage: string) {
+  return stage !== "HUMAN_HANDOFF" && stage !== "ENDED" &&
+    isOutboundEligible(consentForEligibility(consent), sequenceForEligibility(sequence));
+}
+
+const consentWhere = (tenantId: string, patientId: string) => ({ tenantId, patientId, channel: "WHATSAPP", purpose: "RECOVERY" });
+const notFound = (reply: FastifyReply) => reply.code(404).send({ error: "Oportunidade não encontrada.", code: "RECOVERY_NOT_FOUND" });
+
+async function lockPatient(tx: Prisma.TransactionClient, tenantId: string, patientId: string) {
+  // All consent and lifecycle writers lock the same patient before reading state.
+  // This serializes opt-out, capture, review and handoff across opportunities.
+  await tx.$queryRaw`SELECT id FROM patients WHERE tenant_id = ${tenantId} AND id = ${patientId} FOR UPDATE`;
+}
+
+async function registerSarahRoutes(app: FastifyInstance) {
+  app.get("/recovery/opportunities", { preHandler: requireRole(RECOVERY_READ_ROLES) }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const opportunities = await prisma.recoveryOpportunity.findMany({
+      where: { tenantId },
+      select: { id: true, patientId: true, sourceType: true, sourceId: true, priorityScore: true,
+        estimatedValue: true, stage: true, nextActionAt: true, closedReason: true },
+      orderBy: [{ priorityScore: "desc" }, { nextActionAt: "asc" }, { id: "asc" }],
+    });
+    const data = await Promise.all(opportunities.map(async (opportunity) => {
+      const { id: opportunityId, patientId } = opportunity;
+      const [patient, consent, sequences, events] = await Promise.all([
+        prisma.patient.findFirst({ where: { tenantId, id: patientId }, select: { id: true, name: true, phone: true } }),
+        prisma.contactConsent.findFirst({ where: consentWhere(tenantId, patientId), orderBy: [{ capturedAt: "desc" }, { id: "desc" }] }),
+        prisma.recoverySequence.findMany({ where: { tenantId, patientId, opportunityId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] }),
+        prisma.communicationEvent.findMany({ where: { tenantId, patientId, opportunityId },
+          select: { id: true, sequenceId: true, channel: true, direction: true, kind: true, contentRedacted: true, actorType: true, occurredAt: true },
+          orderBy: [{ occurredAt: "desc" }, { id: "desc" }] }),
+      ]);
+      const activeSequence = sequences.find((sequence) => sequence.status === "ACTIVE") ?? null;
+      return { ...opportunity, estimatedValue: asMoney(opportunity.estimatedValue), patient,
+        consentStatus: consent?.status ?? "MISSING", outboundEligible: canDraft(consent, activeSequence, opportunity.stage),
+        activeSequence: activeSequence && { id: activeSequence.id, step: activeSequence.step, status: activeSequence.status, scheduledAt: activeSequence.scheduledAt },
+        events };
+    }));
+    return reply.send({ data, draftTemplates: DRAFT_TEMPLATES });
+  });
+
+  app.post<{ Body: { patientId: string; channel: "WHATSAPP"; purpose: "RECOVERY"; explicit: true; source: string; policyVersion: string } }>(
+    "/recovery/consents", {
+      preHandler: requireRole(CONSENT_ROLES),
+      schema: { body: { type: "object", additionalProperties: false,
+        required: ["patientId", "channel", "purpose", "explicit", "source", "policyVersion"],
+        properties: {
+          patientId: { type: "string", minLength: 1, maxLength: 100 }, channel: { const: "WHATSAPP" },
+          purpose: { const: "RECOVERY" }, explicit: { const: true },
+          source: { type: "string", enum: ["SIGNED_FORM", "IN_PERSON", "WHATSAPP", "PHONE"] },
+          policyVersion: { type: "string", minLength: 1, maxLength: 64, pattern: "^[a-zA-Z0-9._-]+$" },
+        } } },
+    }, async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const { patientId, source, policyVersion } = request.body;
+      const data = await prisma.$transaction(async (tx) => {
+        await lockPatient(tx, tenantId, patientId);
+        const patient = await tx.patient.findFirst({ where: { tenantId, id: patientId, deletedAt: null }, select: { id: true } });
+        if (!patient) return null;
+        const now = new Date();
+        await tx.contactConsent.updateMany({ where: { ...consentWhere(tenantId, patientId), status: "ACTIVE" },
+          data: { status: "REVOKED", revokedAt: now, revocationSource: "SUPERSEDED_EXPLICIT_CAPTURE" } });
+        return tx.contactConsent.create({ data: { tenantId, patientId, channel: "WHATSAPP", purpose: "RECOVERY",
+          status: "ACTIVE", capturedAt: now, source: `EXPLICIT:${source};actor=${request.user!.id}`, policyVersion } });
+      });
+      if (!data) return reply.code(404).send({ error: "Paciente não encontrado.", code: "PATIENT_NOT_FOUND" });
+      return reply.code(201).send({ success: true, data });
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { text: string; reviewed: true } }>("/recovery/:id/drafts", {
+    preHandler: requireRole(SARAH_ACTION_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["text", "reviewed"], properties: {
+      text: { type: "string", minLength: 1, maxLength: 2_000 }, reviewed: { const: true },
+    } } },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const id = request.params.id;
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.recoveryOpportunity.findFirst({ where: { tenantId, id }, select: { patientId: true } });
+      if (!existing) return { kind: "NOT_FOUND" as const };
+      await lockPatient(tx, tenantId, existing.patientId);
+      const opportunity = await tx.recoveryOpportunity.findFirst({ where: { tenantId, id } });
+      if (!opportunity) return { kind: "NOT_FOUND" as const };
+      if (!DRAFT_TEMPLATES.some((template) => template.text === request.body.text)) return { kind: "UNSAFE" as const };
+      const consent = await tx.contactConsent.findFirst({ where: consentWhere(tenantId, opportunity.patientId), orderBy: [{ capturedAt: "desc" }, { id: "desc" }] });
+      const sequence = await tx.recoverySequence.findFirst({ where: { tenantId, patientId: opportunity.patientId, opportunityId: id, status: "ACTIVE" } });
+      if (!canDraft(consent, sequence, opportunity.stage)) return { kind: "INELIGIBLE" as const };
+      const event = await tx.communicationEvent.create({ data: {
+        tenantId, patientId: opportunity.patientId, opportunityId: id, sequenceId: sequence!.id,
+        channel: "WHATSAPP", direction: "INTERNAL", kind: "DRAFT_REVIEWED", contentRedacted: "[REVIEWED_COMMERCIAL_DRAFT]",
+        actorType: "USER", actorId: request.user!.id,
+      } });
+      return { kind: "CREATED" as const, event };
+    });
+    if (result.kind === "NOT_FOUND") return notFound(reply);
+    if (result.kind === "UNSAFE") return reply.code(400).send({ error: "Selecione um texto comercial aprovado.", code: "UNSAFE_COMMERCIAL_TEXT" });
+    if (result.kind === "INELIGIBLE") return reply.code(409).send({ error: "Consentimento explícito e sequência ativa são obrigatórios.", code: "OUTBOUND_INELIGIBLE" });
+    return reply.code(201).send({ success: true, data: { id: result.event.id, text: request.body.text, kind: result.event.kind, occurredAt: result.event.occurredAt } });
+  });
+
+  for (const action of ["handoff", "opt-out"] as const) {
+    app.post<{ Params: { id: string } }>(`/recovery/:id/${action}`, { preHandler: requireRole(SARAH_ACTION_ROLES) }, async (request, reply) => {
+      const tenantId = request.tenantId!;
+      const id = request.params.id;
+      const data = await prisma.$transaction(async (tx) => {
+        const existing = await tx.recoveryOpportunity.findFirst({ where: { tenantId, id }, select: { patientId: true } });
+        if (!existing) return null;
+        await lockPatient(tx, tenantId, existing.patientId);
+        const opportunity = await tx.recoveryOpportunity.findFirst({ where: { tenantId, id } });
+        if (!opportunity) return null;
+        const patientId = opportunity.patientId;
+        const selection = { id: true, stage: true, closedReason: true, nextActionAt: true } as const;
+        const alreadyHandedOff = action === "handoff" &&
+          (opportunity.stage === "HUMAN_HANDOFF" || opportunity.closedReason === "CONSENT_REVOKED");
+        if (!alreadyHandedOff) {
+          const now = new Date();
+          const sequenceFilter = { tenantId, patientId, ...(action === "handoff" ? { opportunityId: id } : {}), status: { in: ["ACTIVE", "PAUSED"] as ("ACTIVE" | "PAUSED")[] } };
+          const sequence = await tx.recoverySequence.findFirst({ where: { ...sequenceFilter, opportunityId: id }, orderBy: { createdAt: "desc" } });
+          if (action === "opt-out") {
+            const transition = revokeConsent(sequenceForEligibility(sequence));
+            const revokedConsents = await tx.contactConsent.updateMany({ where: { tenantId, patientId, channel: "WHATSAPP", status: "ACTIVE" },
+              data: { status: "REVOKED", revokedAt: now, revocationSource: `USER:${request.user!.id}` } });
+            const endedSequences = await tx.recoverySequence.updateMany({ where: sequenceFilter, data: { status: transition.status, endedAt: now, scheduledAt: transition.nextScheduledAction } });
+            await tx.recoveryOpportunity.updateMany({ where: { tenantId, patientId }, data: { stage: "ENDED", closedReason: transition.reason, nextActionAt: null } });
+            if (revokedConsents.count === 0 && endedSequences.count === 0) {
+              return tx.recoveryOpportunity.findFirst({ where: { tenantId, id }, select: selection });
+            }
+          } else {
+            await tx.recoverySequence.updateMany({ where: sequenceFilter, data: { status: "ENDED", endedAt: now, handoffAt: now, scheduledAt: null } });
+            await tx.recoveryOpportunity.updateMany({ where: { tenantId, id, patientId }, data: { stage: "HUMAN_HANDOFF", closedReason: "HUMAN_REQUEST", nextActionAt: null } });
+          }
+          await tx.communicationEvent.create({ data: { tenantId, patientId, opportunityId: id, sequenceId: sequence?.id ?? null,
+            channel: "WHATSAPP", direction: "INTERNAL", kind: action === "handoff" ? "HANDOFF" : "OPT_OUT",
+            actorType: "USER", actorId: request.user!.id } });
+        }
+        return tx.recoveryOpportunity.findFirst({ where: { tenantId, id }, select: selection });
+      });
+      if (!data) return notFound(reply);
+      return reply.send({ success: true, data });
+    });
+  }
+}
 const OPEN_FOLLOW_UP_STATUSES = [FollowUpStatus.PENDENTE, FollowUpStatus.EM_ANDAMENTO, FollowUpStatus.ADIADO];
 const OPEN_OPPORTUNITY_STATUSES = [
   OpportunityStatus.NEW_CONTACT,
@@ -46,6 +218,7 @@ function startOfToday(): Date {
 export async function recoveryRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
   app.addHook("preHandler", requireTenant);
+  await registerSarahRoutes(app);
 
   app.get(
     "/recovery",

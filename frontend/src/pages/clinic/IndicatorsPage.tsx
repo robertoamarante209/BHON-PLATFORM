@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BarChart3, CalendarDays, Clock3, Loader2, RefreshCw, Users } from 'lucide-react';
 import { MetricCard } from '../../components/common/MetricCard';
 import { SectionState } from '../../components/common/SectionState';
@@ -29,17 +29,27 @@ export const IndicatorsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  const latestRequestRef = useRef(0);
 
   useEffect(() => {
     const controller = new AbortController();
+    const requestId = latestRequestRef.current + 1;
+    latestRequestRef.current = requestId;
     setLoading(true);
     setError('');
+    setData(null);
     getIndicators(selectedPeriod, controller.signal)
-      .then(setData)
-      .catch((loadError) => {
-        if ((loadError as Error).name !== 'AbortError') setError((loadError as Error).message || 'Não foi possível carregar os indicadores.');
+      .then((result) => {
+        if (!controller.signal.aborted && latestRequestRef.current === requestId) setData(result);
       })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      .catch((loadError) => {
+        if (!controller.signal.aborted && latestRequestRef.current === requestId && (loadError as Error).name !== 'AbortError') {
+          setError((loadError as Error).message || 'Não foi possível carregar os indicadores.');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted && latestRequestRef.current === requestId) setLoading(false);
+      });
     return () => controller.abort();
   }, [reloadKey, selectedPeriod]);
 

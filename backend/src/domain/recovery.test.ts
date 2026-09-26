@@ -14,6 +14,19 @@ test("does not grant outbound eligibility to an imported patient without explici
   assert.equal(isOutboundEligible(null, sequence), false);
 });
 
+test("rejects malformed active consents that lack explicit WhatsApp authorization", () => {
+  const sequence = { status: "ACTIVE", scheduledAction: "OUTREACH" } as const;
+  const malformedConsents = [
+    { channel: "EMAIL", authorization: "EXPLICIT", status: "ACTIVE" },
+    { channel: "WHATSAPP", authorization: "IMPLICIT", status: "ACTIVE" },
+    { channel: "WHATSAPP", status: "ACTIVE" },
+  ];
+
+  for (const consent of malformedConsents) {
+    assert.equal(isOutboundEligible(consent as never, sequence), false);
+  }
+});
+
 test("revoking consent ends an active sequence without a future scheduled action", () => {
   const sequence = Object.freeze({ status: "ACTIVE", scheduledAction: "OUTREACH" } as const);
 

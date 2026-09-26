@@ -95,7 +95,12 @@ const cadenceOffsets: Record<CadenceSourceType, readonly number[]> = {
 };
 
 export function isOutboundEligible(consent: WhatsAppConsent | null, sequence: RecoverySequence): boolean {
-  return consent?.status === "ACTIVE" && sequence.status === "ACTIVE";
+  return (
+    consent?.status === "ACTIVE" &&
+    consent.channel === "WHATSAPP" &&
+    consent.authorization === "EXPLICIT" &&
+    sequence.status === "ACTIVE"
+  );
 }
 
 function clampScoreInput(value: number): number {

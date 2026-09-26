@@ -6,6 +6,7 @@ import { intervalsOverlap, isAppointmentTransitionAllowed, parseAppointmentDurat
 import { isStageTransitionAllowed, isTreatmentTransitionAllowed, treatmentProgress, type StageState, type TreatmentState } from "../domain/treatment.js";
 import { zonedCalendarDayRange, zonedDayRange } from "../domain/time.js";
 import { APPOINTMENT_STATUS_ROLES, APPOINTMENT_WRITE_ROLES, CLINICAL_STAGE_WRITE_ROLES, PATIENT_WRITE_ROLES } from "../domain/clinical-permissions.js";
+import { reviewPatientRows, type PatientImportRow } from "../domain/patient-import.js";
 
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const CLINIC_MANAGEMENT_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
@@ -348,6 +349,99 @@ export async function clinicalRoutes(app: FastifyInstance) {
     });
 
     return reply.code(201).send(patient);
+  });
+
+  // A importação sempre começa por uma revisão. Nenhuma planilha cria dados sem
+  // a confirmação explícita de quem está operando a clínica.
+  app.post("/patients/import/review", {
+    preHandler: requireRole(PATIENT_WRITE_ROLES),
+    schema: {
+      body: {
+        type: "object",
+        additionalProperties: false,
+        required: ["rows"],
+        properties: { rows: { type: "array", minItems: 1, maxItems: 1000, items: { type: "object", additionalProperties: true } } },
+      },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const { rows } = request.body as { rows: PatientImportRow[] };
+    const existing = await prisma.patient.findMany({
+      where: { tenantId, deletedAt: null },
+      select: { id: true, name: true, cpf: true, phone: true, email: true },
+    });
+    const review = reviewPatientRows(rows, existing);
+    return reply.send({
+      review,
+      summary: {
+        total: review.length,
+        ready: review.filter((item) => item.status === "ready").length,
+        duplicate: review.filter((item) => item.status === "duplicate").length,
+        invalid: review.filter((item) => item.status === "invalid").length,
+      },
+    });
+  });
+
+  app.post("/patients/import/commit", {
+    preHandler: requireRole(PATIENT_WRITE_ROLES),
+    schema: {
+      body: {
+        type: "object",
+        additionalProperties: false,
+        required: ["rows"],
+        properties: { rows: { type: "array", minItems: 1, maxItems: 1000, items: { type: "object", additionalProperties: true } } },
+      },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const actor = request.user!;
+    const { rows } = request.body as { rows: PatientImportRow[] };
+    const existing = await prisma.patient.findMany({
+      where: { tenantId, deletedAt: null },
+      select: { id: true, name: true, cpf: true, phone: true, email: true },
+    });
+    const review = reviewPatientRows(rows, existing);
+    const blocked = review.filter((item) => item.status !== "ready");
+    if (blocked.length) {
+      return reply.code(409).send({
+        error: "A planilha mudou ou contém linhas que precisam ser revisadas antes da importação.",
+        code: "PATIENT_IMPORT_REVIEW_REQUIRED",
+        review,
+      });
+    }
+    const created = await prisma.$transaction(async (tx: any) => {
+      const tenant = await tx.tenant.update({
+        where: { id: tenantId },
+        data: { patientRecordSequence: { increment: review.length } },
+        select: { patientRecordSequence: true },
+      });
+      const firstSequence = tenant.patientRecordSequence - review.length + 1;
+      const patients = await Promise.all(review.map((item, index) => tx.patient.create({
+        data: {
+          tenantId,
+          recordNumber: `#${String(firstSequence + index).padStart(5, "0")}`,
+          name: item.data.name,
+          cpf: item.data.cpf,
+          phone: item.data.phone,
+          email: item.data.email,
+          birthDate: item.data.birthDate ? new Date(`${item.data.birthDate}T12:00:00Z`) : null,
+          source: item.data.source || "Importação de planilha",
+          allergies: item.data.allergies,
+          observations: item.data.observations,
+          status: PatientStatus.ACTIVE,
+        },
+      })));
+      await tx.timelineEvent.createMany({ data: patients.map((patient: any) => ({
+        tenantId, patientId: patient.id, actorUserId: actor.id, type: "PATIENT_IMPORTED",
+        description: `Prontuário ${patient.recordNumber} importado de planilha por ${actor.name}.`,
+      })) });
+      await tx.auditLog.create({ data: {
+        tenantId, actorUserId: actor.id, action: "IMPORT", resource: "Patient", resourceId: null,
+        metadata: { count: patients.length, source: "SPREADSHEET" },
+      } });
+      return patients;
+    });
+    return reply.code(201).send({ data: created, count: created.length });
   });
 
   app.patch<{ Params: { id: string } }>("/patients/:id", {

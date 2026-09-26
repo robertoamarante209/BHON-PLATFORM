@@ -115,6 +115,29 @@ export type CreatePatientInput = {
   source?: string;
 };
 
+export type PatientImportRow = Record<string, string>;
+export type PatientImportReview = {
+  row: number;
+  data: {
+    name: string;
+    cpf: string | null;
+    phone: string | null;
+    email: string | null;
+    birthDate: string | null;
+    source: string | null;
+    allergies: string | null;
+    observations: string | null;
+  };
+  errors: string[];
+  status: 'ready' | 'invalid' | 'duplicate';
+  duplicateId?: string;
+};
+
+export type PatientImportResponse = {
+  review: PatientImportReview[];
+  summary: { total: number; ready: number; duplicate: number; invalid: number };
+};
+
 export type CreateAppointmentInput = {
   patientId: string;
   professionalId: string;
@@ -149,6 +172,14 @@ export function listPatients(input: { search?: string; status?: PatientStatus; p
 
 export function createPatient(input: CreatePatientInput) {
   return apiRequest<Patient>('/api/patients', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function reviewPatientImport(rows: PatientImportRow[]) {
+  return apiRequest<PatientImportResponse>('/api/patients/import/review', { method: 'POST', body: JSON.stringify({ rows }) });
+}
+
+export function commitPatientImport(rows: PatientImportRow[]) {
+  return apiRequest<{ data: Patient[]; count: number }>('/api/patients/import/commit', { method: 'POST', body: JSON.stringify({ rows }) });
 }
 
 export async function getPatientDossier(id: string, signal?: AbortSignal): Promise<PatientDossier> {
@@ -379,6 +410,16 @@ export function listTeam(input: { search?: string; role?: UserRole; status?: Use
   query.set('page', String(input.page || 1));
   query.set('limit', String(input.limit || 20));
   return apiRequest<{ data: TeamMember[]; pagination: Pagination; metrics: TeamMetrics }>(`/api/team?${query}`, { signal });
+}
+
+export type TeamAccessInput = { role?: Exclude<UserRole, 'OWNER' | 'PLATFORM_OWNER'>; status?: UserStatus };
+
+/** Atualiza somente o acesso de um integrante; o servidor preserva proprietário e escopo da clínica. */
+export function updateTeamMemberAccess(id: string, input: TeamAccessInput) {
+  return apiRequest<Pick<TeamMember, 'id' | 'role' | 'accessStatus'>>(`/api/team/${encodeURIComponent(id)}/access`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 }
 
 export type IndicatorPeriod = 'TODAY' | 'WEEK' | 'MONTH';

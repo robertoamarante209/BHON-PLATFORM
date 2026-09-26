@@ -316,6 +316,8 @@ export interface TeamMember {
   completedAppointmentsCount: number;
   currentRoomName?: string;
   status: 'ATIVO' | 'EM_ATENDIMENTO' | 'DISPONIVEL' | 'PAUSA' | 'INDISPONIVEL';
+  /** Status de acesso persistido, distinto do estado operacional exibido na agenda. */
+  accessStatus?: UserStatus;
   workloadHours?: number;
   lastLoginAt?: string;
 }

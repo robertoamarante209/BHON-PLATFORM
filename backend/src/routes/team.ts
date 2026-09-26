@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
 
 const TEAM_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
+const TEAM_ACCESS_WRITE_ROLES = ["OWNER"] as const;
 const ROLE_LABELS: Record<string, string> = {
   OWNER: "Proprietário", ADMIN: "Administrador", MANAGER: "Gestor", DENTIST: "Cirurgião-dentista",
   RECEPTIONIST: "Recepção", FINANCIAL: "Financeiro", VIEWER: "Consulta",
@@ -69,6 +70,7 @@ export async function teamRoutes(app: FastifyInstance) {
       const current = user.appointmentsAsDoctor.find((appointment) => appointment.status === AppointmentStatus.EM_ATENDIMENTO);
       return {
         id: user.id, name: user.name, email: user.email, role: user.role, roleLabel: ROLE_LABELS[user.role] || user.role,
+        accessStatus: user.status,
         specialty: user.specialty, cro: user.cro, phone: user.phone, workloadHours: user.workloadHours == null ? null : Number(user.workloadHours),
         lastLoginAt: user.lastLoginAt,
         todayAppointmentsCount: user.appointmentsAsDoctor.length,
@@ -87,6 +89,54 @@ export async function teamRoutes(app: FastifyInstance) {
         averageWorkloadHours: workload._avg.workloadHours == null ? null : Number(workload._avg.workloadHours),
       },
     });
+  });
+
+  app.patch<{ Params: { id: string }; Body: { role?: UserRole; status?: UserStatus } }>("/team/:id/access", {
+    preHandler: requireRole(TEAM_ACCESS_WRITE_ROLES),
+    schema: {
+      params: { type: "object", additionalProperties: false, required: ["id"], properties: { id: { type: "string", minLength: 1, maxLength: 100 } } },
+      body: {
+        type: "object", additionalProperties: false, minProperties: 1,
+        properties: {
+          role: { type: "string", enum: [UserRole.ADMIN, UserRole.MANAGER, UserRole.DENTIST, UserRole.RECEPTIONIST, UserRole.FINANCIAL, UserRole.VIEWER] },
+          status: { type: "string", enum: [UserStatus.ACTIVE, UserStatus.INACTIVE, UserStatus.BLOCKED] },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.tenantId!;
+    const target = await prisma.user.findFirst({
+      where: { id: request.params.id, tenantId, deletedAt: null },
+      select: { id: true, role: true, status: true },
+    });
+    if (!target) return reply.code(404).send({ error: "Integrante não encontrado.", code: "TEAM_MEMBER_NOT_FOUND" });
+    if (target.role === UserRole.OWNER) {
+      return reply.code(409).send({ error: "O acesso do proprietário é protegido.", code: "OWNER_ACCESS_PROTECTED" });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const member = await tx.user.update({
+        where: { id: target.id },
+        data: {
+          ...(request.body.role !== undefined ? { role: request.body.role } : {}),
+          ...(request.body.status !== undefined ? { status: request.body.status } : {}),
+        },
+        select: { id: true, role: true, status: true },
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          actorUserId: request.user!.id,
+          action: "TEAM_ACCESS_UPDATED",
+          resource: "User",
+          resourceId: member.id,
+          metadata: { role: member.role, status: member.status },
+        },
+      });
+      return member;
+    });
+
+    return reply.send({ id: updated.id, role: updated.role, accessStatus: updated.status });
   });
 }
 

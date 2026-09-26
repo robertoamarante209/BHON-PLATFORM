@@ -17,6 +17,7 @@ const PatientDetailPage = lazy(() => import('./pages/clinic/PatientDetailPage').
 const TreatmentsPage = lazy(() => import('./pages/clinic/TreatmentsPage').then((module) => ({ default: module.TreatmentsPage })));
 const OpportunitiesPage = lazy(() => import('./pages/clinic/OpportunitiesPage').then((module) => ({ default: module.OpportunitiesPage })));
 const FollowUpsPage = lazy(() => import('./pages/clinic/FollowUpsPage').then((module) => ({ default: module.FollowUpsPage })));
+const SarahRecoveryPage = lazy(() => import('./pages/clinic/SarahRecoveryPage').then((module) => ({ default: module.SarahRecoveryPage })));
 const BudgetsPage = lazy(() => import('./pages/clinic/BudgetsPage').then((module) => ({ default: module.BudgetsPage })));
 const FinancePage = lazy(() => import('./pages/clinic/FinancePage').then((module) => ({ default: module.FinancePage })));
 const TeamPage = lazy(() => import('./pages/clinic/TeamPage').then((module) => ({ default: module.TeamPage })));
@@ -127,6 +128,7 @@ const AppRoutes: React.FC = () => {
               <Route path="/clinic/treatments" component={TreatmentsPage} />
               <Route path="/clinic/opportunities" component={OpportunitiesPage} />
               <Route path="/clinic/follow-ups" component={FollowUpsPage} />
+              <Route path="/clinic/sarah" component={SarahRecoveryPage} />
               <Route path="/clinic/budgets" component={BudgetsPage} />
               <Route path="/clinic/finance" component={FinancePage} />
               <Route path="/clinic/team" component={TeamPage} />

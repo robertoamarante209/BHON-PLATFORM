@@ -17,6 +17,7 @@ const sections = [
   ] },
   { label: 'Relacionamento', items: [
     { label: 'Recuperar orçamentos', path: '/clinic/follow-ups?category=ORCAMENTO', icon: Sparkles },
+    { label: 'Sarah', path: '/clinic/sarah', icon: UserCheck },
     { label: 'Oportunidades', path: '/clinic/opportunities', icon: Target },
     { label: 'Acompanhamentos', path: '/clinic/follow-ups', icon: Clock3 },
     { label: 'Orçamentos', path: '/clinic/budgets', icon: ClipboardCheck },

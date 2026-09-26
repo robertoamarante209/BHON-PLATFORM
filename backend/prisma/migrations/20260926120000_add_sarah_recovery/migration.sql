@@ -1,6 +1,8 @@
 CREATE TYPE "ConsentStatus" AS ENUM ('ACTIVE', 'REVOKED');
 CREATE TYPE "RecoverySequenceStatus" AS ENUM ('ACTIVE', 'PAUSED', 'ENDED');
 
+CREATE UNIQUE INDEX "patients_tenant_id_id_key" ON "patients"("tenant_id", "id");
+
 CREATE TABLE "contact_consents" (
   "id" TEXT NOT NULL,
   "tenant_id" TEXT NOT NULL,
@@ -17,7 +19,7 @@ CREATE TABLE "contact_consents" (
   "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "contact_consents_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "contact_consents_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "contact_consents_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+  CONSTRAINT "contact_consents_tenant_id_patient_id_fkey" FOREIGN KEY ("tenant_id", "patient_id") REFERENCES "patients"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE TABLE "recovery_opportunities" (
@@ -37,9 +39,11 @@ CREATE TABLE "recovery_opportunities" (
   "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "recovery_opportunities_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "recovery_opportunities_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "recovery_opportunities_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT "recovery_opportunities_tenant_id_patient_id_fkey" FOREIGN KEY ("tenant_id", "patient_id") REFERENCES "patients"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "recovery_opportunities_assigned_to_id_fkey" FOREIGN KEY ("assigned_to_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
+
+CREATE UNIQUE INDEX "recovery_opportunities_tenant_id_id_key" ON "recovery_opportunities"("tenant_id", "id");
 
 CREATE TABLE "recovery_sequences" (
   "id" TEXT NOT NULL,
@@ -58,9 +62,11 @@ CREATE TABLE "recovery_sequences" (
   "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "recovery_sequences_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "recovery_sequences_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "recovery_sequences_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "recovery_sequences_opportunity_id_fkey" FOREIGN KEY ("opportunity_id") REFERENCES "recovery_opportunities"("id") ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT "recovery_sequences_tenant_id_patient_id_fkey" FOREIGN KEY ("tenant_id", "patient_id") REFERENCES "patients"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT "recovery_sequences_tenant_id_opportunity_id_fkey" FOREIGN KEY ("tenant_id", "opportunity_id") REFERENCES "recovery_opportunities"("tenant_id", "id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+CREATE UNIQUE INDEX "recovery_sequences_tenant_id_id_key" ON "recovery_sequences"("tenant_id", "id");
 
 CREATE TABLE "communication_events" (
   "id" TEXT NOT NULL,
@@ -78,9 +84,9 @@ CREATE TABLE "communication_events" (
   "occurred_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "communication_events_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "communication_events_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "communication_events_patient_id_fkey" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "communication_events_opportunity_id_fkey" FOREIGN KEY ("opportunity_id") REFERENCES "recovery_opportunities"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "communication_events_sequence_id_fkey" FOREIGN KEY ("sequence_id") REFERENCES "recovery_sequences"("id") ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT "communication_events_tenant_id_patient_id_fkey" FOREIGN KEY ("tenant_id", "patient_id") REFERENCES "patients"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT "communication_events_tenant_id_opportunity_id_fkey" FOREIGN KEY ("tenant_id", "opportunity_id") REFERENCES "recovery_opportunities"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT "communication_events_tenant_id_sequence_id_fkey" FOREIGN KEY ("tenant_id", "sequence_id") REFERENCES "recovery_sequences"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 CREATE INDEX "contact_consents_tenant_id_patient_id_idx" ON "contact_consents"("tenant_id", "patient_id");

@@ -335,6 +335,7 @@ model Patient {
   recoverySequences RecoverySequence[]
   communicationEvents CommunicationEvent[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, recordNumber])
   @@index([tenantId])
   @@index([tenantId, status])
@@ -1116,7 +1117,7 @@ model ContactConsent {
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  patient Patient @relation(fields: [tenantId, patientId], references: [tenantId, id], onDelete: Restrict)
 
   @@index([tenantId, patientId])
   @@index([tenantId, patientId, channel, purpose, status])
@@ -1142,12 +1143,13 @@ model RecoveryOpportunity {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  patient    Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  patient    Patient @relation(fields: [tenantId, patientId], references: [tenantId, id], onDelete: Restrict)
   assignedTo User?   @relation("RecoveryOpportunityAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   sequences RecoverySequence[]
   events    CommunicationEvent[]
 
+  @@unique([tenantId, id])
   @@index([tenantId, patientId])
   @@index([tenantId, stage, nextActionAt])
   @@index([tenantId, sourceType, sourceId])
@@ -1172,10 +1174,11 @@ model RecoverySequence {
   updatedAt              DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  patient     Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  opportunity RecoveryOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  patient     Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id], onDelete: Restrict)
+  opportunity RecoveryOpportunity @relation(fields: [tenantId, opportunityId], references: [tenantId, id], onDelete: Cascade)
   events      CommunicationEvent[]
 
+  @@unique([tenantId, id])
   @@index([tenantId, patientId])
   @@index([tenantId, opportunityId])
   @@index([tenantId, status, scheduledAt])
@@ -1199,9 +1202,9 @@ model CommunicationEvent {
   occurredAt        DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
 
   tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  patient     Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  opportunity RecoveryOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
-  sequence    RecoverySequence?   @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+  patient     Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id], onDelete: Restrict)
+  opportunity RecoveryOpportunity @relation(fields: [tenantId, opportunityId], references: [tenantId, id], onDelete: Restrict)
+  sequence    RecoverySequence?   @relation(fields: [tenantId, sequenceId], references: [tenantId, id], onDelete: Restrict)
 
   @@index([tenantId, patientId])
   @@index([tenantId, opportunityId, occurredAt])

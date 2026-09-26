@@ -103,3 +103,25 @@ Conectores são exibidos como desconectados até as credenciais serem validadas.
 - Testes de handoff e garantia de que dados clínicos não saem no texto comercial.
 - Testes de navegação desktop e mobile para fila, detalhe e transição de status.
 - Sandbox dos provedores antes de produção; produção somente após credenciais válidas e observabilidade de eventos.
+
+## Registro de validação da fundação — 26/09/2026
+
+### Validado localmente
+
+- Migração `20260926120000_add_sarah_recovery` executada em banco PGlite vazio junto às migrações existentes; relações cruzadas entre clínicas foram rejeitadas por restrições compostas.
+- `backend/test/recovery-schema.test.mjs`: 17 cenários aprovados para integridade por clínica, eventos append-only e sequência ativa única.
+- `backend/src/domain/recovery.test.ts`: 6 cenários aprovados para consentimento explícito de WhatsApp, cadência e pontuação determinística.
+- `backend/test/recovery-http.test.mjs`: 9 cenários aprovados para isolamento por clínica, consentimento, catálogo comercial fechado, conteúdo redigido, handoff e opt-out repetido.
+- `backend/test/security.test.mjs`: 7 cenários aprovados para limite de login, limite central de API, `Retry-After`, isolamento de IP e exclusão dos health checks.
+- Build de produção do frontend executado diretamente com Vite: 1.604 módulos transformados e bundle concluído. A fila Sarah possui chunk próprio (`SarahRecoveryPage`).
+- `SarahRecoveryPage.test.tsx`: 11 cenários aprovados com um worker e timeout explícito de 20 segundos, cobrindo consentimento, revisão, handoff, opt-out, foco por URL, erro de carregamento e link manual do WhatsApp.
+
+### Escopo confirmado
+
+- WhatsApp nesta fase é somente uma abertura manual de `wa.me` após revisão humana. Não existe envio pela BHON, token Meta, webhook, estado de conexão ou cobrança simulada.
+- Prescrição CFO, Meta WhatsApp Cloud API, Memed e Stripe permanecem desconectados. Cada conector exige seu próprio plano, credenciais oficiais e validação em sandbox/produção.
+- O rate limit geral de lançamento é local à instância: 240 requisições por minuto por IP, com login mantendo limite de 5 falhas em 15 minutos por IP e identidade. Antes de escalar na Vercel, deverá ser substituído por armazenamento compartilhado.
+
+### Limitação conhecida de ambiente
+
+As tentativas de `npm test` completo no backend e de suíte Vitest completa do frontend não entregaram um resumo conclusivo nesta sessão por processos de runner que excederam a janela de captura ou timeout de worker. Esses comandos não são declarados aprovados neste registro. Os testes focados e o build acima foram executados com resultado explícito.

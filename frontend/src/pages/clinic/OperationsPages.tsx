@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Boxes, Check, Copy, ExternalLink, FileText, MessageCircle, PackagePlus, PlugZap } from 'lucide-react';
+import { Apple, Boxes, CalendarDays, Check, Copy, CreditCard, ExternalLink, FileText, MessageCircle, PackagePlus, PlugZap, ReceiptText, ShieldCheck } from 'lucide-react';
 import { useSearch } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
 import { listFollowUps } from '../../lib/clinic';
@@ -67,18 +67,25 @@ export const DocumentsPage: React.FC = () => {
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{loading ? <Notice>Carregando documentos…</Notice> : !error && items.length === 0 ? <Notice>Nenhum documento cadastrado.</Notice> : items.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="bhon-panel flex items-start justify-between rounded-2xl p-5 hover:border-bhon-teal-dark"><div><p className="text-xs font-bold uppercase tracking-wider text-bhon-teal-dark">{item.category}</p><h2 className="mt-2 font-semibold text-bhon-text">{item.title}</h2><p className="mt-1 text-xs text-bhon-muted">{item.fileName}</p></div><ExternalLink className="h-4 w-4 text-bhon-muted" /></a>)}</div></div>;
 };
 
-export const IntegrationsPage: React.FC = () => (
-  <div className="mx-auto max-w-[1480px] space-y-6">
-    <PageHeader eyebrow="Ecossistema" title="Integrações" description="Conexões externas da clínica." icon={PlugZap} />
-    <Notice>As conexões externas aguardam aprovação. A configuração e a ativação estão indisponíveis nesta fase.</Notice>
-    <ul className="divide-y divide-bhon-border rounded-xl border border-bhon-border bg-bhon-surface px-5">
-      {['WhatsApp Business', 'Google Agenda', 'Emissão fiscal'].map((name) => (
-        <li key={name} className="flex flex-col gap-2 py-5 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-base font-semibold text-bhon-text">{name}</h2>
-          <span className="text-sm text-bhon-muted">Aguardando aprovação</span>
-        </li>
-      ))}
-    </ul>
-    <p className="text-sm text-bhon-muted">Esta área não conecta contas nem sincroniza dados com provedores externos.</p>
-  </div>
-);
+export const IntegrationsPage: React.FC = () => {
+  const { currentUser } = useAuth();
+  const canConfigure = canManage(currentUser.role);
+  const integrations = [
+    { name: 'WhatsApp Business', description: 'Envio assistido, histórico e consentimento em uma conexão oficial.', icon: MessageCircle, requirement: 'Número empresarial e provedor homologado' },
+    { name: 'Stripe', description: 'Assinatura BHON e cobrança da clínica com webhooks verificados.', icon: CreditCard, requirement: 'Conta Stripe e chaves de produção' },
+    { name: 'Entrar com Apple', description: 'Acesso alternativo da equipe com vínculo de identidade protegido.', icon: Apple, requirement: 'Apple Developer e Service ID' },
+    { name: 'Google Agenda', description: 'Sincronização de disponibilidade somente após autorização explícita.', icon: CalendarDays, requirement: 'Projeto Google OAuth aprovado' },
+    { name: 'Emissão fiscal', description: 'Preparada para o provedor fiscal escolhido pela clínica.', icon: ReceiptText, requirement: 'Certificado e provedor fiscal' },
+  ];
+  return <div className="mx-auto max-w-[1480px] space-y-6">
+    <PageHeader eyebrow="Ecossistema" title="Integrações" description="Conecte serviços essenciais sem expor a operação a sincronizações improvisadas." icon={PlugZap} />
+    <Notice><span className="font-semibold text-bhon-text">Conexões protegidas.</span> Nenhum provedor é ativado sem credenciais próprias, consentimento e uma configuração concluída pelo proprietário.</Notice>
+    <section className="grid gap-3 lg:grid-cols-2">
+      {integrations.map(({ name, description, icon: Icon, requirement }) => <article key={name} className="bhon-panel rounded-2xl p-5">
+        <div className="flex items-start justify-between gap-4"><div className="flex min-w-0 gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bhon-teal/10 text-bhon-teal-dark"><Icon className="h-5 w-5" aria-hidden="true" /></span><div><h2 className="font-display text-lg font-semibold text-bhon-text">{name}</h2><p className="mt-1 text-sm leading-6 text-bhon-muted">{description}</p></div></div><span className="shrink-0 rounded-full border border-bhon-border bg-bhon-surface px-2.5 py-1 text-[11px] font-semibold text-bhon-muted">Não conectado</span></div>
+        <div className="mt-5 flex flex-col gap-3 border-t border-bhon-border pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-bhon-muted"><span className="font-semibold text-bhon-text">Pré-requisito:</span> {requirement}</p>{canConfigure ? <button type="button" disabled title="A configuração segura será liberada com o provedor credenciado" className="min-h-10 rounded-lg border border-bhon-border bg-bhon-bg px-3 text-xs font-semibold text-bhon-muted disabled:cursor-not-allowed">Configuração em breve</button> : <span className="text-xs text-bhon-muted">Somente proprietários e gestores configuram</span>}</div>
+      </article>)}
+    </section>
+    <div className="flex gap-3 rounded-2xl border border-bhon-border bg-bhon-surface p-4 text-sm text-bhon-muted"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-bhon-teal-dark" aria-hidden="true" /><p>Enquanto uma conexão não estiver configurada, a BHON mantém os dados clínicos dentro da plataforma e não envia mensagens, cobranças ou agendas a terceiros.</p></div>
+  </div>;
+};

@@ -1,4 +1,5 @@
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const HEALTH_ENDPOINTS = new Set(["/health/live", "/health/ready", "/health/db"]);
 
 export function isTrustedCookieRequest(
   method: string,
@@ -8,6 +9,11 @@ export function isTrustedCookieRequest(
 ): boolean {
   if (SAFE_METHODS.has(method.toUpperCase()) || !sessionCookie) return true;
   return Boolean(origin && allowedOrigins.includes(origin));
+}
+
+export function isGlobalRateLimitExempt(method: string, requestUrl: string): boolean {
+  if (method.toUpperCase() === "OPTIONS") return true;
+  return HEALTH_ENDPOINTS.has(requestUrl.split("?", 1)[0]!);
 }
 
 type AttemptWindow = { attempts: number[] };
@@ -37,6 +43,15 @@ export class SlidingWindowRateLimiter {
       allowed: false,
       retryAfterSeconds: Math.max(1, Math.ceil((attempts[0]! + this.windowMs - now) / 1_000)),
     };
+  }
+
+  consume(key: string, now = Date.now()): { allowed: boolean; retryAfterSeconds: number } {
+    const evaluation = this.check(key, now);
+    if (evaluation.allowed) {
+      const attempts = this.windows.get(key)?.attempts || [];
+      this.windows.set(key, { attempts: [...attempts, now] });
+    }
+    return evaluation;
   }
 
   recordFailure(key: string, now = Date.now()): void {

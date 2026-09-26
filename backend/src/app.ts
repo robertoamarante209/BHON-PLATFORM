@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import cookie from "@fastify/cookie";
-import { isTrustedCookieRequest } from "./domain/security.js";
+import { isGlobalRateLimitExempt, isTrustedCookieRequest, SlidingWindowRateLimiter } from "./domain/security.js";
 import { prisma } from "./lib/prisma.js";
 import { authRoutes } from "./routes/auth.js";
 import { clinicalRoutes } from "./routes/clinical.js";
@@ -19,6 +19,8 @@ export type BuildAppOptions = {
   allowedOrigins?: string[];
   cookieSecret?: string;
 };
+
+const apiRateLimiter = new SlidingWindowRateLimiter(240, 60_000);
 
 function configuredOrigins() {
   if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGINS) {
@@ -74,6 +76,19 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.addHook("onRequest", async (request, reply) => {
     if (!isTrustedCookieRequest(request.method, request.cookies?.bhon_session, request.headers.origin, allowedOrigins)) {
       return reply.code(403).send({ error: "Origem da operação não autorizada.", code: "UNTRUSTED_ORIGIN" });
+    }
+  });
+
+  app.addHook("onRequest", async (request, reply) => {
+    if (isGlobalRateLimitExempt(request.method, request.url)) return;
+
+    // Authentication runs in route middleware, so this early global hook conservatively keys all traffic by IP.
+    const limit = apiRateLimiter.consume(`ip:${request.ip}`);
+    if (!limit.allowed) {
+      return reply.header("Retry-After", String(limit.retryAfterSeconds)).code(429).send({
+        error: "Muitas requisições. Aguarde antes de tentar novamente.",
+        code: "API_RATE_LIMITED",
+      });
     }
   });
 

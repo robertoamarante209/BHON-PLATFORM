@@ -46,10 +46,10 @@ function dateOnly(input: string) {
   const resolvedYear = year || brazilianYear;
   const resolvedMonth = month || brazilianMonth;
   const resolvedDay = day || brazilianDay;
-  if (!resolvedYear || !resolvedMonth || !resolvedDay) return undefined;
+  if (!resolvedYear || !resolvedMonth || !resolvedDay) return null;
   const normalized = `${resolvedYear}-${resolvedMonth.padStart(2, "0")}-${resolvedDay.padStart(2, "0")}`;
   const candidate = new Date(`${normalized}T12:00:00Z`);
-  return Number.isNaN(candidate.getTime()) || candidate.toISOString().slice(0, 10) !== normalized ? undefined : normalized;
+  return Number.isNaN(candidate.getTime()) || candidate.toISOString().slice(0, 10) !== normalized ? null : normalized;
 }
 
 export function normalizePatientRow(row: PatientImportRow): { data: NormalizedPatientImport; errors: string[] } {
@@ -89,7 +89,12 @@ const identityPhone = (input: string) => {
   return normalized.startsWith("55") && normalized.length >= 12 ? normalized.slice(2) : normalized;
 };
 
-export function patientIdentityKeys(patient: Pick<NormalizedPatientImport, "name" | "cpf" | "phone" | "email">) {
+export function patientIdentityKeys(patient: {
+  name: string;
+  cpf?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}) {
   const keys: string[] = [];
   if (patient.cpf) keys.push(`cpf:${digits(patient.cpf)}`);
   const contact = patient.phone ? `phone:${identityPhone(patient.phone)}` : patient.email ? `email:${patient.email.toLocaleLowerCase("pt-BR")}` : null;

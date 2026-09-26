@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Boxes, ExternalLink, FileText, MessageCircle, PackagePlus, PlugZap, Send } from 'lucide-react';
+import { Boxes, Check, Copy, ExternalLink, FileText, MessageCircle, PackagePlus, PlugZap } from 'lucide-react';
+import { useSearch } from 'wouter';
 import { useAuth } from '../../context/AuthContext';
 import { listFollowUps } from '../../lib/clinic';
 import { createDocument, createInventoryItem, listDocuments, listInventory, moveInventory, type ClinicDocument, type InventoryItem } from '../../lib/operations';
+import { buildRecoveryWhatsAppDraft } from '../../lib/recovery';
 import type { FollowUp } from '../../types';
 
 const canManage = (role: string) => ['OWNER', 'ADMIN', 'MANAGER'].includes(role);
@@ -15,14 +17,33 @@ const PageHeader = ({ eyebrow, title, description, icon: Icon }: { eyebrow: stri
 const Notice = ({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'error' }) => <div role={tone === 'error' ? 'alert' : 'status'} className={`rounded-2xl border px-4 py-3 text-sm ${tone === 'error' ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-bhon-border bg-bhon-surface text-bhon-muted'}`}>{children}</div>;
 
 export const WhatsAppPage: React.FC = () => {
-  const [items, setItems] = useState<FollowUp[]>([]); const [error, setError] = useState(''); const [loading, setLoading] = useState(true);
-  useEffect(() => { const controller = new AbortController(); void listFollowUps({ status: 'PENDENTE', limit: 50 }, controller.signal).then((r) => setItems(r.data)).catch((e) => { if (e.name !== 'AbortError') setError(e.message); }).finally(() => setLoading(false)); return () => controller.abort(); }, []);
+  const search = useSearch(); const focusedFollowUpId = new URLSearchParams(search).get('followUp') || undefined;
+  const [items, setItems] = useState<FollowUp[]>([]); const [error, setError] = useState(''); const [loading, setLoading] = useState(true); const [copiedId, setCopiedId] = useState('');
+  const load = () => {
+    const controller = new AbortController();
+    setLoading(true); setError('');
+    void listFollowUps({ status: 'PENDENTE', limit: 50, focus: focusedFollowUpId }, controller.signal)
+      .then((result) => setItems(result.data))
+      .catch((loadError) => { if (loadError.name !== 'AbortError') setError(loadError.message || 'Não foi possível carregar a fila de contatos.'); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return controller;
+  };
+  useEffect(() => { const controller = load(); return () => controller.abort(); }, [focusedFollowUpId]);
   const contactable = useMemo(() => items.filter((item) => item.patientPhone), [items]);
-  const link = (item: FollowUp) => `https://wa.me/${(item.patientPhone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${item.patientName}. Aqui é da clínica. Entramos em contato sobre: ${item.reason}.`)}`;
-  return <div className="mx-auto max-w-[1480px] space-y-6"><PageHeader eyebrow="Relacionamento" title="Central WhatsApp" description="Contatos clínicos pendentes, com abertura segura da conversa no WhatsApp." icon={MessageCircle} />
-    {error ? <Notice tone="error">{error}</Notice> : null}<Notice>A BHON abre a conversa no WhatsApp. Histórico sincronizado e disparos automáticos só serão liberados após a conexão oficial do provedor.</Notice>
+  const copyDraft = async (item: FollowUp) => {
+    if (!navigator.clipboard?.writeText) { setError('A cópia não está disponível neste navegador.'); return; }
+    try {
+      await navigator.clipboard.writeText(buildRecoveryWhatsAppDraft(item));
+      setCopiedId(item.id);
+      window.setTimeout(() => setCopiedId((current) => current === item.id ? '' : current), 1800);
+    } catch {
+      setError('Não foi possível copiar o rascunho. Tente novamente.');
+    }
+  };
+  return <div className="mx-auto max-w-[1480px] space-y-6"><PageHeader eyebrow="Relacionamento" title={focusedFollowUpId ? 'Rascunho de recuperação' : 'Rascunhos para WhatsApp'} description="Prepare contatos de recuperação com contexto; você revisa e envia pelo canal oficial da clínica." icon={MessageCircle} />
+    {error ? <Notice tone="error">{error} <button type="button" onClick={() => load()} className="ml-2 font-bold underline">Tentar novamente</button></Notice> : null}<Notice>A BHON não envia mensagens nem abre conversas nesta etapa. Cada contato é um rascunho copiável, revisado pela equipe antes do envio.</Notice>
     <section className="bhon-panel overflow-hidden rounded-2xl"><div className="border-b border-bhon-border px-5 py-4"><h2 className="font-display text-xl">Fila de contatos</h2><p className="mt-1 text-xs text-bhon-muted">{loading ? 'Atualizando…' : error ? 'Contatos indisponíveis' : `${contactable.length} contatos com telefone disponível`}</p></div>
-      <div className="divide-y divide-bhon-border">{!loading && !error && contactable.length === 0 ? <p className="p-8 text-center text-sm text-bhon-muted">Nenhum contato pendente com telefone cadastrado.</p> : contactable.map((item) => <div key={item.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold text-bhon-text">{item.patientName}</p><p className="mt-1 text-xs text-bhon-muted">{item.reason} · {item.patientPhone}</p></div><a href={link(item)} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-bhon-teal-dark px-4 text-sm font-bold text-white"><Send className="h-4 w-4" /> Abrir conversa</a></div>)}</div>
+      <div className="divide-y divide-bhon-border">{loading ? <p className="p-8 text-center text-sm text-bhon-muted">Carregando rascunhos…</p> : !error && contactable.length === 0 ? <p className="p-8 text-center text-sm text-bhon-muted">Nenhum contato pendente com telefone cadastrado.</p> : contactable.map((item) => <article key={item.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,1.4fr)_auto] lg:items-center"><div><p className="font-semibold text-bhon-text">{item.patientName}</p><p className="mt-1 text-xs text-bhon-muted">{item.reason} · {item.patientPhone}</p></div><p className="rounded-xl border border-bhon-border bg-bhon-bg px-3 py-2 text-xs leading-5 text-bhon-text">{buildRecoveryWhatsAppDraft(item)}</p><button type="button" onClick={() => void copyDraft(item)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-bhon-teal-dark px-4 text-sm font-bold text-bhon-teal-dark transition-colors hover:bg-bhon-teal-dark hover:text-white">{copiedId === item.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copiedId === item.id ? 'Copiado' : 'Copiar rascunho'}</button></article>)}</div>
     </section></div>;
 };
 

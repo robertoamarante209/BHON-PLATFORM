@@ -90,4 +90,19 @@ describe('AgendaPage', () => {
       scheduledAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/),
     })));
   });
+
+  it('offers CFO guided prescription access from the active appointment without sharing appointment data', async () => {
+    route.search = '?date=2099-10-11&focus=appointment-cfo';
+    api.listAppointments.mockResolvedValue([{ id: 'appointment-cfo', patientId: 'patient-1', patientName: 'Paciente do dia', patientRecordNumber: '001', professionalId: 'user-1', professionalName: 'Profissional', roomId: 'room-1', roomName: 'Sala', scheduledAt: '2099-10-11T12:15:00Z', time: '09:15', durationMinutes: 45, procedureName: 'Retorno', status: 'CONFIRMADO', delayMinutes: 0 }]);
+
+    render(<AgendaPage />);
+
+    const link = await screen.findByRole('link', { name: 'Prescrição eletrônica CFO' });
+    expect(link).toHaveAttribute('href', 'https://prescricao.cfo.org.br/login');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link.getAttribute('href')).not.toContain('?');
+    expect(screen.getByText(/dentistas com CRO ativo e certificado ICP-Brasil válido/i)).toBeInTheDocument();
+    expect(screen.getByText(/BHON não transmite dados clínicos nem considera a prescrição registrada automaticamente/i)).toBeInTheDocument();
+  });
 });

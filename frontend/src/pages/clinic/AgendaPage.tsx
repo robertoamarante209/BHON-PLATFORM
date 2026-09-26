@@ -514,6 +514,13 @@ export const AgendaPage: React.FC = () => {
 
             {/* Links Rápidos Navegáveis */}
             <div className="pt-3 border-t border-bhon-border space-y-2">
+              <div className="rounded-lg border border-bhon-border bg-bhon-bg p-3 text-xs text-bhon-muted">
+                <a href="https://prescricao.cfo.org.br/login" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-bhon-teal-dark underline underline-offset-2 hover:text-bhon-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bhon-teal-dark focus-visible:ring-offset-2">
+                  Prescrição eletrônica CFO
+                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+                <p className="mt-1 leading-relaxed">Disponível para dentistas com CRO ativo e certificado ICP-Brasil válido. O profissional emite e assina externamente; a BHON não transmite dados clínicos nem considera a prescrição registrada automaticamente.</p>
+              </div>
               <button
                 onClick={() => {
                   setLocation(`/clinic/patients/${selectedApt.patientId}`);

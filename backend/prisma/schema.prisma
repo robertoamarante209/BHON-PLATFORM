@@ -148,6 +148,10 @@ model Tenant {
   inventoryMovements    InventoryMovement[]
   clinicDocuments       ClinicDocument[]
   integrationConnections IntegrationConnection[]
+  contactConsents       ContactConsent[]
+  recoveryOpportunities RecoveryOpportunity[]
+  recoverySequences     RecoverySequence[]
+  communicationEvents   CommunicationEvent[]
 
   @@index([status])
   @@index([createdAt])
@@ -216,6 +220,7 @@ model User {
   assignedSupportTickets  SupportTicket[] @relation("SupportTicketAssignee")
   notifications           Notification[]  @relation("NotificationRecipient")
   receivedPayments        PaymentReceipt[] @relation("PaymentReceiptReceiver")
+  assignedRecoveryOpportunities RecoveryOpportunity[] @relation("RecoveryOpportunityAssignee")
 
   timelineEvents TimelineEvent[] @relation("TimelineActor")
   auditLogs      AuditLog[]      @relation("AuditActor")
@@ -325,6 +330,10 @@ model Patient {
   financialTransactions FinancialTransaction[]
   timelineEvents TimelineEvent[]
   clinicDocuments ClinicDocument[]
+  contactConsents ContactConsent[]
+  recoveryOpportunities RecoveryOpportunity[]
+  recoverySequences RecoverySequence[]
+  communicationEvents CommunicationEvent[]
 
   @@unique([tenantId, recordNumber])
   @@index([tenantId])
@@ -1072,5 +1081,131 @@ model AuditLog {
   @@index([tenantId, resourceId])
   @@index([tenantId, createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================
+// SARAH — RECUPERAÇÃO COMERCIAL CONSENTIDA
+// ============================================================
+
+enum ConsentStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum RecoverySequenceStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+model ContactConsent {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  patientId String @map("patient_id")
+
+  channel       String
+  purpose       String
+  status        ConsentStatus @default(ACTIVE)
+  capturedAt    DateTime      @default(now()) @map("captured_at") @db.Timestamptz(3)
+  source        String
+  policyVersion String         @map("policy_version")
+
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revocationSource String?   @map("revocation_source")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, patientId])
+  @@index([tenantId, patientId, channel, purpose, status])
+  @@map("contact_consents")
+}
+
+model RecoveryOpportunity {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  patientId String @map("patient_id")
+
+  sourceType     String   @map("source_type")
+  sourceId       String   @map("source_id")
+  stage          String   @default("ACTION_REQUIRED")
+  estimatedValue Decimal? @map("estimated_value") @db.Decimal(12, 2)
+  priorityScore  Int      @default(0) @map("priority_score")
+  strategy       String?
+  nextActionAt   DateTime? @map("next_action_at") @db.Timestamptz(3)
+  assignedToId   String?  @map("assigned_to_id")
+  closedReason   String?  @map("closed_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient    Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  assignedTo User?   @relation("RecoveryOpportunityAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  sequences RecoverySequence[]
+  events    CommunicationEvent[]
+
+  @@index([tenantId, patientId])
+  @@index([tenantId, stage, nextActionAt])
+  @@index([tenantId, sourceType, sourceId])
+  @@map("recovery_opportunities")
+}
+
+model RecoverySequence {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  patientId     String @map("patient_id")
+  opportunityId String @map("opportunity_id")
+
+  step                   Int                    @default(1)
+  scheduledAt            DateTime?              @map("scheduled_at") @db.Timestamptz(3)
+  status                 RecoverySequenceStatus @default(ACTIVE)
+  messageTemplateVersion String?                @map("message_template_version")
+  sentAt                 DateTime?              @map("sent_at") @db.Timestamptz(3)
+  respondedAt            DateTime?              @map("responded_at") @db.Timestamptz(3)
+  handoffAt              DateTime?              @map("handoff_at") @db.Timestamptz(3)
+  endedAt                DateTime?              @map("ended_at") @db.Timestamptz(3)
+  createdAt              DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient     Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  opportunity RecoveryOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  events      CommunicationEvent[]
+
+  @@index([tenantId, patientId])
+  @@index([tenantId, opportunityId])
+  @@index([tenantId, status, scheduledAt])
+  @@map("recovery_sequences")
+}
+
+model CommunicationEvent {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  patientId     String @map("patient_id")
+  opportunityId String @map("opportunity_id")
+  sequenceId    String? @map("sequence_id")
+
+  channel           String
+  direction         String
+  kind              String
+  contentRedacted   String?  @map("content_redacted")
+  providerMessageId String?  @map("provider_message_id")
+  actorType         String   @map("actor_type")
+  actorId           String?  @map("actor_id")
+  occurredAt        DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient     Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  opportunity RecoveryOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  sequence    RecoverySequence?   @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, patientId])
+  @@index([tenantId, opportunityId, occurredAt])
+  @@index([sequenceId])
+  @@map("communication_events")
 }
 

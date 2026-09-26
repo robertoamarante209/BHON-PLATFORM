@@ -103,8 +103,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(operationsRoutes, { prefix: "/api" });
 
   app.get("/", async () => ({
-    status: "ok", product: "BHON Clinical Operating System", brand: "A clínica no controle.", timestamp: new Date().toISOString(),
+    status: "ok", product: "BHON", brand: "A clínica no controle.", timestamp: new Date().toISOString(),
   }));
+  app.get("/health", async () => ({ status: "ok", service: "bhon-api", timestamp: new Date().toISOString() }));
   app.get("/health/live", async () => ({ status: "ok", service: "bhon-api", timestamp: new Date().toISOString() }));
 
   const databaseReadiness = async (_request: unknown, reply: { code: (statusCode: number) => { send: (payload: object) => unknown } }) => {

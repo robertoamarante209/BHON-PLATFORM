@@ -22,6 +22,18 @@ test("health de processo responde sem consultar o banco", async () => {
   assert.equal(response.headers["x-frame-options"], "SAMEORIGIN");
 });
 
+test("health padrão preserva o contrato de disponibilidade", async () => {
+  const response = await app.inject({ method: "GET", url: "/health" });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().status, "ok");
+});
+
+test("resposta raiz usa somente a marca BHON", async () => {
+  const response = await app.inject({ method: "GET", url: "/" });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().product, "BHON");
+});
+
 test("rota clínica rejeita requisição sem sessão antes de acessar dados", async () => {
   const response = await app.inject({ method: "GET", url: "/api/patients" });
   assert.equal(response.statusCode, 401);

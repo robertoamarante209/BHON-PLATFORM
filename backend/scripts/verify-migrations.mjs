@@ -76,8 +76,35 @@ try {
     if (missing.length || extra.length) enumDifferences.push({ name, missing, extra });
   }
 
-  console.log(JSON.stringify({ missingColumns, extraColumns: [...extraColumns].sort(), enumDifferences }, null, 2));
-  if (migrationFailed || missingColumns.length || extraColumns.size || enumDifferences.length) {
+  const rlsRows = await database.query(`
+    SELECT c.relname AS table_name, c.relrowsecurity AS rls_enabled
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r'
+  `);
+  const rlsByTable = new Map(rlsRows.rows.map(({ table_name, rls_enabled }) => [table_name, rls_enabled]));
+  const missingRlsTables = Prisma.dmmf.datamodel.models
+    .map((model) => model.dbName || model.name)
+    .filter((tableName) => !rlsByTable.get(tableName));
+  const triggerFunctionRows = await database.query(`
+    SELECT p.proname, COALESCE(array_to_string(p.proconfig, ','), '') AS configuration
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN ('prevent_communication_event_update', 'prevent_communication_event_delete')
+  `);
+  const unhardenedTriggerFunctions = triggerFunctionRows.rows
+    .filter(({ configuration }) => !configuration.includes('search_path=pg_catalog'))
+    .map(({ proname }) => proname);
+
+  console.log(JSON.stringify({ missingColumns, extraColumns: [...extraColumns].sort(), enumDifferences, missingRlsTables, unhardenedTriggerFunctions }, null, 2));
+  if (missingRlsTables.length) {
+    throw new Error(`RLS ausente em: ${missingRlsTables.join(", ")}`);
+  }
+  if (unhardenedTriggerFunctions.length) {
+    throw new Error(`Função de auditoria sem search_path fixo: ${unhardenedTriggerFunctions.join(", ")}`);
+  }
+  if (migrationFailed || missingColumns.length || extraColumns.size || enumDifferences.length || missingRlsTables.length) {
     process.exitCode = 1;
   }
 } finally {

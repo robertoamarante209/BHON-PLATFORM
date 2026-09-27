@@ -147,7 +147,7 @@
   --color-bg: #101917;
   --color-surface: #16221F;
   --color-text: #EDF5F1;
-  --color-muted: #A7B8B2;
+  --color-muted: #B6C7C1;
   --color-border: #2B3B37;
   --color-border-strong: #3B514B;
   color-scheme: dark;
@@ -157,7 +157,7 @@
 .bhon-clinic-theme--dark .bg-white,
 .bhon-clinic-theme--dark .bg-slate-50,
 .bhon-clinic-theme--dark .bg-slate-100,
-.bhon-clinic-theme--dark .bg-slate-200 { background-color: var(--color-surface); }
+.bhon-clinic-theme--dark .bg-slate-200 { background-color: var(--color-surface) !important; }
 .bhon-clinic-theme--dark .text-slate-950,
 .bhon-clinic-theme--dark .text-slate-900,
 .bhon-clinic-theme--dark .text-slate-800,
@@ -187,6 +187,9 @@
 .bhon-clinic-theme--dark .bg-\[\#F8F5EF\] { background-color: #27312C; }
 .bhon-clinic-theme--dark .border-slate-200\/60 { border-color: rgba(103, 130, 120, 0.45); }
 .bhon-clinic-theme--dark .bg-white\/75 { background-color: rgba(27, 43, 38, 0.9); }
+.bhon-clinic-theme--dark .bg-white\/70 { background-color: rgba(22, 34, 31, 0.9) !important; }
+.bhon-clinic-theme--dark .bg-\[\#F3F7F4\] { background-color: #1C2B27 !important; }
+.bhon-clinic-theme--dark .bg-\[\#F7FAF8\] { background-color: #16221F !important; }
 
 .bhon-login-visual {
   animation: bhon-login-visual 900ms 180ms cubic-bezier(0.16, 1, 0.3, 1) both;

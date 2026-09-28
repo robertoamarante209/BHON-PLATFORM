@@ -156,6 +156,9 @@ model Tenant {
   notificationOutbox     NotificationOutbox[]
   secretaryConversations SecretaryConversation[]
   demoDataLots          DemoDataLot[]
+  patientContactPreferences PatientContactPreference[]
+  privacyRequests       PrivacyRequest[]
+  privacyIncidents      PrivacyIncident[]
 
   @@index([status])
   @@index([createdAt])
@@ -231,6 +234,10 @@ model User {
   timelineEvents TimelineEvent[] @relation("TimelineActor")
   auditLogs      AuditLog[]      @relation("AuditActor")
   availabilitySchedules ClinicAvailability[] @relation("AvailabilityProfessional")
+  createdPrivacyRequests PrivacyRequest[] @relation("PrivacyRequestCreator")
+  responsiblePrivacyRequests PrivacyRequest[] @relation("PrivacyRequestResponsible")
+  createdPrivacyIncidents PrivacyIncident[] @relation("PrivacyIncidentCreator")
+  responsiblePrivacyIncidents PrivacyIncident[] @relation("PrivacyIncidentResponsible")
 
   @@unique([tenantId, emailNormalized])
   @@index([tenantId])
@@ -341,6 +348,7 @@ model Patient {
   timelineEvents TimelineEvent[]
   clinicDocuments ClinicDocument[]
   secretaryConversations SecretaryConversation[]
+  contactPreference PatientContactPreference?
 
   @@unique([tenantId, recordNumber])
   @@index([tenantId])
@@ -351,6 +359,98 @@ model Patient {
   @@index([tenantId, externalRef])
   @@index([demoLotId])
   @@map("patients")
+}
+
+enum ContactChannelStatus {
+  NOT_INFORMED
+  ALLOWED
+  REFUSED
+}
+
+enum PrivacyRequestType {
+  ACCESS
+  CORRECTION
+  EXPORT
+  DELETION
+  OTHER
+}
+
+enum PrivacyRequestStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum PrivacyIncidentStatus {
+  OPEN
+  INVESTIGATING
+  CONTAINED
+  CLOSED
+}
+
+model PatientContactPreference {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  patientId String @unique @map("patient_id")
+  whatsapp ContactChannelStatus @default(NOT_INFORMED)
+  phone ContactChannelStatus @default(NOT_INFORMED)
+  email ContactChannelStatus @default(NOT_INFORMED)
+  source String? @map("source")
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  recordedByUserId String? @map("recorded_by_user_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, patientId])
+  @@map("patient_contact_preferences")
+}
+
+model PrivacyRequest {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  patientId String? @map("patient_id")
+  type PrivacyRequestType
+  status PrivacyRequestStatus @default(OPEN)
+  summary String
+  dueAt DateTime? @map("due_at") @db.Timestamptz(3)
+  createdByUserId String? @map("created_by_user_id")
+  responsibleUserId String? @map("responsible_user_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  createdByUser User? @relation("PrivacyRequestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  responsibleUser User? @relation("PrivacyRequestResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, patientId])
+  @@map("privacy_requests")
+}
+
+model PrivacyIncident {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  status PrivacyIncidentStatus @default(OPEN)
+  systemArea String @map("system_area")
+  impactLevel String @map("impact_level")
+  summary String
+  actionsTaken String? @map("actions_taken")
+  createdByUserId String? @map("created_by_user_id")
+  responsibleUserId String? @map("responsible_user_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdByUser User? @relation("PrivacyIncidentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  responsibleUser User? @relation("PrivacyIncidentResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt])
+  @@map("privacy_incidents")
 }
 
 // ============================================================

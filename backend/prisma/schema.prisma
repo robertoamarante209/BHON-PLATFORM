@@ -152,6 +152,7 @@ model Tenant {
   protocols              ClinicProtocol[]
   trialSignups           TrialSignup[]
   onboardingProgress     OnboardingProgress?
+  activationEvents       ActivationEvent[]
   notificationOutbox     NotificationOutbox[]
   secretaryConversations SecretaryConversation[]
 
@@ -1027,12 +1028,38 @@ model OnboardingProgress {
   appointmentReadyAt DateTime? @map("appointment_ready_at") @db.Timestamptz(3)
   followUpReadyAt DateTime? @map("follow_up_ready_at") @db.Timestamptz(3)
   firstValueAt DateTime? @map("first_value_at") @db.Timestamptz(3)
+  dismissedAt DateTime? @map("dismissed_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("onboarding_progress")
+}
+
+enum ActivationEventType {
+  ONBOARDING_OPENED
+  CSV_TEMPLATE_DOWNLOADED
+  PATIENT_IMPORT_COMPLETED
+  DEMO_LOADED
+  DEMO_REMOVED
+  TEAM_CREATED
+  AGENDA_OPENED
+  OPPORTUNITY_PRIORITIZED
+  SARAH_MESSAGE_PREPARED
+}
+
+model ActivationEvent {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  actorUserId String? @map("actor_user_id")
+  type ActivationEventType
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("activation_events")
 }
 
 model NotificationOutbox {

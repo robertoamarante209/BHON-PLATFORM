@@ -5,8 +5,8 @@ import { Drawer } from '../../components/common/Drawer';
 import { useAuth } from '../../context/AuthContext';
 import { listOpportunities, opportunityTransitions, updateOpportunityStatus, type OpportunityMetrics, type Pagination } from '../../lib/clinic';
 import type { Opportunity, OpportunityStatus } from '../../types';
-import { createSarahRecoveryDraftPath } from '../../lib/operations';
-import { completeActivationStep, trackActivationEvent } from '../../lib/onboarding';
+import { createSarahRecoveryDraftPath, prepareSarahRecoveryDraft } from '../../lib/operations';
+import { trackActivationEvent } from '../../lib/onboarding';
 
 const stages: Array<{ code: OpportunityStatus; label: string }> = [
   { code: 'NEW_CONTACT', label: 'Novo Contato' }, { code: 'TRIAGEM', label: 'Triagem' },
@@ -90,11 +90,17 @@ export const OpportunitiesPage: React.FC = () => {
     ? opportunityTransitions[selectedOpportunity.status].filter((status) => status !== 'CONVERTIDO')
     : [];
   const canWrite = writeRoles.includes(currentUser.role);
-  const prepareWithSarah = (opportunity: Opportunity) => {
-    void trackActivationEvent('OPPORTUNITY_PRIORITIZED').catch(() => undefined);
-    void trackActivationEvent('SARAH_MESSAGE_PREPARED').catch(() => undefined);
-    void completeActivationStep('SARAH_MESSAGE').catch(() => undefined);
-    setLocation(createSarahRecoveryDraftPath({ patientId: opportunity.patientId, opportunityId: opportunity.id }));
+  const prepareWithSarah = async (opportunity: Opportunity) => {
+    setSaving(true); setError('');
+    try {
+      const draft = await prepareSarahRecoveryDraft(opportunity.id);
+      void trackActivationEvent('OPPORTUNITY_PRIORITIZED').catch(() => undefined);
+      setLocation(`${createSarahRecoveryDraftPath({ patientId: opportunity.patientId, opportunityId: opportunity.id })}&conversationId=${encodeURIComponent(draft.conversationId)}`);
+    } catch (prepareError) {
+      setError(prepareError instanceof Error ? prepareError.message : 'Não foi possível preparar o rascunho com a Sarah.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -112,7 +118,7 @@ export const OpportunitiesPage: React.FC = () => {
 
       {pagination.totalPages > 1 && <div className="flex items-center justify-end gap-2 text-xs text-bhon-muted"><button type="button" aria-label="Página anterior" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)} className="rounded border border-bhon-border p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button><span>Página {page} de {pagination.totalPages}</span><button type="button" aria-label="Próxima página" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)} className="rounded border border-bhon-border p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button></div>}
 
-      <Drawer isOpen={!!selectedOpportunity} onClose={() => !saving && setSelectedOpportunity(null)} title={canWrite ? 'Gerenciar oportunidade' : 'Consultar oportunidade'} subtitle={selectedOpportunity?.patientName || ''} width="max-w-lg">{selectedOpportunity && <form onSubmit={submitStatus} className="space-y-4 text-xs"><div className="rounded border border-bhon-border bg-slate-50 p-3"><p className="text-bhon-muted">Estágio atual</p><p className="mt-1 font-bold">{selectedOpportunity.status.replace(/_/g, ' ')}</p></div>{canWrite ? <button type="button" onClick={() => prepareWithSarah(selectedOpportunity)} className="flex w-full items-center justify-center gap-1.5 rounded border border-bhon-teal bg-bhon-teal-subtle py-2 font-bold text-bhon-teal-dark hover:bg-bhon-teal/15">Preparar com Sarah</button> : null}{!canWrite ? <div className="rounded border border-bhon-border p-3 text-bhon-muted">Seu perfil possui acesso somente para consulta deste funil.</div> : availableTargets.length === 0 ? <div className="rounded border border-bhon-border p-3 text-bhon-muted">Este estágio não possui transição manual. Conversões são realizadas pela aprovação do orçamento.</div> : <><label className="block space-y-1"><span className="font-bold">Próximo estágio</span><select required value={targetStatus} onChange={(event) => setTargetStatus(event.target.value as OpportunityStatus)} className="w-full rounded border border-bhon-border bg-white p-2"><option value="">Selecione…</option>{availableTargets.map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}</select></label><label className="block space-y-1"><span className="font-bold">Próximo passo</span><input value={nextStep} onChange={(event) => setNextStep(event.target.value)} maxLength={500} className="w-full rounded border border-bhon-border p-2" placeholder="Ex.: ligar amanhã para confirmar decisão" /></label>{targetStatus === 'PERDIDO' && <label className="block space-y-1"><span className="font-bold text-rose-800">Motivo da perda</span><textarea required minLength={3} maxLength={500} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} className="w-full rounded border border-rose-300 p-2" /></label>}<button type="submit" disabled={saving || !targetStatus} className="flex w-full items-center justify-center gap-1.5 rounded bg-bhon-navy py-2 font-bold text-white transition-[background-color,transform] duration-150 ease-out hover:bg-bhon-navy-hover active:scale-[0.97] disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Atualizar estágio</button></>}</form>}</Drawer>
+      <Drawer isOpen={!!selectedOpportunity} onClose={() => !saving && setSelectedOpportunity(null)} title={canWrite ? 'Gerenciar oportunidade' : 'Consultar oportunidade'} subtitle={selectedOpportunity?.patientName || ''} width="max-w-lg">{selectedOpportunity && <form onSubmit={submitStatus} className="space-y-4 text-xs"><div className="rounded border border-bhon-border bg-slate-50 p-3"><p className="text-bhon-muted">Estágio atual</p><p className="mt-1 font-bold">{selectedOpportunity.status.replace(/_/g, ' ')}</p></div>{canWrite ? <button type="button" disabled={saving} onClick={() => void prepareWithSarah(selectedOpportunity)} className="flex w-full items-center justify-center gap-1.5 rounded border border-bhon-teal bg-bhon-teal-subtle py-2 font-bold text-bhon-teal-dark hover:bg-bhon-teal/15 disabled:opacity-60">Preparar com Sarah</button> : null}{!canWrite ? <div className="rounded border border-bhon-border p-3 text-bhon-muted">Seu perfil possui acesso somente para consulta deste funil.</div> : availableTargets.length === 0 ? <div className="rounded border border-bhon-border p-3 text-bhon-muted">Este estágio não possui transição manual. Conversões são realizadas pela aprovação do orçamento.</div> : <><label className="block space-y-1"><span className="font-bold">Próximo estágio</span><select required value={targetStatus} onChange={(event) => setTargetStatus(event.target.value as OpportunityStatus)} className="w-full rounded border border-bhon-border bg-white p-2"><option value="">Selecione…</option>{availableTargets.map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}</select></label><label className="block space-y-1"><span className="font-bold">Próximo passo</span><input value={nextStep} onChange={(event) => setNextStep(event.target.value)} maxLength={500} className="w-full rounded border border-bhon-border p-2" placeholder="Ex.: ligar amanhã para confirmar decisão" /></label>{targetStatus === 'PERDIDO' && <label className="block space-y-1"><span className="font-bold text-rose-800">Motivo da perda</span><textarea required minLength={3} maxLength={500} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} className="w-full rounded border border-rose-300 p-2" /></label>}<button type="submit" disabled={saving || !targetStatus} className="flex w-full items-center justify-center gap-1.5 rounded bg-bhon-navy py-2 font-bold text-white transition-[background-color,transform] duration-150 ease-out hover:bg-bhon-navy-hover active:scale-[0.97] disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Atualizar estágio</button></>}</form>}</Drawer>
     </div>
   );
 };

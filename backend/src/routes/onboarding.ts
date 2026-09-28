@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createActivationService, isActivationEventType, isActivationStepKey, type ActivationStepKey } from "../domain/activation.js";
+import { loadDemoClinic, removeDemoClinic } from "../domain/demo-clinic.js";
 import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
 import { prisma } from "../lib/prisma.js";
 
@@ -76,5 +77,41 @@ export async function onboardingRoutes(app: FastifyInstance) {
       update: { dismissedAt: request.body.dismissed ? new Date() : null },
     });
     return activation.getSnapshot(request.tenantId!);
+  });
+
+  app.post("/onboarding/demo", { preHandler: requireRole(ONBOARDING_ROLES) }, async (request, reply) => {
+    try {
+      const demo = await prisma.$transaction(async (transaction) => {
+        const created = await loadDemoClinic(transaction, request.tenantId!, request.user!.id);
+        await transaction.activationEvent.create({
+          data: { tenantId: request.tenantId!, actorUserId: request.user!.id, type: "DEMO_LOADED" },
+        });
+        return created;
+      });
+      return reply.code(201).send({ demo, snapshot: await activation.getSnapshot(request.tenantId!) });
+    } catch (error) {
+      if (error instanceof Error && error.message === "DEMO_REQUIRES_EMPTY_CLINIC") {
+        return reply.code(409).send({ error: "A demonstração só pode ser carregada em uma clínica sem dados.", code: error.message });
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/onboarding/demo", { preHandler: requireRole(ONBOARDING_ROLES) }, async (request, reply) => {
+    try {
+      const demo = await prisma.$transaction(async (transaction) => {
+        const removed = await removeDemoClinic(transaction, request.tenantId!, request.user!.id);
+        await transaction.activationEvent.create({
+          data: { tenantId: request.tenantId!, actorUserId: request.user!.id, type: "DEMO_REMOVED" },
+        });
+        return removed;
+      });
+      return reply.send({ demo, snapshot: await activation.getSnapshot(request.tenantId!) });
+    } catch (error) {
+      if (error instanceof Error && error.message === "DEMO_NOT_FOUND") {
+        return reply.code(404).send({ error: "Não há demonstração para remover.", code: error.message });
+      }
+      throw error;
+    }
   });
 }

@@ -155,6 +155,7 @@ model Tenant {
   activationEvents       ActivationEvent[]
   notificationOutbox     NotificationOutbox[]
   secretaryConversations SecretaryConversation[]
+  demoDataLots          DemoDataLot[]
 
   @@index([status])
   @@index([createdAt])
@@ -307,6 +308,7 @@ enum PatientStatus {
 model Patient {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
+  demoLotId String? @map("demo_lot_id")
 
   recordNumber String  @map("record_number") // Ex: #03945
   name         String
@@ -326,6 +328,7 @@ model Patient {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  demoLot DemoDataLot? @relation(fields: [demoLotId], references: [id], onDelete: SetNull)
 
   appointments   Appointment[]
   treatments     Treatment[]
@@ -346,6 +349,7 @@ model Patient {
   @@index([tenantId, phone])
   @@index([tenantId, email])
   @@index([tenantId, externalRef])
+  @@index([demoLotId])
   @@map("patients")
 }
 
@@ -469,6 +473,7 @@ enum AppointmentStatus {
 model Appointment {
   id               String @id @default(uuid())
   tenantId         String @map("tenant_id")
+  demoLotId        String? @map("demo_lot_id")
   patientId        String @map("patient_id")
   professionalId   String @map("professional_id")
   roomId           String @map("room_id")
@@ -486,6 +491,7 @@ model Appointment {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  demoLot        DemoDataLot?    @relation(fields: [demoLotId], references: [id], onDelete: SetNull)
   patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Restrict)
   professional   User            @relation("AppointmentProfessional", fields: [professionalId], references: [id], onDelete: Restrict)
   room           Room            @relation(fields: [roomId], references: [id], onDelete: Restrict)
@@ -500,6 +506,7 @@ model Appointment {
   @@index([tenantId, professionalId])
   @@index([tenantId, patientId])
   @@index([tenantId, status])
+  @@index([demoLotId])
   @@map("appointments")
 }
 
@@ -619,6 +626,7 @@ enum Priority {
 model Opportunity {
   id        String @id @default(uuid())
   tenantId  String @map("tenant_id")
+  demoLotId String? @map("demo_lot_id")
   patientId String @map("patient_id")
 
   assignedToId String? @map("assigned_to_id")
@@ -638,6 +646,7 @@ model Opportunity {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  demoLot  DemoDataLot? @relation(fields: [demoLotId], references: [id], onDelete: SetNull)
   patient  Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
   assignedTo User? @relation("OpportunityAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
@@ -650,6 +659,7 @@ model Opportunity {
   @@index([tenantId, daysInactive])
   @@index([tenantId, priority])
   @@index([tenantId, assignedToId])
+  @@index([demoLotId])
   @@map("opportunities")
 }
 
@@ -725,6 +735,7 @@ enum FollowUpStatus {
 model FollowUp {
   id            String @id @default(uuid())
   tenantId      String @map("tenant_id")
+  demoLotId     String? @map("demo_lot_id")
   patientId     String @map("patient_id")
   appointmentId String? @map("appointment_id")
 
@@ -744,6 +755,7 @@ model FollowUp {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  demoLot         DemoDataLot? @relation(fields: [demoLotId], references: [id], onDelete: SetNull)
   patient         Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
   appointment     Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   responsibleUser User?        @relation("FollowUpAssignee", fields: [responsibleUserId], references: [id], onDelete: SetNull)
@@ -754,6 +766,7 @@ model FollowUp {
   @@index([tenantId, status])
   @@index([tenantId, status, deadlineAt])
   @@index([tenantId, deadlineAt])
+  @@index([demoLotId])
   @@map("follow_ups")
 }
 
@@ -1060,6 +1073,22 @@ model ActivationEvent {
 
   @@index([tenantId, createdAt])
   @@map("activation_events")
+}
+
+model DemoDataLot {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  createdByUserId String? @map("created_by_user_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patients Patient[]
+  opportunities Opportunity[]
+  appointments Appointment[]
+  followUps FollowUp[]
+
+  @@index([tenantId, createdAt])
+  @@map("demo_data_lots")
 }
 
 model NotificationOutbox {

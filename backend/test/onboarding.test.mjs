@@ -101,3 +101,9 @@ test("protege o roteiro de ativação sem uma sessão válida", async () => {
   assert.equal(response.statusCode, 401);
   assert.equal(response.json().code, "UNAUTHORIZED");
 });
+
+test("protege o carregamento de demonstração sem uma sessão válida", async () => {
+  const response = await app.inject({ method: "POST", url: "/api/onboarding/demo" });
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.json().code, "UNAUTHORIZED");
+});

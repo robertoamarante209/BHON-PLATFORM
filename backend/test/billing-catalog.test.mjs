@@ -34,3 +34,14 @@ test("produção aceita somente credenciais Stripe live", () => {
   assert.equal(getStripeConfiguration(environment).livemode, true);
   assert.throws(() => getStripeConfiguration({ ...environment, STRIPE_SECRET_KEY: "sk_test_bhon" }), /sk_live/);
 });
+
+test("configuração expõe apenas o preço interno de teste quando ele existe", () => {
+  const configuration = getStripeConfiguration({
+    STRIPE_SECRET_KEY: "sk_live_bhon",
+    STRIPE_WEBHOOK_SECRET: "whsec_live",
+    STRIPE_PRICE_BHON_CLINIC_MONTHLY: "price_monthly",
+    STRIPE_PRICE_BHON_CLINIC_ANNUAL: "price_annual",
+    STRIPE_PRICE_BHON_TEST: "price_test_one_real",
+  });
+  assert.equal(configuration.testPaymentPriceId, "price_test_one_real");
+});

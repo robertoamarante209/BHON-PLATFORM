@@ -104,6 +104,27 @@ test("Stripe webhook provisions a trial signup exactly once from the durable inb
   assert.deepEqual(calls, { tenant: 1, user: 1, integration: 1, subscription: 1, onboarding: 1, outbox: 3, processed: 1 });
 });
 
+test("Stripe webhook acknowledges the internal one-real checkout without provisioning a clinic", async () => {
+  const calls = { processed: 0, transaction: 0 };
+  const store = {
+    stripeWebhookEvent: {
+      findUnique: async () => ({
+        id: "inbox-internal-checkout",
+        stripeEventId: "evt_internal_checkout",
+        eventType: "checkout.session.completed",
+        processedAt: null,
+        payload: { purpose: "internal_checkout_verification" },
+      }),
+      update: async () => { calls.processed += 1; return { id: "inbox-internal-checkout" }; },
+    },
+    $transaction: async () => { calls.transaction += 1; },
+  };
+
+  await processStripeEvent("evt_internal_checkout", store);
+
+  assert.deepEqual(calls, { processed: 1, transaction: 0 });
+});
+
 test("Stripe webhook records a cancellation without returning a clinic to active access", async () => {
   const calls = { subscription: 0, transition: 0, tenant: 0, processed: 0 };
   const store = {

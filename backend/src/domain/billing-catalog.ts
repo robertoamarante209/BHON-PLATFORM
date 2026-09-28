@@ -23,6 +23,7 @@ export function getStripeConfiguration(env: BillingEnvironment = process.env) {
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
   const monthlyPriceId = env.STRIPE_PRICE_BHON_CLINIC_MONTHLY;
   const annualPriceId = env.STRIPE_PRICE_BHON_CLINIC_ANNUAL;
+  const testPaymentPriceId = env.STRIPE_PRICE_BHON_TEST;
 
   if (!secretKey) throw new Error("STRIPE_SECRET_KEY não está definida.");
   const isTestKey = secretKey.startsWith("sk_test_");
@@ -38,5 +39,5 @@ export function getStripeConfiguration(env: BillingEnvironment = process.env) {
     ? configuredGraceDays
     : 7;
 
-  return { secretKey, webhookSecret, monthlyPriceId, annualPriceId, billingGraceDays, livemode: isLiveKey };
+  return { secretKey, webhookSecret, monthlyPriceId, annualPriceId, testPaymentPriceId, billingGraceDays, livemode: isLiveKey };
 }

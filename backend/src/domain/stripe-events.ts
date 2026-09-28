@@ -8,6 +8,7 @@ type StripeInboxPayload = {
   subscriptionId: string | null;
   trialSignupId: string | null;
   billingCycle: "MONTHLY" | "ANNUAL" | null;
+  purpose: string | null;
   status: string | null;
   livemode: boolean;
 };
@@ -41,6 +42,7 @@ export function serializeStripeEvent(event: Stripe.Event): StripeInboxPayload {
     subscriptionId: stripeId(object.subscription) ?? (event.type.startsWith("customer.subscription.") && typeof object.id === "string" ? object.id : null),
     trialSignupId: typeof metadata.trialSignupId === "string" ? metadata.trialSignupId : null,
     billingCycle: metadata.billingCycle === "MONTHLY" || metadata.billingCycle === "ANNUAL" ? metadata.billingCycle : null,
+    purpose: typeof metadata.purpose === "string" ? metadata.purpose : null,
     status: typeof object.status === "string" ? object.status : null,
     livemode: event.livemode,
   };
@@ -71,6 +73,11 @@ export async function processStripeEvent(eventId: string, database: any = prisma
   }
 
   if (inbox.eventType !== "checkout.session.completed") {
+    await database.stripeWebhookEvent.update({ where: { id: inbox.id }, data: { processedAt: new Date(), processingError: null } });
+    return;
+  }
+
+  if (payload.purpose === "internal_checkout_verification") {
     await database.stripeWebhookEvent.update({ where: { id: inbox.id }, data: { processedAt: new Date(), processingError: null } });
     return;
   }

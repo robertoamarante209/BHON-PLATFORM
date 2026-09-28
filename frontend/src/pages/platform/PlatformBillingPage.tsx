@@ -4,12 +4,27 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { MetricCard } from '../../components/common/MetricCard';
 import { Receipt, Search, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { PlatformInvoice } from '../../types';
+import { startInternalCheckoutTest } from '../../lib/billing';
 
 export const PlatformBillingPage: React.FC = () => {
   const { platformInvoices, platformClinics } = useOperationalData();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [startingTestCheckout, setStartingTestCheckout] = useState(false);
+  const [testCheckoutError, setTestCheckoutError] = useState('');
+
+  const startTestCheckout = async () => {
+    setStartingTestCheckout(true);
+    setTestCheckoutError('');
+    try {
+      const { checkoutUrl } = await startInternalCheckoutTest();
+      window.location.assign(checkoutUrl);
+    } catch (error) {
+      setTestCheckoutError(error instanceof Error ? error.message : 'Não foi possível iniciar o checkout de teste.');
+      setStartingTestCheckout(false);
+    }
+  };
 
   // Métricas do Faturamento da BHON cobrado das clínicas (Seção 31)
   const totalReceived = platformInvoices
@@ -53,10 +68,25 @@ export const PlatformBillingPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="p-2 bg-amber-950/60 border border-amber-800/80 rounded font-mono-data text-xs text-amber-300">
-          MRR Ativo: <strong>R$ {mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+        <div className="flex items-center gap-2">
+          <div className="rounded border border-amber-800/80 bg-amber-950/60 p-2 font-mono-data text-xs text-amber-300">
+            MRR Ativo: <strong>R$ {mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+          </div>
+          <button
+            type="button"
+            onClick={() => void startTestCheckout()}
+            disabled={startingTestCheckout}
+            className="min-h-9 rounded border border-emerald-600 bg-emerald-900/40 px-3 text-xs font-bold text-emerald-200 hover:bg-emerald-900 disabled:opacity-60"
+          >
+            {startingTestCheckout ? 'Abrindo…' : 'Testar checkout R$ 1'}
+          </button>
         </div>
       </div>
+      {testCheckoutError ? (
+        <p role="alert" className="rounded border border-rose-800 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
+          {testCheckoutError}
+        </p>
+      ) : null}
 
       {/* Métricas Mandatórias do Faturamento da BHON (Seção 31) */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

@@ -34,6 +34,7 @@ Cadastre os valores diretamente no painel da Vercel para Preview e Production. N
 | `CORS_ORIGINS` | URL HTTPS exata do deployment, sem barra final | sim |
 | `NODE_ENV` | use `production` | sim |
 | `ALLOW_BEARER_AUTH` | mantenha `false` | recomendado |
+| `STRIPE_PRICE_BHON_TEST` | preço único interno de R$ 1,00 para validação manual do checkout | somente durante testes |
 
 Na Vercel serverless, `DATABASE_URL` deve usar o pooler transacional do Supabase. Comece com `connection_limit=1` e ajuste somente com métricas. A conexão de migrations deve usar `DIRECT_URL`.
 

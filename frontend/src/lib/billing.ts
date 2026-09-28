@@ -8,3 +8,5 @@ export type TrialSignupInput = {
 export type TrialSignupResponse = { id: string; next: 'CHECKOUT' } | { next: 'EXISTING_SIGNUP' };
 export const startTrial = (input: TrialSignupInput) => apiRequest<TrialSignupResponse>('/public/trials', { method: 'POST', body: JSON.stringify(input) });
 export const startCheckout = (id: string) => apiRequest<{ checkoutUrl: string }>(`/public/trials/${encodeURIComponent(id)}/checkout`, { method: 'POST' });
+export const startInternalCheckoutTest = () =>
+  apiRequest<{ checkoutUrl: string }>('/api/platform/billing/test-checkout', { method: 'POST' });

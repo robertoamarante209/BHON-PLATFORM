@@ -18,6 +18,7 @@ import { publicSignupRoutes } from "./routes/public-signup.js";
 import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
 import { privacyRoutes } from "./routes/privacy.js";
+import { internalBillingRoutes } from "./routes/internal-billing.js";
 import { PassThrough } from "node:stream";
 
 export type BuildAppOptions = {
@@ -114,6 +115,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(operationsRoutes, { prefix: "/api" });
   app.register(onboardingRoutes, { prefix: "/api" });
   app.register(privacyRoutes, { prefix: "/api" });
+  app.register(internalBillingRoutes, { prefix: "/api" });
 
   app.get("/", async () => ({
     status: "ok", product: "BHON Clinical Operating System", brand: "A clínica no controle.", timestamp: new Date().toISOString(),

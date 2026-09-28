@@ -43,3 +43,8 @@ export const createSecretaryConversation = (input: { contactName?: string; conta
 export const sendSecretaryMessage = (id: string, content: string) => apiRequest<{ conversation: SecretaryConversation; reply: SecretaryMessage; actionStatus?: string | null }>(`/api/secretary/conversations/${encodeURIComponent(id)}/messages`, {
   method: 'POST', body: JSON.stringify({ content, channel: 'DASHBOARD' }),
 });
+
+export function createSarahRecoveryDraftPath(input: { patientId: string; opportunityId: string }) {
+  const query = new URLSearchParams({ patientId: input.patientId, opportunityId: input.opportunityId, draft: 'recovery' });
+  return `/clinic/whatsapp?${query.toString()}`;
+}

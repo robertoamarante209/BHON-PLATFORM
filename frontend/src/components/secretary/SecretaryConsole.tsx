@@ -12,6 +12,7 @@ export const SecretaryConsole: React.FC = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const isRecoveryDraft = new URLSearchParams(window.location.search).get('draft') === 'recovery';
   const refresh = async (selectId?: string) => {
     const conversations = await listSecretaryConversations();
     setItems(conversations);
@@ -45,6 +46,7 @@ export const SecretaryConsole: React.FC = () => {
       <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bhon-teal text-[#07120F]"><BotMessageSquare className="h-5 w-5" /></span><div><p className="bhon-eyebrow">Atendimento 7x7</p><h2 id="sarah-title" className="mt-1 font-display text-xl text-bhon-navy">Secretária Sarah</h2><p className="mt-1 text-xs text-bhon-muted">Agenda, encaixes, confirmações e dúvidas operacionais com histórico da clínica.</p></div></div>
       <button type="button" onClick={() => void start()} disabled={saving} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4 text-bhon-teal" />Nova conversa</button>
     </header>
+    {isRecoveryDraft ? <p role="status" className="m-4 rounded-xl border border-bhon-teal/30 bg-bhon-teal-subtle p-3 text-xs text-bhon-teal-dark">Rascunho de recuperação preparado. Revise o contexto e escolha a próxima ação; nenhuma mensagem foi enviada.</p> : null}
     {error ? <p role="alert" className="m-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">{error}</p> : null}
     <div className="grid min-h-[420px] lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="border-b border-bhon-border bg-bhon-bg/50 lg:border-b-0 lg:border-r"><div className="max-h-[420px] overflow-y-auto">{items.length === 0 ? <p className="p-5 text-xs text-bhon-muted">Ainda não há conversas. Abra uma para testar a Sarah antes de conectar o WhatsApp Business.</p> : items.map((item) => <button type="button" key={item.id} onClick={() => void open(item.id)} className={`w-full border-b border-bhon-border px-4 py-3 text-left transition-colors hover:bg-white ${selected?.id === item.id ? 'bg-white' : ''}`}><span className="flex items-center justify-between gap-2"><strong className="truncate text-sm text-bhon-text">{item.contactName || item.patient?.name || item.contactPhone}</strong><span className="shrink-0 text-[10px] text-bhon-teal-dark">{statusLabel[item.status]}</span></span><span className="mt-1 block truncate text-[11px] text-bhon-muted">{item.messages?.[0]?.content || item.lastIntent || item.contactPhone}</span></button>)}</div></aside>

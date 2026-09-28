@@ -18,3 +18,9 @@ test("protege preferências de contato sem uma sessão válida", async () => {
   assert.equal(response.statusCode, 401);
   assert.equal(response.json().code, "UNAUTHORIZED");
 });
+
+test("protege solicitações de privacidade sem uma sessão válida", async () => {
+  const response = await app.inject({ method: "GET", url: "/api/privacy-requests" });
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.json().code, "UNAUTHORIZED");
+});

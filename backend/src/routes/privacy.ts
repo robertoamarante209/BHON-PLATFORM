@@ -92,4 +92,49 @@ export async function privacyRoutes(app: FastifyInstance) {
     });
     return reply.send(preference);
   });
+
+  app.get("/privacy-requests", { preHandler: requireRole(MANAGEMENT_ROLES) }, async (request) => {
+    return prisma.privacyRequest.findMany({
+      where: { tenantId: request.tenantId! },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, patientId: true, type: true, status: true, summary: true, dueAt: true, createdAt: true, updatedAt: true },
+    });
+  });
+
+  app.post<{ Body: { type: "ACCESS" | "CORRECTION" | "EXPORT" | "DELETION" | "OTHER"; summary: string; patientId?: string; dueAt?: string } }>("/privacy-requests", {
+    preHandler: requireRole(MANAGEMENT_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["type", "summary"], properties: {
+      type: { type: "string", enum: ["ACCESS", "CORRECTION", "EXPORT", "DELETION", "OTHER"] }, summary: { type: "string", minLength: 3, maxLength: 500 },
+      patientId: { type: "string", minLength: 1, maxLength: 100 }, dueAt: { type: "string", format: "date-time" },
+    } } },
+  }, async (request, reply) => {
+    if (request.body.patientId) {
+      const patient = await prisma.patient.findFirst({ where: { id: request.body.patientId, tenantId: request.tenantId!, deletedAt: null }, select: { id: true } });
+      if (!patient) return reply.code(404).send({ error: "Paciente não encontrado.", code: "PATIENT_NOT_FOUND" });
+    }
+    const item = await prisma.$transaction(async (tx) => {
+      const created = await tx.privacyRequest.create({ data: { tenantId: request.tenantId!, patientId: request.body.patientId ?? null, type: request.body.type, summary: request.body.summary.trim(), dueAt: request.body.dueAt ? new Date(request.body.dueAt) : null, createdByUserId: request.user!.id } });
+      await tx.auditLog.create({ data: { tenantId: request.tenantId!, actorUserId: request.user!.id, action: "PRIVACY_REQUEST_CREATED", resource: "PrivacyRequest", resourceId: created.id } });
+      return created;
+    });
+    return reply.code(201).send(item);
+  });
+
+  app.get("/privacy-incidents", { preHandler: requireRole(MANAGEMENT_ROLES) }, async (request) => {
+    return prisma.privacyIncident.findMany({ where: { tenantId: request.tenantId! }, orderBy: { createdAt: "desc" }, select: { id: true, status: true, systemArea: true, impactLevel: true, summary: true, actionsTaken: true, createdAt: true, updatedAt: true } });
+  });
+
+  app.post<{ Body: { systemArea: string; impactLevel: string; summary: string; actionsTaken?: string } }>("/privacy-incidents", {
+    preHandler: requireRole(MANAGEMENT_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["systemArea", "impactLevel", "summary"], properties: {
+      systemArea: { type: "string", minLength: 2, maxLength: 80 }, impactLevel: { type: "string", minLength: 2, maxLength: 30 }, summary: { type: "string", minLength: 3, maxLength: 500 }, actionsTaken: { type: "string", maxLength: 500 },
+    } } },
+  }, async (request, reply) => {
+    const item = await prisma.$transaction(async (tx) => {
+      const created = await tx.privacyIncident.create({ data: { tenantId: request.tenantId!, systemArea: request.body.systemArea.trim(), impactLevel: request.body.impactLevel.trim(), summary: request.body.summary.trim(), actionsTaken: request.body.actionsTaken?.trim() || null, createdByUserId: request.user!.id } });
+      await tx.auditLog.create({ data: { tenantId: request.tenantId!, actorUserId: request.user!.id, action: "PRIVACY_INCIDENT_CREATED", resource: "PrivacyIncident", resourceId: created.id } });
+      return created;
+    });
+    return reply.code(201).send(item);
+  });
 }

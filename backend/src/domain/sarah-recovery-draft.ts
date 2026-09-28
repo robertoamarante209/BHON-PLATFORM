@@ -1,5 +1,8 @@
+import { evaluateRecoveryEligibility } from "./contact-preferences.js";
+
 type RecoveryDraftDatabase = {
   opportunity: { findFirst: (args: any) => any };
+  patientContactPreference: { findUnique: (args: any) => any };
   secretaryConversation: { create: (args: any) => Promise<{ id: string }> };
   secretaryMessage: { create: (args: any) => Promise<unknown> };
 };
@@ -10,6 +13,13 @@ export async function createSarahRecoveryDraft(database: RecoveryDraftDatabase, 
     include: { patient: { select: { id: true, name: true, phone: true } } },
   });
   if (!opportunity || !opportunity.patient.phone) throw new Error("RECOVERY_DRAFT_PATIENT_UNAVAILABLE");
+
+  const preferences = await database.patientContactPreference.findUnique({
+    where: { patientId: opportunity.patient.id },
+    select: { whatsapp: true },
+  });
+  const eligibility = evaluateRecoveryEligibility(preferences, "WHATSAPP");
+  if (!eligibility.eligible) throw new Error(`SARAH_${eligibility.code}`);
 
   const conversation = await database.secretaryConversation.create({
     data: {

@@ -136,6 +136,12 @@ export async function onboardingRoutes(app: FastifyInstance) {
       if (error instanceof Error && error.message === "RECOVERY_DRAFT_PATIENT_UNAVAILABLE") {
         return reply.code(409).send({ error: "A oportunidade precisa de um paciente com telefone para preparar o rascunho.", code: error.message });
       }
+      if (error instanceof Error && error.message === "SARAH_CONTACT_CHANNEL_REFUSED") {
+        return reply.code(409).send({ error: "O paciente não autorizou contato por WhatsApp.", code: error.message });
+      }
+      if (error instanceof Error && error.message === "SARAH_CONTACT_CHANNEL_NOT_ALLOWED") {
+        return reply.code(409).send({ error: "Confirme a autorização de contato por WhatsApp antes de preparar a recuperação.", code: error.message });
+      }
       throw error;
     }
   });

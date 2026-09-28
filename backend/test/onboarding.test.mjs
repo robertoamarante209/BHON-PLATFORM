@@ -113,6 +113,7 @@ test("prepara um rascunho da Sarah sem registrar item de entrega", async () => {
   const writes = [];
   const db = {
     opportunity: { findFirst: async () => ({ id: "opportunity-a", patient: { id: "patient-a", name: "Ana Demo", phone: "+5511999999999" } }) },
+    patientContactPreference: { findUnique: async () => ({ whatsapp: "ALLOWED" }) },
     secretaryConversation: { create: async ({ data }) => { writes.push(["conversation", data]); return { id: "conversation-a" }; } },
     secretaryMessage: { create: async ({ data }) => { writes.push(["message", data]); return data; } },
     notificationOutbox: { create: async ({ data }) => writes.push(["outbox", data]) },

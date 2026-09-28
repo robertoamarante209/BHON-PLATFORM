@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSarahRecoveryDraftPath, getSarahDraftConversationId, prepareSarahRecoveryDraft } from '../../lib/operations';
+import { createSarahRecoveryDraftPath, getSarahDraftConversationId, getSarahRecoveryDraftErrorMessage, prepareSarahRecoveryDraft } from '../../lib/operations';
 import { vi } from 'vitest';
 
 const request = vi.hoisted(() => vi.fn());
@@ -21,5 +21,9 @@ describe('first recovery result', () => {
 
   it('recupera a conversa recém-criada ao abrir a Sarah', () => {
     expect(getSarahDraftConversationId('?draft=recovery&conversationId=conversation-1')).toBe('conversation-1');
+  });
+
+  it('explica a recusa de WhatsApp sem sugerir um envio alternativo', () => {
+    expect(getSarahRecoveryDraftErrorMessage('SARAH_CONTACT_CHANNEL_REFUSED')).toMatch(/não autorizou contato por WhatsApp/i);
   });
 });

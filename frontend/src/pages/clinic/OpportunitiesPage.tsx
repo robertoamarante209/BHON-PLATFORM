@@ -5,7 +5,7 @@ import { Drawer } from '../../components/common/Drawer';
 import { useAuth } from '../../context/AuthContext';
 import { listOpportunities, opportunityTransitions, updateOpportunityStatus, type OpportunityMetrics, type Pagination } from '../../lib/clinic';
 import type { Opportunity, OpportunityStatus } from '../../types';
-import { createSarahRecoveryDraftPath, prepareSarahRecoveryDraft } from '../../lib/operations';
+import { createSarahRecoveryDraftPath, getSarahRecoveryDraftErrorMessage, prepareSarahRecoveryDraft } from '../../lib/operations';
 import { trackActivationEvent } from '../../lib/onboarding';
 
 const stages: Array<{ code: OpportunityStatus; label: string }> = [
@@ -97,7 +97,7 @@ export const OpportunitiesPage: React.FC = () => {
       void trackActivationEvent('OPPORTUNITY_PRIORITIZED').catch(() => undefined);
       setLocation(`${createSarahRecoveryDraftPath({ patientId: opportunity.patientId, opportunityId: opportunity.id })}&conversationId=${encodeURIComponent(draft.conversationId)}`);
     } catch (prepareError) {
-      setError(prepareError instanceof Error ? prepareError.message : 'Não foi possível preparar o rascunho com a Sarah.');
+      setError(getSarahRecoveryDraftErrorMessage(prepareError));
     } finally {
       setSaving(false);
     }

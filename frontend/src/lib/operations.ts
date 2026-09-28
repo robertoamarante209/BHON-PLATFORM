@@ -56,3 +56,14 @@ export function prepareSarahRecoveryDraft(opportunityId: string) {
 export function getSarahDraftConversationId(search: string) {
   return new URLSearchParams(search).get('conversationId');
 }
+
+export function getSarahRecoveryDraftErrorMessage(error: unknown) {
+  const code = typeof error === 'string'
+    ? error
+    : typeof error === 'object' && error !== null && 'code' in error
+      ? String(error.code)
+      : '';
+  if (code === 'SARAH_CONTACT_CHANNEL_REFUSED') return 'O paciente não autorizou contato por WhatsApp.';
+  if (code === 'SARAH_CONTACT_CHANNEL_NOT_ALLOWED') return 'Confirme a autorização de contato por WhatsApp antes de preparar a recuperação.';
+  return 'Não foi possível preparar o rascunho com a Sarah.';
+}

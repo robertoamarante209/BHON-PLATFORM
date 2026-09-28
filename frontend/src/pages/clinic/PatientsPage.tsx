@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
-import { AlertTriangle, ArrowRight, Plus, RefreshCw, Search, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Download, Plus, RefreshCw, Search, Upload } from 'lucide-react';
 import type { Patient, PatientStatus } from '../../types';
 import { createPatient, importPatients, listPatients, type CreatePatientInput } from '../../lib/clinic';
 import { useAuth } from '../../context/AuthContext';
 import { hasClinicPermission } from '../../lib/permissions';
+import { createPatientImportTemplateCsv } from '../../lib/patientImportTemplate';
 
 export const PatientsPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -96,6 +97,16 @@ export const PatientsPage: React.FC = () => {
     try { await importPatients(importRows); setIsImportOpen(false); setImportRows([]); setReloadKey((value) => value + 1); }
     catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Não foi possível importar a planilha.'); }
     finally { setImporting(false); }
+  };
+
+  const downloadImportTemplate = () => {
+    const template = new Blob([createPatientImportTemplateCsv()], { type: 'text/csv;charset=utf-8' });
+    const templateUrl = URL.createObjectURL(template);
+    const link = document.createElement('a');
+    link.href = templateUrl;
+    link.download = 'modelo-importacao-pacientes-bhon.csv';
+    link.click();
+    URL.revokeObjectURL(templateUrl);
   };
 
   return (
@@ -332,7 +343,22 @@ export const PatientsPage: React.FC = () => {
         </form>
       </Drawer>
       <Drawer isOpen={canCreatePatient && isImportOpen} onClose={() => setIsImportOpen(false)} title="Importar pacientes" subtitle="Revise os dados antes de confirmar o cadastro." width="max-w-lg">
-        <div className="space-y-4 text-xs"><div className="rounded-xl border border-bhon-border bg-bhon-bg p-4"><p className="font-semibold text-bhon-text">Estrutura da planilha</p><p className="mt-1 text-bhon-muted">Envie um CSV com a coluna <strong>nome</strong>. Opcionalmente: telefone, email, cpf, nascimento, alergias, observações e origem. Exporte a planilha do Excel ou do sistema anterior como CSV.</p></div><input aria-label="Selecionar planilha CSV" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void readCsv(file); }} className="block w-full text-xs" />{importRows.length ? <><p className="font-semibold text-bhon-text">Prévia: {importRows.length} pacientes</p><ul className="max-h-40 space-y-1 overflow-auto rounded border border-bhon-border p-3 text-bhon-muted">{importRows.slice(0, 8).map((row, index) => <li key={`${row.name}-${index}`}>{row.name} {row.phone ? `· ${row.phone}` : ''}</li>)}</ul><button type="button" onClick={() => void confirmImport()} disabled={importing} className="w-full rounded bg-bhon-teal py-2.5 font-bold text-white disabled:opacity-50">{importing ? 'Importando…' : 'Confirmar importação'}</button></> : null}</div>
+        <div className="space-y-4 text-xs">
+          <div className="rounded-xl border border-bhon-border bg-bhon-bg p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-bhon-text">Estrutura da planilha</p>
+                <p className="mt-1 text-bhon-muted">Envie um CSV com a coluna <strong>nome</strong>. Opcionalmente: telefone, email, cpf, nascimento, alergias, observações e origem.</p>
+              </div>
+              <button type="button" onClick={downloadImportTemplate} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-bhon-border bg-white px-2.5 py-2 font-semibold text-bhon-text transition-colors hover:border-bhon-teal hover:text-bhon-teal-dark">
+                <Download className="h-3.5 w-3.5" /> Modelo CSV
+              </button>
+            </div>
+            <p className="mt-3 border-t border-bhon-border pt-3 text-bhon-muted"><strong className="text-bhon-text">Exemplo:</strong> Ana Martins; (11) 99999-0000; ana.martins@example.com. Baixe o modelo, preencha uma linha por paciente e salve como CSV no Excel ou no sistema anterior.</p>
+          </div>
+          <input aria-label="Selecionar planilha CSV" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void readCsv(file); }} className="block w-full text-xs" />
+          {importRows.length ? <><p className="font-semibold text-bhon-text">Prévia: {importRows.length} pacientes</p><ul className="max-h-40 space-y-1 overflow-auto rounded border border-bhon-border p-3 text-bhon-muted">{importRows.slice(0, 8).map((row, index) => <li key={`${row.name}-${index}`}>{row.name} {row.phone ? `· ${row.phone}` : ''}</li>)}</ul><button type="button" onClick={() => void confirmImport()} disabled={importing} className="w-full rounded bg-bhon-teal py-2.5 font-bold text-white disabled:opacity-50">{importing ? 'Importando…' : 'Confirmar importação'}</button></> : null}
+        </div>
       </Drawer>
     </div>
   );

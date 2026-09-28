@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Building2, DoorOpen, FileHeart, Loader2, Pencil, Plus, RefreshCw, Save, ShieldCheck, Users } from 'lucide-react';
 import { SectionState } from '../../components/common/SectionState';
+import { ContextualHelp } from '../../components/common/ContextualHelp';
 import { ProtocolSettingsPanel } from '../../components/settings/ConfigurationPanels';
 import { useAuth } from '../../context/AuthContext';
 import { createRoom, getClinicSettings, updateRoom, type ClinicSettings, type RoomInput } from '../../lib/clinic';
@@ -80,7 +81,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return <div className="page-enter mx-auto max-w-7xl space-y-5">
-    <header className="border-b border-bhon-border pb-4"><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-bhon-gold">Administração Clínica</p><h1 className="text-balance font-display text-2xl text-bhon-navy sm:text-3xl">Configurações da clínica</h1><p className="mt-1 max-w-2xl text-pretty text-sm text-bhon-muted">Dados institucionais e ambientes usados pela operação real.</p></header>
+    <header className="flex flex-wrap items-end justify-between gap-3 border-b border-bhon-border pb-4"><div><p className="mb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-bhon-gold">Administração Clínica</p><h1 className="text-balance font-display text-2xl text-bhon-navy sm:text-3xl">Configurações da clínica</h1><p className="mt-1 max-w-2xl text-pretty text-sm text-bhon-muted">Dados institucionais e ambientes usados pela operação real.</p></div><ContextualHelp title="Retomar ativação" description="Confirme os dados da clínica e cadastre um ambiente para avançar no primeiro roteiro. Você pode retomar a qualquer momento pela Visão Geral." /></header>
     {error ? <div role="alert" className="flex flex-col items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 sm:flex-row sm:items-center"><span>{error}</span><button type="button" onClick={() => void load()} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 font-bold hover:bg-rose-100 focus-visible:ring-2 focus-visible:ring-rose-500"><RefreshCw className="h-4 w-4" aria-hidden="true" />Tentar novamente</button></div> : null}
     {feedback ? <p aria-live="polite" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{feedback}</p> : null}
 

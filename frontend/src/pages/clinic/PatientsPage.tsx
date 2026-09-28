@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Drawer } from '../../components/common/Drawer';
+import { ContextualHelp } from '../../components/common/ContextualHelp';
 import { AlertTriangle, ArrowRight, Download, Plus, RefreshCw, Search, Upload } from 'lucide-react';
 import type { Patient, PatientStatus } from '../../types';
 import { createPatient, importPatients, listPatients, type CreatePatientInput } from '../../lib/clinic';
@@ -119,7 +120,7 @@ export const PatientsPage: React.FC = () => {
           <p className="mt-1 text-sm text-bhon-muted">Encontre rapidamente informações, histórico e próximos passos.</p>
         </div>
 
-        {canCreatePatient ? <div className="flex gap-2 self-start sm:self-auto"><button onClick={() => setIsImportOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-bhon-border bg-white px-4 text-sm font-semibold text-bhon-text"><Upload className="h-4 w-4" />Importar</button><button
+        {canCreatePatient ? <div className="flex gap-2 self-start sm:self-auto"><ContextualHelp title="Como importar" description="Baixe o modelo CSV, preencha uma linha por paciente e revise a prévia antes de confirmar. A importação não envia mensagens." /><button onClick={() => setIsImportOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-bhon-border bg-white px-4 text-sm font-semibold text-bhon-text"><Upload className="h-4 w-4" />Importar</button><button
           onClick={() => setIsNewPatientOpen(true)}
           aria-label="Novo paciente"
           className="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl bg-bhon-navy px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-bhon-navy-hover sm:self-auto"

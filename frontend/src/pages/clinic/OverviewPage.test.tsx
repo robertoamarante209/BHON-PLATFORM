@@ -8,6 +8,8 @@ import { DailyAppointmentsProvider } from '../../context/DailyAppointmentsContex
 const api = vi.hoisted(() => ({
   listAppointments: vi.fn(),
   updateAppointmentStatus: vi.fn(),
+  getActivationSnapshot: vi.fn(),
+  dismissActivation: vi.fn(),
 }));
 const router = vi.hoisted(() => ({ setLocation: vi.fn() }));
 
@@ -28,6 +30,11 @@ vi.mock('../../lib/clinic', async () => {
     updateAppointmentStatus: api.updateAppointmentStatus,
   };
 });
+
+vi.mock('../../lib/onboarding', () => ({
+  getActivationSnapshot: api.getActivationSnapshot,
+  dismissActivation: api.dismissActivation,
+}));
 
 const appointment: Appointment = {
   id: 'appointment-1',
@@ -65,7 +72,12 @@ describe('OverviewPage', () => {
     router.setLocation.mockReset();
     api.listAppointments.mockReset();
     api.updateAppointmentStatus.mockReset();
+    api.getActivationSnapshot.mockReset();
+    api.dismissActivation.mockReset();
     api.listAppointments.mockResolvedValue([appointment]);
+    api.getActivationSnapshot.mockResolvedValue({
+      dismissed: true, completedSteps: 0, totalSteps: 6, steps: [], nextStep: null, eventContract: { acceptsOnly: [] },
+    });
   });
 
   it('usa a cópia aprovada e não fabrica totais quando o dia está indisponível', async () => {
@@ -164,5 +176,18 @@ describe('OverviewPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Abrir perfil do paciente →' }));
     expect(router.setLocation).toHaveBeenCalledWith('/clinic/patients/patient-1');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('mostra uma ativação compacta quando a clínica ainda não atingiu o primeiro resultado', async () => {
+    api.getActivationSnapshot.mockResolvedValueOnce({
+      dismissed: false, completedSteps: 1, totalSteps: 6,
+      steps: [{ key: 'PROFILE', complete: true }, { key: 'PATIENTS', complete: false }],
+      nextStep: { key: 'PATIENTS', complete: false }, eventContract: { acceptsOnly: [] },
+    });
+    renderOverview();
+
+    expect(await screen.findByRole('heading', { name: /primeiro resultado/i })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /importar pacientes/i }));
+    expect(router.setLocation).toHaveBeenCalledWith('/clinic/patients');
   });
 });

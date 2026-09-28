@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowRight, CalendarDays, Check, Clock3, MoreHorizontal, Sparkles, Users } from 'lucide-react';
 import { Drawer } from '../../components/common/Drawer';
@@ -7,6 +7,8 @@ import { RecoveryQueue } from '../../components/recovery/RecoveryQueue';
 import type { Appointment, AppointmentStatus } from '../../types';
 import { appointmentTransitions, updateAppointmentStatus } from '../../lib/clinic';
 import { useDailyAppointments } from '../../context/DailyAppointmentsContext';
+import { ActivationChecklist } from '../../components/onboarding/ActivationChecklist';
+import { dismissActivation, getActivationSnapshot, type ActivationSnapshot } from '../../lib/onboarding';
 
 const actionable: AppointmentStatus[] = ['AGUARDANDO_CONFIRMACAO', 'CONFIRMADO', 'NA_RECEPCAO', 'ENCAIXE', 'EM_ATENDIMENTO'];
 
@@ -18,6 +20,7 @@ export const OverviewPage: React.FC = () => {
   const loading = daily.loading;
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activation, setActivation] = useState<ActivationSnapshot | null>(null);
   const loadFailed = !!daily.error;
 
   const summary = useMemo(() => ({
@@ -29,6 +32,12 @@ export const OverviewPage: React.FC = () => {
   const nextAppointments = appointments.filter((item) => actionable.includes(item.status)).slice(0, 7);
   const confirmationQueue = appointments.filter((item) => item.status === 'AGUARDANDO_CONFIRMACAO');
   const nextPriority = confirmationQueue[0] || nextAppointments[0] || null;
+
+  const refreshActivation = async () => {
+    try { setActivation(await getActivationSnapshot()); } catch { setActivation(null); }
+  };
+
+  useEffect(() => { void refreshActivation(); }, []);
 
   const changeStatus = async (status: AppointmentStatus) => {
     if (!selected || actionLoading || !appointmentTransitions[selected.status].includes(status)) return;
@@ -52,6 +61,8 @@ export const OverviewPage: React.FC = () => {
         <div><h1 className="font-display text-3xl text-bhon-navy sm:text-4xl">Sua operação de hoje, em um só lugar.</h1><p className="mt-2 max-w-xl text-sm text-bhon-muted">Veja quem chega agora, o que precisa de atenção e siga o atendimento sem perder contexto.</p></div>
         <Link href="/clinic/agenda" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white">Abrir agenda <ArrowRight className="h-4 w-4 text-bhon-teal" aria-hidden="true" /></Link>
       </header>
+
+      {activation ? <ActivationChecklist snapshot={activation} onRefresh={() => void refreshActivation()} onNavigate={setLocation} onDismiss={() => { void dismissActivation(true).then(setActivation).catch(() => undefined); }} /> : null}
 
       {error || daily.error ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800"><span>{error || daily.error}</span>{loadFailed ? <button type="button" onClick={() => void daily.refresh()} className="font-semibold underline underline-offset-2">Tentar novamente</button> : null}</div> : null}
 

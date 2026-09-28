@@ -128,12 +128,12 @@ export const Sidebar: React.FC = () => {
         </div>
       </aside>
 
-      <nav aria-label="Atalhos clínicos" style={{ gridTemplateColumns: `repeat(${mobilePrimaryItems.length + 1}, minmax(0, 1fr))` }} className="fixed inset-x-3 bottom-3 z-50 grid h-16 rounded-2xl border border-bhon-border bg-white/95 px-2 text-bhon-text shadow-[0_18px_50px_rgba(18,27,42,0.16)] backdrop-blur-xl sm:hidden">
+      <nav aria-label="Atalhos clínicos" style={{ gridTemplateColumns: `repeat(${mobilePrimaryItems.length + 1}, minmax(0, 1fr))` }} className="bhon-mobile-dock fixed inset-x-3 z-50 grid h-16 rounded-2xl border border-bhon-border px-2 text-bhon-text backdrop-blur-xl sm:hidden">
         {mobilePrimaryItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
           return (
-            <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${active ? 'text-bhon-teal-dark' : 'text-bhon-muted'}`}>
+            <Link key={item.path} href={item.path} aria-label={item.label} aria-current={active ? 'page' : undefined} className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors ${active ? 'bg-bhon-teal-subtle text-bhon-teal-dark' : 'text-bhon-muted'}`}>
               <Icon aria-hidden="true" className="h-5 w-5" />
               <span>{item.mobileLabel || item.label.replace(' clínica', '')}</span>
             </Link>

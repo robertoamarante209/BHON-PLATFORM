@@ -93,6 +93,14 @@ describe('Sidebar', () => {
     expect(within(screen.getByRole('navigation', { name: 'Atalhos clínicos' })).getByRole('link', { name: 'Agenda clínica' })).toHaveClass('text-bhon-muted');
   });
 
+  it('usa uma barra móvel compatível com tema escuro sem fundo branco fixo', () => {
+    render(<Sidebar />);
+    const shortcuts = screen.getByRole('navigation', { name: 'Atalhos clínicos' });
+    expect(shortcuts).toHaveClass('bhon-mobile-dock');
+    expect(shortcuts).not.toHaveClass('bg-white/95');
+    expect(within(shortcuts).getByRole('link', { name: 'Visão Geral' })).toHaveClass('bg-bhon-teal-subtle');
+  });
+
   it('mantém o atalho de recuperação curto na barra móvel sem perder seu nome acessível', () => {
     render(<Sidebar />);
     const shortcuts = screen.getByRole('navigation', { name: 'Atalhos clínicos' });

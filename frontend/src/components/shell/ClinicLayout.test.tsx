@@ -20,7 +20,7 @@ describe('ClinicLayout', () => {
     const layout = container.querySelector('.bhon-clinic-theme');
     expect(layout).not.toBeNull();
     expect(layout).not.toHaveClass('bhon-clinic-theme--dark');
-    expect(screen.getByRole('main')).toHaveClass('overflow-y-auto');
+    expect(screen.getByRole('main')).toHaveClass('overflow-y-auto', 'pb-28');
   });
 
   it('expõe o espaço clínico temático para auditoria de contraste', () => {

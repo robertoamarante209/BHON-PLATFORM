@@ -14,6 +14,9 @@ import { settingsRoutes } from "./routes/settings.js";
 import { workflowRoutes } from "./routes/workflow.js";
 import { operationsRoutes } from "./routes/operations.js";
 import { clinicConfigurationRoutes } from "./routes/clinic-configuration.js";
+import { publicSignupRoutes } from "./routes/public-signup.js";
+import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
+import { PassThrough } from "node:stream";
 
 export type BuildAppOptions = {
   logger?: boolean;
@@ -32,7 +35,10 @@ function configuredOrigins() {
 }
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? true });
+  const app = Fastify({
+    logger: options.logger ?? true,
+    ajv: { customOptions: { removeAdditional: false } },
+  });
   const allowedOrigins = options.allowedOrigins ?? configuredOrigins();
   const cookieSecret = options.cookieSecret ?? process.env.COOKIE_SECRET;
   if (!cookieSecret) throw new Error("COOKIE_SECRET não está definida.");
@@ -72,6 +78,20 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   app.register(cookie, { secret: cookieSecret, parseOptions: {} });
 
+  app.addHook("preParsing", (request, _reply, payload, done) => {
+    if (request.url.split("?")[0] !== "/webhooks/stripe") return done(null, payload);
+    const chunks: Buffer[] = [];
+    payload.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    payload.on("error", done);
+    payload.on("end", () => {
+      const rawBody = Buffer.concat(chunks);
+      (request as typeof request & { rawBody?: Buffer }).rawBody = rawBody;
+      const replay = new PassThrough();
+      replay.end(rawBody);
+      done(null, replay);
+    });
+  });
+
   app.addHook("onRequest", async (request, reply) => {
     if (!isTrustedCookieRequest(request.method, request.cookies?.bhon_session, request.headers.origin, allowedOrigins)) {
       return reply.code(403).send({ error: "Origem da operação não autorizada.", code: "UNTRUSTED_ORIGIN" });
@@ -79,6 +99,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
 
   app.register(authRoutes);
+  app.register(publicSignupRoutes);
+  app.register(stripeWebhookRoutes);
   app.register(tenantRoutes);
   app.register(clinicalRoutes, { prefix: "/api" });
   app.register(recoveryRoutes, { prefix: "/api" });

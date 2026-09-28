@@ -9,8 +9,9 @@ import {
   FileText,
   AlertTriangle,
   ArrowLeft,
+  ClipboardPlus,
 } from 'lucide-react';
-import { createAppointment, getPatientDossier, getSchedulingResources } from '../../lib/clinic';
+import { createAppointment, createPatientEvolution, getPatientDossier, getSchedulingResources } from '../../lib/clinic';
 import type { PatientDossier, ProfessionalOption } from '../../lib/clinic';
 import type { Room } from '../../types';
 
@@ -26,8 +27,11 @@ export const PatientDetailPage: React.FC = () => {
   const [professionals, setProfessionals] = useState<ProfessionalOption[]>([]);
 
   const [activeTab, setActiveTab] = useState<
-    'RESUMO' | 'HISTORICO' | 'TRATAMENTOS' | 'ORCAMENTOS' | 'FINANCEIRO' | 'ACOMPANHAMENTOS' | 'DOCUMENTOS'
+    'RESUMO' | 'EVOLUCOES' | 'HISTORICO' | 'TRATAMENTOS' | 'ORCAMENTOS' | 'FINANCEIRO' | 'ACOMPANHAMENTOS' | 'DOCUMENTOS'
   >('RESUMO');
+  const [evolutionContent, setEvolutionContent] = useState('');
+  const [evolutionCategory, setEvolutionCategory] = useState<'CLINICAL' | 'ORIENTATION' | 'FOLLOW_UP'>('CLINICAL');
+  const [evolutionSaving, setEvolutionSaving] = useState(false);
 
   // Estado para agendamento rápido direto do prontuário
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
@@ -126,6 +130,22 @@ export const PatientDetailPage: React.FC = () => {
       setError(requestError instanceof Error ? requestError.message : 'Não foi possível agendar a consulta.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleEvolutionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!evolutionContent.trim() || evolutionSaving) return;
+    setEvolutionSaving(true);
+    setError('');
+    try {
+      await createPatientEvolution(patient.id, { content: evolutionContent.trim(), category: evolutionCategory });
+      setEvolutionContent('');
+      setDossier(await getPatientDossier(patient.id));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível registrar a evolução.');
+    } finally {
+      setEvolutionSaving(false);
     }
   };
 
@@ -241,6 +261,7 @@ export const PatientDetailPage: React.FC = () => {
       <div className="border-b border-bhon-border flex items-center gap-6 text-xs font-semibold select-none overflow-x-auto">
         {[
           { key: 'RESUMO', label: 'Resumo' },
+          { key: 'EVOLUCOES', label: 'Evoluções' },
           { key: 'HISTORICO', label: `Linha do Tempo (${patientAppointments.length + patientTimeline.length})` },
           { key: 'TRATAMENTOS', label: `Tratamentos (${patientTreatments.length})` },
           { key: 'ORCAMENTOS', label: `Orçamentos (${patientBudgets.length})` },
@@ -338,6 +359,39 @@ export const PatientDetailPage: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'EVOLUCOES' && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
+          <form onSubmit={handleEvolutionSubmit} className="rounded border border-bhon-border bg-white p-4">
+            <div className="mb-4 flex items-start gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-bhon-teal-subtle text-bhon-teal-dark"><ClipboardPlus className="h-4 w-4" /></span>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-bhon-text">Registrar evolução</h3>
+                <p className="mt-1 text-xs leading-relaxed text-bhon-muted">Registre o que mudou no cuidado e a orientação dada. O lançamento entra na linha do tempo com autor e data.</p>
+              </div>
+            </div>
+            <label className="block space-y-1.5 text-xs font-semibold text-bhon-text">
+              <span>Tipo de registro</span>
+              <select value={evolutionCategory} onChange={(event) => setEvolutionCategory(event.target.value as typeof evolutionCategory)} className="w-full rounded border border-bhon-border bg-white px-3 py-2 text-bhon-text">
+                <option value="CLINICAL">Evolução clínica</option>
+                <option value="ORIENTATION">Orientação ao paciente</option>
+                <option value="FOLLOW_UP">Retorno e acompanhamento</option>
+              </select>
+            </label>
+            <label className="mt-3 block space-y-1.5 text-xs font-semibold text-bhon-text">
+              <span>Registro</span>
+              <textarea required minLength={3} maxLength={4000} rows={7} value={evolutionContent} onChange={(event) => setEvolutionContent(event.target.value)} placeholder="Descreva objetivamente a evolução e a próxima orientação…" className="w-full resize-y rounded border border-bhon-border bg-white px-3 py-2 text-bhon-text placeholder:text-bhon-muted focus:border-bhon-teal focus:outline-none" />
+            </label>
+            <button type="submit" disabled={evolutionSaving || !evolutionContent.trim()} className="mt-3 inline-flex items-center gap-1.5 rounded bg-bhon-navy px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-bhon-navy-hover disabled:cursor-not-allowed disabled:opacity-60">
+              <ClipboardPlus className="h-3.5 w-3.5" /> {evolutionSaving ? 'Registrando…' : 'Registrar evolução'}
+            </button>
+          </form>
+          <aside className="rounded border border-bhon-border bg-slate-50 p-4 text-xs text-bhon-muted">
+            <p className="font-bold uppercase tracking-wider text-bhon-text">Próxima integração</p>
+            <p className="mt-2 leading-relaxed">A prescrição digital exige integração homologada e credenciais próprias. Esta área organiza a evolução clínica sem emitir receitas ou substituir a validação profissional.</p>
+          </aside>
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { listFollowUps } from '../../lib/clinic';
 import { buildWhatsAppMessage, type WhatsAppMessageKind } from '../../lib/whatsappTemplates';
 import { configureIntegration, createDocument, createInventoryItem, listDocuments, listIntegrations, listInventory, moveInventory, type ClinicDocument, type IntegrationConnection, type InventoryItem } from '../../lib/operations';
 import type { FollowUp } from '../../types';
+import { SecretaryConsole } from '../../components/secretary/SecretaryConsole';
 
 const canManage = (role: string) => ['OWNER', 'ADMIN', 'MANAGER'].includes(role);
 const PageHeader = ({ eyebrow, title, description, icon: Icon }: { eyebrow: string; title: string; description: string; icon: React.ElementType }) => (
@@ -30,8 +31,9 @@ export const WhatsAppPage: React.FC = () => {
     return buildWhatsAppMessage(kind, { clinicName: currentClinic.name, patientName: item.patientName });
   };
   const link = (item: FollowUp) => `https://wa.me/${(item.patientPhone || '').replace(/\D/g, '')}?text=${encodeURIComponent(messageFor(item))}`;
-  return <div className="mx-auto max-w-[1480px] space-y-6"><PageHeader eyebrow="Relacionamento" title="Central WhatsApp" description="Contatos clínicos pendentes, com abertura segura da conversa no WhatsApp." icon={MessageCircle} />
+  return <div className="mx-auto max-w-[1480px] space-y-6"><PageHeader eyebrow="Relacionamento" title="Central WhatsApp" description="A Secretária Sarah atende conversas operacionais e mantém a equipe no contexto." icon={MessageCircle} />
     {error ? <Notice tone="error">{error}</Notice> : null}<Notice>A BHON abre a conversa no WhatsApp. Histórico sincronizado e disparos automáticos só serão liberados após a conexão oficial do provedor.</Notice>
+    <SecretaryConsole />
     <section className="bhon-panel overflow-hidden rounded-2xl"><div className="border-b border-bhon-border px-5 py-4"><h2 className="font-display text-xl">Fila de contatos</h2><p className="mt-1 text-xs text-bhon-muted">{loading ? 'Atualizando…' : `${contactable.length} contatos com telefone disponível`}</p></div>
       <div className="divide-y divide-bhon-border">{!loading && contactable.length === 0 ? <p className="p-8 text-center text-sm text-bhon-muted">Nenhum contato pendente com telefone cadastrado.</p> : contactable.map((item) => <div key={item.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold text-bhon-text">{item.patientName}</p><p className="mt-1 text-xs text-bhon-muted">{item.reason} · {item.patientPhone}</p><p className="mt-2 max-w-2xl text-xs leading-5 text-bhon-text"><span className="font-semibold">Mensagem sugerida: </span>{messageFor(item)}</p></div><a href={link(item)} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-bhon-teal px-4 text-sm font-bold text-[#07120F]"><Send className="h-4 w-4" /> Revisar conversa</a></div>)}</div>
     </section></div>;

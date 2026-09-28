@@ -34,3 +34,12 @@ Não use os dados mantidos em `OperationalDataContext` como evidência de persis
 ## Deploy
 
 O monorepo está preparado como um projeto Vercel Services, com Vite e Fastify no mesmo domínio e Supabase como PostgreSQL. Siga o guia de deploy e nunca envie o `.env` para o repositório ou para o chat.
+
+### Stripe em modo de teste
+
+O fluxo comercial da BHON exige somente variáveis de ambiente no backend:
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+`STRIPE_PRICE_BHON_CLINIC_MONTHLY`, `STRIPE_PRICE_BHON_CLINIC_ANNUAL`,
+`STRIPE_BILLING_GRACE_DAYS` e `PUBLIC_APP_URL`. Cadastre os valores em Vercel
+somente depois de criar os preços de teste na Stripe. Esta versão recusa chaves
+`sk_live_`; nenhum segredo, preço ou dado de cartão pertence ao Git.

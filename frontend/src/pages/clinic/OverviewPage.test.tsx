@@ -82,6 +82,18 @@ describe('OverviewPage', () => {
     expect(await screen.findByText('Nenhuma pendência agora.')).toBeVisible();
   });
 
+  it('prioriza confirmações pendentes na secretária sem executar nenhuma mudança automaticamente', async () => {
+    api.listAppointments.mockResolvedValueOnce([{ ...appointment, status: 'AGUARDANDO_CONFIRMACAO' }]);
+    renderOverview();
+
+    expect(await screen.findByRole('heading', { name: '1 confirmação precisa de atenção' })).toBeVisible();
+    expect(screen.getByText(/nenhuma mensagem ou mudança é executada sem uma ação da equipe/i)).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar confirmação' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Mariana Costa');
+    expect(api.updateAppointmentStatus).not.toHaveBeenCalled();
+  });
+
   it('impede repetir uma transição enquanto a atualização do atendimento está em andamento', async () => {
     let finishUpdate: (() => void) | undefined;
     const updatePromise = new Promise<void>((resolve) => { finishUpdate = resolve; });

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   Patient,
   Appointment,
@@ -29,12 +29,10 @@ import {
   initialTeamMembers,
   initialNotifications,
   initialAuditLogs,
-  initialPlatformInvoices,
-  initialSupportTickets,
   initialRooms,
-  initialClinics
 } from '../data/initialData';
 import { useAuth } from './AuthContext';
+import { loadPlatformOwnerData, loadPlatformTickets, updatePlatformTicket } from '../lib/platform-owner';
 
 interface GlobalSearchResult {
   type: 'PACIENTE' | 'PRONTUARIO' | 'AGENDA' | 'TRATAMENTO' | 'ORCAMENTO';
@@ -79,8 +77,11 @@ interface OperationalDataContextType {
   platformInvoices: PlatformInvoice[];
   supportTickets: SupportTicket[];
   toggleClinicStatus: (clinicId: string, newStatus: PlatformClinic['status']) => void;
-  updateTicketStatus: (ticketId: string, newStatus: SupportTicket['status']) => void;
+  updateTicketStatus: (ticketId: string, newStatus: SupportTicket['status']) => Promise<void>;
   markPlatformInvoicePaid: (invoiceId: string) => void;
+  platformLoading: boolean;
+  platformError: string;
+  refreshPlatformData: () => Promise<void>;
 
   // Busca Global
   globalSearch: (query: string) => GlobalSearchResult[];
@@ -150,34 +151,29 @@ export const OperationalDataProvider: React.FC<{ children: React.ReactNode }> = 
   });
 
   // Estados da Plataforma
-  const [platformClinics, setPlatformClinics] = useState<PlatformClinic[]>(() => {
-    const saved = localStorage.getItem('bhon_p_clinics');
-    if (saved) return JSON.parse(saved);
-    return initialClinics.map(c => ({
-      id: c.id,
-      name: c.name,
-      ownerName: c.id === 'clinic-1' ? 'Dr. Roberto Carlos Fagundes' : 'Dra. Alvorada',
-      ownerEmail: c.email,
-      planName: c.planCode === 'CLINIC_ENTERPRISE' ? 'BHON Enterprise' : (c.planCode === 'CLINIC_PRO' ? 'BHON Clinic Pro' : 'BHON Clinic Starter'),
-      status: c.status === 'ACTIVE' ? 'ATIVA' : (c.status === 'PAYMENT_PENDING' ? 'PAGAMENTO_PENDENTE' : (c.status === 'TEST' ? 'TESTE' : 'SUSPENSA')),
-      usersCount: c.id === 'clinic-1' ? 5 : 8,
-      patientsCount: c.id === 'clinic-1' ? 840 : 1420,
-      lastActivityAt: 'Há 4 minutos',
-      nextBillingDate: '2026-10-05',
-      mrr: c.planCode === 'CLINIC_ENTERPRISE' ? 2490 : (c.planCode === 'CLINIC_PRO' ? 1290 : 690),
-      createdAt: c.createdAt,
-    }));
-  });
+  const [platformClinics, setPlatformClinics] = useState<PlatformClinic[]>([]);
+  const [platformInvoices, setPlatformInvoices] = useState<PlatformInvoice[]>([]);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [platformLoading, setPlatformLoading] = useState(false);
+  const [platformError, setPlatformError] = useState('');
 
-  const [platformInvoices, setPlatformInvoices] = useState<PlatformInvoice[]>(() => {
-    const saved = localStorage.getItem('bhon_p_invoices');
-    return saved ? JSON.parse(saved) : initialPlatformInvoices;
-  });
+  const refreshPlatformData = useCallback(async () => {
+    if (currentUser.role !== 'PLATFORM_OWNER') return;
+    setPlatformLoading(true);
+    setPlatformError('');
+    try {
+      const [ownerData, tickets] = await Promise.all([loadPlatformOwnerData(), loadPlatformTickets()]);
+      setPlatformClinics(ownerData.clinics);
+      setPlatformInvoices(ownerData.invoices);
+      setSupportTickets(tickets);
+    } catch (error) {
+      setPlatformError(error instanceof Error ? error.message : 'Não foi possível carregar os dados da plataforma.');
+    } finally {
+      setPlatformLoading(false);
+    }
+  }, [currentUser.role]);
 
-  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => {
-    const saved = localStorage.getItem('bhon_p_tickets');
-    return saved ? JSON.parse(saved) : initialSupportTickets;
-  });
+  useEffect(() => { void refreshPlatformData(); }, [refreshPlatformData]);
 
   // Sincronização automática com localStorage
   useEffect(() => { localStorage.setItem('bhon_patients', JSON.stringify(patients)); }, [patients]);
@@ -191,9 +187,6 @@ export const OperationalDataProvider: React.FC<{ children: React.ReactNode }> = 
   useEffect(() => { localStorage.setItem('bhon_notifications', JSON.stringify(notifications)); }, [notifications]);
   useEffect(() => { localStorage.setItem('bhon_audit', JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem('bhon_timeline', JSON.stringify(timelineEvents)); }, [timelineEvents]);
-  useEffect(() => { localStorage.setItem('bhon_p_clinics', JSON.stringify(platformClinics)); }, [platformClinics]);
-  useEffect(() => { localStorage.setItem('bhon_p_invoices', JSON.stringify(platformInvoices)); }, [platformInvoices]);
-  useEffect(() => { localStorage.setItem('bhon_p_tickets', JSON.stringify(supportTickets)); }, [supportTickets]);
 
   // Função auxiliar de log de auditoria
   const logAudit = (action: string, resource: string, resourceId: string, metadata?: any) => {
@@ -586,11 +579,9 @@ export const OperationalDataProvider: React.FC<{ children: React.ReactNode }> = 
     logAudit('PLATFORM_CLINIC_STATUS_CHANGED', 'PlatformClinic', clinicId, { newStatus });
   };
 
-  const updateTicketStatus = (ticketId: string, newStatus: SupportTicket['status']) => {
-    setSupportTickets(prev =>
-      prev.map(t => (t.id === ticketId ? { ...t, status: newStatus, resolvedAt: newStatus === 'RESOLVED' ? new Date().toISOString() : undefined } : t))
-    );
-    logAudit('SUPPORT_TICKET_STATUS_CHANGED', 'SupportTicket', ticketId, { newStatus });
+  const updateTicketStatus = async (ticketId: string, newStatus: SupportTicket['status']) => {
+    await updatePlatformTicket(ticketId, newStatus);
+    setSupportTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, status: newStatus, resolvedAt: newStatus === 'RESOLVED' ? new Date().toISOString() : undefined } : t)));
   };
 
   const markPlatformInvoicePaid = (invoiceId: string) => {
@@ -700,6 +691,9 @@ export const OperationalDataProvider: React.FC<{ children: React.ReactNode }> = 
         toggleClinicStatus,
         updateTicketStatus,
         markPlatformInvoicePaid,
+        platformLoading,
+        platformError,
+        refreshPlatformData,
         globalSearch,
       }}
     >

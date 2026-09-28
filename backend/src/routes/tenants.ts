@@ -23,17 +23,46 @@ export async function tenantRoutes(app: FastifyInstance) {
     { preHandler: [requireAuth, requireRole(PLATFORM_OWNER)] },
     async () => {
       return await prisma.tenant.findMany({
+        where: { deletedAt: null },
         include: {
+          users: {
+            where: { role: "OWNER", deletedAt: null },
+            select: { id: true, name: true, email: true, phone: true },
+            take: 1,
+          },
           _count: {
             select: { users: true, patients: true },
           },
-          subscription: {
+          subscriptions: {
             include: { plan: true },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+          platformInvoices: {
+            include: { subscription: { include: { plan: true } } },
+            orderBy: { dueDate: "desc" },
+          },
+          integrationConnections: {
+            select: { provider: true, status: true, updatedAt: true },
           },
         },
         orderBy: { createdAt: "desc" },
       });
     }
+  );
+
+  app.get(
+    "/subscription-plans",
+    { preHandler: [requireAuth, requireRole(PLATFORM_OWNER)] },
+    async () => {
+      const plans = await prisma.subscriptionPlan.findMany({ where: { isActive: true }, orderBy: { monthlyPrice: "asc" } });
+      return plans.map((plan) => ({
+        ...plan,
+        monthlyPrice: Number(plan.monthlyPrice),
+        annualPrice: Number(plan.annualPrice),
+        features: Array.isArray(plan.featuresJson) ? plan.featuresJson.filter((feature): feature is string => typeof feature === "string") : [],
+      }));
+    },
   );
 
   app.post<{ Body: { name?: unknown; email?: unknown; phone?: unknown; planCode?: unknown; ownerName?: unknown; ownerLogin?: unknown; temporaryPassword?: unknown } }>(

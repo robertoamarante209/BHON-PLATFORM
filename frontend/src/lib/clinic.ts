@@ -126,6 +126,11 @@ export type CreateAppointmentInput = {
   notes?: string;
 };
 
+export type CreatePatientEvolutionInput = {
+  content: string;
+  category?: 'CLINICAL' | 'ORIENTATION' | 'FOLLOW_UP';
+};
+
 function mapAppointment(value: ApiAppointment, fallbackPatient?: Pick<Patient, 'id' | 'name' | 'recordNumber'>): Appointment {
   const scheduledAt = new Date(value.scheduledAt);
   const patient = value.patient || fallbackPatient;
@@ -236,6 +241,13 @@ export async function getPatientDossier(id: string, signal?: AbortSignal): Promi
       actorUserName: event.actorUser?.name,
     })),
   };
+}
+
+export function createPatientEvolution(patientId: string, input: CreatePatientEvolutionInput) {
+  return apiRequest<TimelineEvent>(`/api/patients/${encodeURIComponent(patientId)}/evolutions`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 export async function listAppointments(date: string, signal?: AbortSignal): Promise<Appointment[]> {

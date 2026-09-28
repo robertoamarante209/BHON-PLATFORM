@@ -48,6 +48,8 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
             tenantId: true,
             name: true,
             email: true,
+            googleSubject: true,
+            googleEmail: true,
             role: true,
             status: true,
             permissions: true,

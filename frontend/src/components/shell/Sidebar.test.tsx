@@ -83,6 +83,12 @@ describe('Sidebar', () => {
     expect(within(screen.getByRole('navigation', { name: 'Atalhos clínicos' })).getByRole('link', { name: 'Agenda clínica' })).toHaveClass('text-bhon-muted');
   });
 
+  it('mantém o atalho de recuperação curto na barra móvel sem perder seu nome acessível', () => {
+    render(<Sidebar />);
+    const shortcuts = screen.getByRole('navigation', { name: 'Atalhos clínicos' });
+    expect(within(shortcuts).getByRole('link', { name: 'Recuperar orçamentos' })).toHaveTextContent('Recuperar');
+  });
+
   it('permite configurações ao gestor legado e preserva sua leitura da equipe', async () => {
     auth.currentUser = { name: 'Gabi', role: 'MANAGER', permissions: null as unknown as string[] };
     const user = userEvent.setup();

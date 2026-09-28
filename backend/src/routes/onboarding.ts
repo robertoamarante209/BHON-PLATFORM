@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { createActivationService, isActivationEventType, isActivationStepKey, type ActivationStepKey } from "../domain/activation.js";
 import { loadDemoClinic, removeDemoClinic } from "../domain/demo-clinic.js";
+import { createSarahRecoveryDraft } from "../domain/sarah-recovery-draft.js";
 import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
 import { prisma } from "../lib/prisma.js";
 
@@ -110,6 +111,30 @@ export async function onboardingRoutes(app: FastifyInstance) {
     } catch (error) {
       if (error instanceof Error && error.message === "DEMO_NOT_FOUND") {
         return reply.code(404).send({ error: "Não há demonstração para remover.", code: error.message });
+      }
+      throw error;
+    }
+  });
+
+  app.post<{ Body: { opportunityId: string } }>("/onboarding/sarah-draft", {
+    preHandler: requireRole(ONBOARDING_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["opportunityId"], properties: { opportunityId: { type: "string", minLength: 1, maxLength: 100 } } } },
+  }, async (request, reply) => {
+    try {
+      const draft = await prisma.$transaction(async (transaction) => {
+        const created = await createSarahRecoveryDraft(transaction, { tenantId: request.tenantId!, opportunityId: request.body.opportunityId });
+        await transaction.onboardingProgress.upsert({
+          where: { tenantId: request.tenantId! },
+          create: { tenantId: request.tenantId!, firstValueAt: new Date() },
+          update: { firstValueAt: new Date() },
+        });
+        await transaction.activationEvent.create({ data: { tenantId: request.tenantId!, actorUserId: request.user!.id, type: "SARAH_MESSAGE_PREPARED" } });
+        return created;
+      });
+      return reply.code(201).send(draft);
+    } catch (error) {
+      if (error instanceof Error && error.message === "RECOVERY_DRAFT_PATIENT_UNAVAILABLE") {
+        return reply.code(409).send({ error: "A oportunidade precisa de um paciente com telefone para preparar o rascunho.", code: error.message });
       }
       throw error;
     }

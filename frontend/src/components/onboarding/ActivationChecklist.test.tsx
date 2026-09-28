@@ -34,4 +34,13 @@ describe('ActivationChecklist', () => {
     const { container } = render(<ActivationChecklist snapshot={{ ...snapshot, dismissed: true }} onRefresh={vi.fn()} onNavigate={vi.fn()} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('permite carregar dados de exemplo de forma explícita', async () => {
+    const onLoadDemo = vi.fn().mockResolvedValue(undefined);
+    const onNavigate = vi.fn();
+    render(<ActivationChecklist snapshot={snapshot} onRefresh={vi.fn()} onNavigate={onNavigate} onLoadDemo={onLoadDemo} />);
+    await userEvent.click(screen.getByRole('button', { name: /continuar com dados de exemplo/i }));
+    expect(onLoadDemo).toHaveBeenCalledTimes(1);
+    expect(onNavigate).toHaveBeenCalledWith('/clinic/opportunities');
+  });
 });

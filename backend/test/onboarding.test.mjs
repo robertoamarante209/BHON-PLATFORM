@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test, { after } from "node:test";
 
 const { createActivationService, getActivationSnapshot } = await import("../src/domain/activation.ts");
+const { createSarahRecoveryDraft } = await import("../src/domain/sarah-recovery-draft.ts");
 process.env.DATABASE_URL ||= "postgresql://bhon:bhon@localhost:5432/bhon";
 process.env.DIRECT_URL ||= process.env.DATABASE_URL;
 const { buildApp } = await import("../src/app.ts");
@@ -106,4 +107,20 @@ test("protege o carregamento de demonstração sem uma sessão válida", async (
   const response = await app.inject({ method: "POST", url: "/api/onboarding/demo" });
   assert.equal(response.statusCode, 401);
   assert.equal(response.json().code, "UNAUTHORIZED");
+});
+
+test("prepara um rascunho da Sarah sem registrar item de entrega", async () => {
+  const writes = [];
+  const db = {
+    opportunity: { findFirst: async () => ({ id: "opportunity-a", patient: { id: "patient-a", name: "Ana Demo", phone: "+5511999999999" } }) },
+    secretaryConversation: { create: async ({ data }) => { writes.push(["conversation", data]); return { id: "conversation-a" }; } },
+    secretaryMessage: { create: async ({ data }) => { writes.push(["message", data]); return data; } },
+    notificationOutbox: { create: async ({ data }) => writes.push(["outbox", data]) },
+  };
+
+  const draft = await createSarahRecoveryDraft(db, { tenantId: "tenant-a", opportunityId: "opportunity-a" });
+
+  assert.equal(draft.conversationId, "conversation-a");
+  assert.equal(writes[1][1].direction, "SYSTEM");
+  assert.equal(writes.some(([model]) => model === "outbox"), false);
 });

@@ -9,6 +9,7 @@ import { createPatient, importPatients, listPatients, type CreatePatientInput } 
 import { useAuth } from '../../context/AuthContext';
 import { hasClinicPermission } from '../../lib/permissions';
 import { createPatientImportTemplateCsv } from '../../lib/patientImportTemplate';
+import { completeActivationStep, trackActivationEvent } from '../../lib/onboarding';
 
 export const PatientsPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -95,7 +96,7 @@ export const PatientsPage: React.FC = () => {
   const confirmImport = async () => {
     if (!importRows.length || importing) return;
     setImporting(true); setError('');
-    try { await importPatients(importRows); setIsImportOpen(false); setImportRows([]); setReloadKey((value) => value + 1); }
+    try { await importPatients(importRows); void completeActivationStep('PATIENTS').catch(() => undefined); void trackActivationEvent('PATIENT_IMPORT_COMPLETED').catch(() => undefined); setIsImportOpen(false); setImportRows([]); setReloadKey((value) => value + 1); }
     catch (requestError) { setError(requestError instanceof Error ? requestError.message : 'Não foi possível importar a planilha.'); }
     finally { setImporting(false); }
   };

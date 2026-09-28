@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
 import type { ActivationSnapshot } from '../../lib/onboarding';
 
@@ -7,6 +7,7 @@ type Props = {
   onRefresh: () => void;
   onNavigate: (path: string) => void;
   onDismiss?: () => void;
+  onLoadDemo?: () => Promise<void>;
 };
 
 const nextStepCopy = {
@@ -18,7 +19,8 @@ const nextStepCopy = {
   SARAH_MESSAGE: { label: 'Preparar com Sarah', path: '/clinic/whatsapp' },
 } as const;
 
-export function ActivationChecklist({ snapshot, onNavigate, onDismiss }: Props) {
+export function ActivationChecklist({ snapshot, onNavigate, onDismiss, onLoadDemo }: Props) {
+  const [loadingDemo, setLoadingDemo] = useState(false);
   if (snapshot.dismissed || !snapshot.nextStep) return null;
   const next = nextStepCopy[snapshot.nextStep.key];
   const progress = `${snapshot.completedSteps} de ${snapshot.totalSteps} etapas`;
@@ -33,8 +35,9 @@ export function ActivationChecklist({ snapshot, onNavigate, onDismiss }: Props) 
           <p className="mt-1 text-xs text-bhon-muted">{progress}. Próximo passo: {next.label.toLocaleLowerCase('pt-BR')}.</p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <button type="button" onClick={() => onNavigate(next.path)} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-semibold text-white hover:bg-bhon-navy-hover">{next.label}<ArrowRight className="h-3.5 w-3.5 text-bhon-teal" aria-hidden="true" /></button>
+        {snapshot.nextStep.key === 'PATIENTS' && onLoadDemo ? <button type="button" disabled={loadingDemo} onClick={() => { setLoadingDemo(true); void onLoadDemo().then(() => onNavigate('/clinic/opportunities')).finally(() => setLoadingDemo(false)); }} className="min-h-10 rounded-xl border border-bhon-teal px-3 text-xs font-semibold text-bhon-teal-dark hover:bg-white disabled:opacity-60">{loadingDemo ? 'Carregando exemplo…' : 'Continuar com dados de exemplo'}</button> : null}
         {onDismiss ? <button type="button" onClick={onDismiss} className="min-h-10 rounded-xl px-3 text-xs font-semibold text-bhon-muted hover:bg-white">Agora não</button> : null}
       </div>
     </div>

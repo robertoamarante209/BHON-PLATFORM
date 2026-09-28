@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BotMessageSquare, MessageCircleMore, Plus, Send, UserRound } from 'lucide-react';
-import { createSecretaryConversation, getSecretaryConversation, listSecretaryConversations, sendSecretaryMessage, type SecretaryConversation } from '../../lib/operations';
+import { createSecretaryConversation, getSarahDraftConversationId, getSecretaryConversation, listSecretaryConversations, sendSecretaryMessage, type SecretaryConversation } from '../../lib/operations';
 
 const statusLabel: Record<SecretaryConversation['status'], string> = {
   OPEN: 'Em atendimento', WAITING_DETAILS: 'Aguardando dados', HUMAN_HANDOFF: 'Equipe acionada', CLOSED: 'Encerrada',
@@ -13,6 +13,7 @@ export const SecretaryConsole: React.FC = () => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const isRecoveryDraft = new URLSearchParams(window.location.search).get('draft') === 'recovery';
+  const requestedConversationId = getSarahDraftConversationId(window.location.search);
   const refresh = async (selectId?: string) => {
     const conversations = await listSecretaryConversations();
     setItems(conversations);
@@ -22,7 +23,7 @@ export const SecretaryConsole: React.FC = () => {
       setSelected(conversation);
     }
   };
-  useEffect(() => { void refresh().catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar a Sarah.')); }, []);
+  useEffect(() => { void refresh(requestedConversationId || undefined).catch((reason) => setError(reason instanceof Error ? reason.message : 'Não foi possível carregar a Sarah.')); }, [requestedConversationId]);
   const open = async (id: string) => { setError(''); try { setSelected(await getSecretaryConversation(id)); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível abrir a conversa.'); } };
   const start = async () => {
     const contactName = window.prompt('Nome da pessoa:')?.trim();

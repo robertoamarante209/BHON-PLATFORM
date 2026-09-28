@@ -8,7 +8,7 @@ import type { Appointment, AppointmentStatus } from '../../types';
 import { appointmentTransitions, updateAppointmentStatus } from '../../lib/clinic';
 import { useDailyAppointments } from '../../context/DailyAppointmentsContext';
 import { ActivationChecklist } from '../../components/onboarding/ActivationChecklist';
-import { dismissActivation, getActivationSnapshot, type ActivationSnapshot } from '../../lib/onboarding';
+import { completeActivationStep, dismissActivation, getActivationSnapshot, loadDemoClinic, type ActivationSnapshot } from '../../lib/onboarding';
 
 const actionable: AppointmentStatus[] = ['AGUARDANDO_CONFIRMACAO', 'CONFIRMADO', 'NA_RECEPCAO', 'ENCAIXE', 'EM_ATENDIMENTO'];
 
@@ -62,7 +62,7 @@ export const OverviewPage: React.FC = () => {
         <Link href="/clinic/agenda" className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-bhon-navy px-5 text-xs font-semibold text-white">Abrir agenda <ArrowRight className="h-4 w-4 text-bhon-teal" aria-hidden="true" /></Link>
       </header>
 
-      {activation ? <ActivationChecklist snapshot={activation} onRefresh={() => void refreshActivation()} onNavigate={setLocation} onDismiss={() => { void dismissActivation(true).then(setActivation).catch(() => undefined); }} /> : null}
+      {activation ? <ActivationChecklist snapshot={activation} onRefresh={() => void refreshActivation()} onNavigate={(path) => { if (activation.nextStep?.key === 'PROFILE' && path === '/clinic/settings') { void completeActivationStep('PROFILE').then(setActivation).catch(() => undefined); } setLocation(path); }} onLoadDemo={async () => { const response = await loadDemoClinic(); setActivation(response.snapshot); }} onDismiss={() => { void dismissActivation(true).then(setActivation).catch(() => undefined); }} /> : null}
 
       {error || daily.error ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800"><span>{error || daily.error}</span>{loadFailed ? <button type="button" onClick={() => void daily.refresh()} className="font-semibold underline underline-offset-2">Tentar novamente</button> : null}</div> : null}
 

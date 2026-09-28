@@ -48,3 +48,11 @@ export function createSarahRecoveryDraftPath(input: { patientId: string; opportu
   const query = new URLSearchParams({ patientId: input.patientId, opportunityId: input.opportunityId, draft: 'recovery' });
   return `/clinic/whatsapp?${query.toString()}`;
 }
+
+export function prepareSarahRecoveryDraft(opportunityId: string) {
+  return apiRequest<{ conversationId: string }>('/api/onboarding/sarah-draft', { method: 'POST', body: JSON.stringify({ opportunityId }) });
+}
+
+export function getSarahDraftConversationId(search: string) {
+  return new URLSearchParams(search).get('conversationId');
+}

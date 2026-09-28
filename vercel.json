@@ -31,6 +31,7 @@
   "rewrites": [
     { "source": "/auth/(.*)", "destination": { "service": "backend" } },
     { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    { "source": "/webhooks/(.*)", "destination": { "service": "backend" } },
     { "source": "/health", "destination": { "service": "backend" } },
     { "source": "/health/(.*)", "destination": { "service": "backend" } },
     { "source": "/(.*)", "destination": { "service": "frontend" } }

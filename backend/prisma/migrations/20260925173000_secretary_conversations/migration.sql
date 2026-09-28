@@ -45,3 +45,17 @@ CREATE TABLE IF NOT EXISTS "secretary_messages" (
 
 CREATE INDEX IF NOT EXISTS "secretary_messages_conversation_id_created_at_idx" ON "secretary_messages"("conversation_id", "created_at");
 CREATE INDEX IF NOT EXISTS "secretary_messages_intent_idx" ON "secretary_messages"("intent");
+
+-- O backend usa Prisma com credenciais de servidor. A Data API do Supabase
+-- permanece negada por padrão para impedir leitura de conversas clínicas.
+ALTER TABLE "secretary_conversations" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "secretary_messages" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE "secretary_conversations", "secretary_messages" FROM PUBLIC;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL ON TABLE "secretary_conversations", "secretary_messages" FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON TABLE "secretary_conversations", "secretary_messages" FROM authenticated;
+  END IF;
+END $$;

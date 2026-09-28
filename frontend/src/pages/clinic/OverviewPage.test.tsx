@@ -99,7 +99,9 @@ describe('OverviewPage', () => {
     renderOverview();
 
     expect(await screen.findByRole('heading', { name: '1 confirmação precisa de atenção' })).toBeVisible();
-    expect(screen.getByText(/nenhuma mensagem ou mudança é executada sem uma ação da equipe/i)).toBeVisible();
+    expect(screen.getByText('Anna')).toBeVisible();
+    expect(screen.queryByText(/Secretária Sarah/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/nada é enviado sem sua revisão/i)).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Revisar confirmação' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('Mariana Costa');

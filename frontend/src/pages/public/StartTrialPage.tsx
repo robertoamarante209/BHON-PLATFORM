@@ -51,7 +51,7 @@ export const StartTrialPage = () => {
           <h1 className="mt-4 max-w-xl text-4xl font-medium leading-[1.02] tracking-[-0.055em] sm:text-6xl">Sua clínica no controle, desde o primeiro dia.</h1>
           <p className="mt-6 max-w-lg text-base leading-7 text-[#4a6258]">Você terá 14 dias para conhecer a BHON. Cadastre os contatos certos e deixe a estrutura pronta para sua operação.</p>
           <ul className="mt-9 space-y-4 text-sm text-[#334a40]">
-            <li className="flex gap-3"><Check className="mt-0.5 size-4 text-[#15987e]" />WhatsApp da clínica preparado para a conexão da Secretária Sarah</li>
+            <li className="flex gap-3"><Check className="mt-0.5 size-4 text-[#15987e]" />WhatsApp da clínica preparado para a conexão da Secretária Anna</li>
             <li className="flex gap-3"><Check className="mt-0.5 size-4 text-[#15987e]" />Contato do responsável separado para assuntos administrativos</li>
             <li className="flex gap-3"><Check className="mt-0.5 size-4 text-[#15987e]" />Sem cobrança hoje; cancelamento antes do fim do teste</li>
           </ul>
@@ -64,7 +64,7 @@ export const StartTrialPage = () => {
             <label className="text-sm font-medium">Seu nome<input required name="ownerName" className={fieldClass} placeholder="Nome do responsável" /></label>
             <label className="text-sm font-medium">E-mail administrativo<input required type="email" name="ownerEmail" className={fieldClass} placeholder="voce@clinica.com.br" /></label>
             <label className="text-sm font-medium">WhatsApp do responsável<input required type="tel" name="ownerPhone" className={fieldClass} placeholder="(11) 99999-9999" /><span className="mt-1 block text-xs font-normal text-[#6f857b]">Para avisos administrativos. Não atende pacientes.</span></label>
-            <label className="text-sm font-medium sm:col-span-2">WhatsApp da clínica<input required type="tel" name="clinicPhone" className={fieldClass} placeholder="(11) 99999-9999" /><span className="mt-1 block text-xs font-normal text-[#6f857b]">Este é o número que será vinculado à Secretária Sarah após a autorização oficial do WhatsApp Business.</span></label>
+            <label className="text-sm font-medium sm:col-span-2">WhatsApp da clínica<input required type="tel" name="clinicPhone" className={fieldClass} placeholder="(11) 99999-9999" /><span className="mt-1 block text-xs font-normal text-[#6f857b]">Este é o número que será vinculado à Secretária Anna após a autorização oficial do WhatsApp Business.</span></label>
             <label className="text-sm font-medium">Usuário de acesso<input required name="username" className={fieldClass} placeholder="clinica-horizonte" /></label>
             <label className="text-sm font-medium">Crie uma senha<input required minLength={8} type="password" name="password" className={fieldClass} placeholder="Mínimo de 8 caracteres" /></label>
             <fieldset className="sm:col-span-2"><legend className="text-sm font-medium">Plano após o teste</legend><div className="mt-2 grid gap-3 sm:grid-cols-2"><label className="rounded-xl border border-[#cad9d2] p-4 text-sm"><input className="mr-2 accent-[#15987e]" type="radio" name="billingCycle" value="MONTHLY" defaultChecked />Mensal — R$ 290/mês</label><label className="rounded-xl border border-[#cad9d2] p-4 text-sm"><input className="mr-2 accent-[#15987e]" type="radio" name="billingCycle" value="ANNUAL" />Anual — R$ 240/mês</label></div></fieldset>

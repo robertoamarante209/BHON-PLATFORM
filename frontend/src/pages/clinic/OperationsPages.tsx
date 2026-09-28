@@ -31,7 +31,7 @@ export const WhatsAppPage: React.FC = () => {
     return buildWhatsAppMessage(kind, { clinicName: currentClinic.name, patientName: item.patientName });
   };
   const link = (item: FollowUp) => `https://wa.me/${(item.patientPhone || '').replace(/\D/g, '')}?text=${encodeURIComponent(messageFor(item))}`;
-  return <div className="mx-auto max-w-[1480px] space-y-6"><PageHeader eyebrow="Relacionamento" title="Central WhatsApp" description="A Secretária Sarah atende conversas operacionais e mantém a equipe no contexto." icon={MessageCircle} />
+  return <div className="mx-auto max-w-[1480px] space-y-6"><PageHeader eyebrow="Relacionamento" title="Central WhatsApp" description="A Secretária Anna atende conversas operacionais e mantém a equipe no contexto." icon={MessageCircle} />
     {error ? <Notice tone="error">{error}</Notice> : null}<Notice>A BHON abre a conversa no WhatsApp. Histórico sincronizado e disparos automáticos só serão liberados após a conexão oficial do provedor.</Notice>
     <SecretaryConsole />
     <section className="bhon-panel overflow-hidden rounded-2xl"><div className="border-b border-bhon-border px-5 py-4"><h2 className="font-display text-xl">Fila de contatos</h2><p className="mt-1 text-xs text-bhon-muted">{loading ? 'Atualizando…' : `${contactable.length} contatos com telefone disponível`}</p></div>

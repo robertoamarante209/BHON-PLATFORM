@@ -107,7 +107,7 @@ export const PlatformClinicsPage: React.FC = () => {
                 <th className="p-3">Próxima Cobrança</th>
                 <th className="p-3">MRR</th>
                 <th className="p-3">Data Entrada</th>
-                <th className="p-3">Sarah / WhatsApp</th>
+                <th className="p-3">Anna / WhatsApp</th>
                 <th className="p-3 text-right">Ações</th>
               </tr>
             </thead>

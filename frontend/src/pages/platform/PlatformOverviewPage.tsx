@@ -174,7 +174,7 @@ export const PlatformOverviewPage: React.FC = () => {
         </div>
 
         <div className="p-3.5 bg-slate-950 border border-slate-800 rounded">
-          <span className="text-xs text-slate-400 block mb-1">Sarah / WhatsApp conectada</span>
+          <span className="text-xs text-slate-400 block mb-1">Anna / WhatsApp conectada</span>
           <div className="font-mono-data text-2xl font-bold text-emerald-400">{connectedSarah}</div>
           <span className="text-[11px] text-slate-400 font-mono-data mt-1 block">Das {platformClinics.length} clínicas cadastradas</span>
         </div>

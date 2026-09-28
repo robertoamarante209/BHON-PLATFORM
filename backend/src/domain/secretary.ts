@@ -66,7 +66,7 @@ export function buildSecretaryReply(input: { clinicName: string; patientName?: s
     case "HUMAN_HANDOFF":
       return { intent, status: "HUMAN_HANDOFF", requiresSchedulingDetails: false, message: `${greeting} Claro. Registrei seu pedido para a equipe responsável continuar este atendimento.` };
     case "GREETING":
-      return { intent, status: "OPEN", requiresSchedulingDetails: false, message: `${greeting} Eu sou a Secretária Sarah da ${clinic}. Posso ajudar com agendamento, encaixe, remarcação, confirmação e informações da clínica.` };
+      return { intent, status: "OPEN", requiresSchedulingDetails: false, message: `${greeting} Eu sou a Secretária Anna da ${clinic}. Posso ajudar com agendamento, encaixe, remarcação, confirmação e informações da clínica.` };
     default:
       return { intent, status: "OPEN", requiresSchedulingDetails: false, message: `${greeting} Posso ajudar com agendamento, encaixe, remarcação, confirmação e informações da ${clinic}. Como você prefere seguir?` };
   }

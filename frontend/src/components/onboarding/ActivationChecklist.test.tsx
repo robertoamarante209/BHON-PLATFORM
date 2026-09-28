@@ -28,6 +28,7 @@ describe('ActivationChecklist', () => {
     expect(screen.getByRole('heading', { name: /primeiro resultado/i })).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: /importar pacientes/i }));
     expect(onNavigate).toHaveBeenCalledWith('/clinic/patients');
+    expect(screen.queryByText(/Sarah/i)).not.toBeInTheDocument();
   });
 
   it('não aparece quando o roteiro está dispensado', () => {

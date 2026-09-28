@@ -171,7 +171,7 @@ export async function operationsRoutes(app: FastifyInstance) {
         if (appointment) {
           await tx.appointment.update({ where: { id: appointment.id }, data: { status: "CONFIRMADO" } });
           await tx.notificationOutbox.updateMany({ where: { tenantId, templateKey: `APPOINTMENT_CONFIRMATION:${appointment.id}`, status: "PENDING" }, data: { status: "CANCELLED" } });
-          await tx.timelineEvent.create({ data: { tenantId, patientId: conversation.patientId, actorUserId: request.user!.id, type: "APPOINTMENT_CONFIRMED_BY_SECRETARY", description: `Consulta de ${appointment.procedureName} confirmada pela Secretária Sarah.` } });
+          await tx.timelineEvent.create({ data: { tenantId, patientId: conversation.patientId, actorUserId: request.user!.id, type: "APPOINTMENT_CONFIRMED_BY_SECRETARY", description: `Consulta de ${appointment.procedureName} confirmada pela Secretária Anna.` } });
           actionStatus = "CONFIRMED";
         } else actionStatus = "NO_PENDING_APPOINTMENT";
       }
@@ -206,7 +206,7 @@ export async function operationsRoutes(app: FastifyInstance) {
       const cancelled = await prisma.$transaction(async (tx) => {
         const updated = await tx.appointment.update({ where: { id: appointment.id }, data: { status: "CANCELADO" } });
         await tx.notificationOutbox.updateMany({ where: { tenantId, templateKey: { in: [`APPOINTMENT_CONFIRMATION:${appointment.id}`, `APPOINTMENT_REMINDER_PATIENT_24H:${appointment.id}`, `APPOINTMENT_REMINDER_PROFESSIONAL_1H:${appointment.id}`] }, status: "PENDING" }, data: { status: "CANCELLED" } });
-        await tx.secretaryMessage.create({ data: { conversationId: conversation.id, direction: "SYSTEM", content: "Agendamento cancelado pela Secretária Sarah após solicitação do paciente.", action: "CANCEL", actionStatus: "COMPLETED", metadata: { appointmentId: appointment.id } } });
+        await tx.secretaryMessage.create({ data: { conversationId: conversation.id, direction: "SYSTEM", content: "Agendamento cancelado pela Secretária Anna após solicitação do paciente.", action: "CANCEL", actionStatus: "COMPLETED", metadata: { appointmentId: appointment.id } } });
         return updated;
       });
       return reply.send(cancelled);
@@ -234,7 +234,7 @@ export async function operationsRoutes(app: FastifyInstance) {
         const reminders = planAppointmentReminders(saved.id, scheduledAt);
         if (reminders.length) await tx.notificationOutbox.createMany({ data: reminders.map((reminder) => ({ tenantId, channel: reminder.channel, templateKey: reminder.templateKey, scheduledFor: reminder.scheduledFor })) });
       }
-      await tx.timelineEvent.create({ data: { tenantId, patientId, actorUserId: request.user!.id, type: existing ? "APPOINTMENT_RESCHEDULED_BY_SECRETARY" : "APPOINTMENT_SCHEDULED_BY_SECRETARY", description: existing ? "Consulta reagendada pela Secretária Sarah após validação de agenda." : "Consulta criada pela Secretária Sarah após validação de agenda.", metadata: { appointmentId: saved.id, action: body.action } } });
+      await tx.timelineEvent.create({ data: { tenantId, patientId, actorUserId: request.user!.id, type: existing ? "APPOINTMENT_RESCHEDULED_BY_SECRETARY" : "APPOINTMENT_SCHEDULED_BY_SECRETARY", description: existing ? "Consulta reagendada pela Secretária Anna após validação de agenda." : "Consulta criada pela Secretária Anna após validação de agenda.", metadata: { appointmentId: saved.id, action: body.action } } });
       await tx.secretaryMessage.create({ data: { conversationId: conversation.id, direction: "SYSTEM", content: existing ? "Novo horário confirmado sem conflito de sala ou profissional." : "Horário confirmado sem conflito de sala ou profissional.", action: body.action, actionStatus: "COMPLETED", metadata: { appointmentId: saved.id } } });
       return { kind: "SUCCESS" as const, appointment: saved };
     });

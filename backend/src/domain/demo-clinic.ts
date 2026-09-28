@@ -21,12 +21,12 @@ export async function loadDemoClinic(database: DemoDatabase, tenantId: string, a
   const opportunity = await database.opportunity.create({ data: {
     tenantId, demoLotId: lot.id, patientId: patient.id, type: "REATIVACAO", status: "ORCAMENTO", priority: "HIGH",
     source: "BHON_DEMO", potentialValue: "1800.00", daysInactive: 21,
-    nextStep: "Preparar uma mensagem de retorno com a Sarah.",
+    nextStep: "Preparar uma mensagem de retorno com a Anna.",
   } });
   await database.followUp.create({ data: {
     tenantId, demoLotId: lot.id, patientId: patient.id, category: "ORCAMENTO", reason: "Demonstração de recuperação de orçamento",
     priority: "HIGH", status: "PENDENTE", deadlineAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    nextAction: "Revisar mensagem sugerida com a Sarah.",
+    nextAction: "Revisar mensagem sugerida com a Anna.",
   } });
 
   return { demoLotId: lot.id, patientId: patient.id, opportunityId: opportunity.id };

@@ -66,26 +66,25 @@ export const OverviewPage: React.FC = () => {
 
       {error || daily.error ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800"><span>{error || daily.error}</span>{loadFailed ? <button type="button" onClick={() => void daily.refresh()} className="font-semibold underline underline-offset-2">Tentar novamente</button> : null}</div> : null}
 
-      {!loadFailed ? <section aria-label="Resumo do dia" className="flex gap-6 overflow-x-auto rounded-2xl border border-bhon-border bg-white px-5 py-4 shadow-[0_8px_28px_rgba(31,49,60,0.045)] sm:gap-10">
+      {!loadFailed ? <section aria-label="Resumo do dia" className="flex gap-6 overflow-x-auto rounded-2xl border border-bhon-border bg-bhon-surface px-5 py-4 shadow-[0_8px_28px_rgba(31,49,60,0.045)] sm:gap-10">
         {[
           { label: 'Agendados', value: summary.total, icon: CalendarDays }, { label: 'Aguardando', value: summary.waiting, icon: Clock3 },
           { label: 'Em atendimento', value: summary.inProgress, icon: Users }, { label: 'Concluídos', value: summary.completed, icon: Check },
         ].map(({ label, value, icon: Icon }) => <div key={label} className="flex min-w-max items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-bhon-teal-subtle text-bhon-teal-dark"><Icon className="h-4 w-4" aria-hidden="true" /></span><div><p className="font-mono-data text-lg font-semibold text-bhon-navy">{value}</p><p className="text-[10px] font-medium text-bhon-muted">{label}</p></div></div>)}
       </section> : null}
 
-      {!loadFailed ? <section aria-labelledby="secretary-title" className="overflow-hidden rounded-2xl border border-teal-100 bg-gradient-to-r from-bhon-teal-subtle via-white to-white shadow-[0_8px_28px_rgba(31,49,60,0.045)]">
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bhon-teal text-white shadow-sm"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
+      {!loadFailed ? <section aria-labelledby="secretary-title" className="rounded-2xl border border-bhon-border bg-bhon-surface shadow-[0_6px_22px_rgba(31,49,60,0.035)]">
+        <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bhon-teal-subtle text-bhon-teal-dark"><Sparkles className="h-4 w-4" aria-hidden="true" /></span>
             <div>
-              <p className="bhon-eyebrow text-bhon-teal-dark">Secretária Sarah</p>
-              <h2 id="secretary-title" className="mt-1 text-base font-bold text-bhon-navy">{confirmationQueue.length > 0 ? `${confirmationQueue.length} confirmação${confirmationQueue.length === 1 ? '' : 'ões'} precisa${confirmationQueue.length === 1 ? '' : 'm'} de atenção` : nextPriority ? 'O próximo atendimento está organizado' : 'Sua agenda está em ordem'}</h2>
-              <p className="mt-1 max-w-2xl text-xs leading-5 text-bhon-muted">{confirmationQueue.length > 0 ? 'Revise a confirmação antes de acionar a comunicação com o paciente.' : nextPriority ? `${nextPriority.patientName} é a próxima pessoa na jornada de hoje.` : 'Quando houver uma confirmação, retorno ou atendimento prioritário, ele aparecerá aqui.'}</p>
+              <p className="bhon-eyebrow text-bhon-teal-dark">Anna</p>
+              <h2 id="secretary-title" className="mt-0.5 text-sm font-bold text-bhon-navy">{confirmationQueue.length > 0 ? `${confirmationQueue.length} confirmação${confirmationQueue.length === 1 ? '' : 'ões'} precisa${confirmationQueue.length === 1 ? '' : 'm'} de atenção` : nextPriority ? 'O próximo atendimento está organizado' : 'Sua agenda está em ordem'}</h2>
+              <p className="mt-0.5 max-w-2xl text-[11px] leading-4 text-bhon-muted">{confirmationQueue.length > 0 ? 'Revise a confirmação antes de falar com o paciente. Nada é enviado sem sua revisão.' : nextPriority ? `${nextPriority.patientName} é a próxima pessoa na jornada de hoje. Nada é alterado sem sua revisão.` : 'Nada prioritário para revisar agora.'}</p>
             </div>
           </div>
-          {nextPriority ? <button type="button" onClick={() => setSelected(nextPriority)} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-semibold text-white transition-colors hover:bg-bhon-navy-hover">{confirmationQueue.length > 0 ? 'Revisar confirmação' : 'Abrir próximo atendimento'} <ArrowRight className="h-3.5 w-3.5 text-bhon-teal" aria-hidden="true" /></button> : <Link href="/clinic/agenda" className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-bhon-border bg-white px-4 text-xs font-semibold text-bhon-navy hover:border-bhon-teal">Abrir agenda <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>}
+          {nextPriority ? <button type="button" onClick={() => setSelected(nextPriority)} className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-xl bg-bhon-navy px-4 text-xs font-semibold text-white transition-colors hover:bg-bhon-navy-hover">{confirmationQueue.length > 0 ? 'Revisar confirmação' : 'Abrir atendimento'} <ArrowRight className="h-3.5 w-3.5 text-bhon-teal" aria-hidden="true" /></button> : <Link href="/clinic/whatsapp" className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-bhon-border px-4 text-xs font-semibold text-bhon-navy hover:bg-bhon-teal-subtle">Abrir central <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>}
         </div>
-        <p className="border-t border-teal-100/80 bg-white/70 px-5 py-2 text-[11px] text-bhon-muted">Sugestões baseadas na agenda atual. Nenhuma mensagem ou mudança é executada sem uma ação da equipe.</p>
       </section> : null}
 
       <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,.75fr)]">

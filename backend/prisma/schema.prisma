@@ -349,6 +349,7 @@ model Patient {
   clinicDocuments ClinicDocument[]
   secretaryConversations SecretaryConversation[]
   contactPreference PatientContactPreference?
+  privacyRequests PrivacyRequest[]
 
   @@unique([tenantId, recordNumber])
   @@index([tenantId])

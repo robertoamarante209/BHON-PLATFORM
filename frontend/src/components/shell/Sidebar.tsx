@@ -148,7 +148,7 @@ export const Sidebar: React.FC = () => {
       {isMobileOpen ? (
         <div className="fixed inset-0 z-[70] sm:hidden">
           <button type="button" onClick={() => setIsMobileOpen(false)} aria-label="Fechar menu" className="absolute inset-0 h-full w-full bg-bhon-navy/60 backdrop-blur-sm" />
-          <div role="dialog" aria-modal="true" aria-label="Navegação clínica" className="bhon-mobile-sheet absolute inset-x-3 bottom-3 max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl border border-white/10 bg-bhon-navy p-5 text-white shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-label="Navegação clínica" className="bhon-mobile-sheet bhon-mobile-sheet-surface absolute inset-x-3 bottom-3 max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl border border-white/10 p-5 text-white shadow-2xl">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <p className="bhon-eyebrow !text-bhon-gold">{currentClinic.name}</p>

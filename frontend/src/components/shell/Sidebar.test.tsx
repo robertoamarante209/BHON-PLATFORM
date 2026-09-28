@@ -61,6 +61,16 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('dialog', { name: 'Navegação clínica' })).not.toBeInTheDocument();
   });
 
+  it('mantém uma superfície escura e legível no menu móvel em qualquer tema', async () => {
+    const user = userEvent.setup();
+    render(<Sidebar />);
+
+    await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
+    const dialog = screen.getByRole('dialog', { name: 'Navegação clínica' });
+    expect(dialog).toHaveClass('bhon-mobile-sheet-surface');
+    expect(dialog).not.toHaveClass('bg-bhon-navy');
+  });
+
   it('mostra somente áreas autorizadas para cada acesso individual', async () => {
     auth.currentUser = { name: 'Bia', role: 'RECEPTIONIST', permissions: ['agenda.view'] };
     const user = userEvent.setup();

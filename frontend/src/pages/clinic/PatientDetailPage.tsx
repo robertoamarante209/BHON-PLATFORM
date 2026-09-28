@@ -14,8 +14,11 @@ import {
 import { createAppointment, createPatientEvolution, getPatientDossier, getSchedulingResources } from '../../lib/clinic';
 import type { PatientDossier, ProfessionalOption } from '../../lib/clinic';
 import type { Room } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { ContactPreferencesPanel } from '../../components/privacy/ContactPreferencesPanel';
 
 export const PatientDetailPage: React.FC = () => {
+  const { currentUser } = useAuth();
   const [, params] = useRoute('/clinic/patients/:id');
   const [, setLocation] = useLocation();
   const patientId = params?.id;
@@ -299,6 +302,7 @@ export const PatientDetailPage: React.FC = () => {
                 {patient.observations || 'Nenhuma observação adicional registrada.'}
               </p>
             </div>
+            <ContactPreferencesPanel patientId={patient.id} canManage={['OWNER', 'ADMIN', 'MANAGER'].includes(currentUser.role)} />
 
             {/* Tratamentos Ativos */}
             <div className="bg-white border border-bhon-border rounded p-4">

@@ -5,12 +5,29 @@ import { requireAuth, requireRole, requireTenant } from "../lib/middleware.js";
 const CLINIC_READ_ROLES = ["OWNER", "ADMIN", "MANAGER", "DENTIST", "RECEPTIONIST", "FINANCIAL", "VIEWER"] as const;
 const MANAGEMENT_ROLES = ["OWNER", "ADMIN", "MANAGER"] as const;
 const CONTACT_STATUSES = ["NOT_INFORMED", "ALLOWED", "REFUSED"] as const;
+const PRIVACY_REQUEST_STATUSES = ["OPEN", "IN_PROGRESS", "COMPLETED", "REJECTED"] as const;
+const PRIVACY_INCIDENT_STATUSES = ["OPEN", "INVESTIGATING", "CONTAINED", "CLOSED"] as const;
 
 type ContactStatus = (typeof CONTACT_STATUSES)[number];
 
 function isContactStatus(value: unknown): value is ContactStatus {
   return typeof value === "string" && (CONTACT_STATUSES as readonly string[]).includes(value);
 }
+
+function isAllowedTransition(current: string, next: string, transitions: Record<string, readonly string[]>) {
+  return transitions[current]?.includes(next) ?? false;
+}
+
+const REQUEST_TRANSITIONS: Record<string, readonly string[]> = {
+  OPEN: ["IN_PROGRESS", "COMPLETED", "REJECTED"],
+  IN_PROGRESS: ["COMPLETED", "REJECTED"],
+};
+
+const INCIDENT_TRANSITIONS: Record<string, readonly string[]> = {
+  OPEN: ["INVESTIGATING", "CONTAINED"],
+  INVESTIGATING: ["CONTAINED", "CLOSED"],
+  CONTAINED: ["CLOSED"],
+};
 
 export async function privacyRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
@@ -120,6 +137,23 @@ export async function privacyRoutes(app: FastifyInstance) {
     return reply.code(201).send(item);
   });
 
+  app.patch<{ Params: { id: string }; Body: { status: "OPEN" | "IN_PROGRESS" | "COMPLETED" | "REJECTED" } }>("/privacy-requests/:id", {
+    preHandler: requireRole(MANAGEMENT_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["status"], properties: { status: { type: "string", enum: PRIVACY_REQUEST_STATUSES } } } },
+  }, async (request, reply) => {
+    const item = await prisma.privacyRequest.findFirst({ where: { id: request.params.id, tenantId: request.tenantId! }, select: { id: true, status: true } });
+    if (!item) return reply.code(404).send({ error: "Solicitação não encontrada.", code: "PRIVACY_REQUEST_NOT_FOUND" });
+    if (!isAllowedTransition(item.status, request.body.status, REQUEST_TRANSITIONS)) {
+      return reply.code(409).send({ error: "Essa alteração de status não é permitida.", code: "PRIVACY_REQUEST_TRANSITION_INVALID" });
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.privacyRequest.update({ where: { id: item.id }, data: { status: request.body.status } });
+      await tx.auditLog.create({ data: { tenantId: request.tenantId!, actorUserId: request.user!.id, action: "PRIVACY_REQUEST_STATUS_UPDATED", resource: "PrivacyRequest", resourceId: item.id, metadata: { status: request.body.status } } });
+      return result;
+    });
+    return reply.send(updated);
+  });
+
   app.get("/privacy-incidents", { preHandler: requireRole(MANAGEMENT_ROLES) }, async (request) => {
     return prisma.privacyIncident.findMany({ where: { tenantId: request.tenantId! }, orderBy: { createdAt: "desc" }, select: { id: true, status: true, systemArea: true, impactLevel: true, summary: true, actionsTaken: true, createdAt: true, updatedAt: true } });
   });
@@ -136,5 +170,22 @@ export async function privacyRoutes(app: FastifyInstance) {
       return created;
     });
     return reply.code(201).send(item);
+  });
+
+  app.patch<{ Params: { id: string }; Body: { status: "OPEN" | "INVESTIGATING" | "CONTAINED" | "CLOSED"; actionsTaken?: string } }>("/privacy-incidents/:id", {
+    preHandler: requireRole(MANAGEMENT_ROLES),
+    schema: { body: { type: "object", additionalProperties: false, required: ["status"], properties: { status: { type: "string", enum: PRIVACY_INCIDENT_STATUSES }, actionsTaken: { type: "string", maxLength: 500 } } } },
+  }, async (request, reply) => {
+    const item = await prisma.privacyIncident.findFirst({ where: { id: request.params.id, tenantId: request.tenantId! }, select: { id: true, status: true } });
+    if (!item) return reply.code(404).send({ error: "Registro não encontrado.", code: "PRIVACY_INCIDENT_NOT_FOUND" });
+    if (!isAllowedTransition(item.status, request.body.status, INCIDENT_TRANSITIONS)) {
+      return reply.code(409).send({ error: "Essa alteração de status não é permitida.", code: "PRIVACY_INCIDENT_TRANSITION_INVALID" });
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.privacyIncident.update({ where: { id: item.id }, data: { status: request.body.status, ...(request.body.actionsTaken !== undefined ? { actionsTaken: request.body.actionsTaken.trim() || null } : {}) } });
+      await tx.auditLog.create({ data: { tenantId: request.tenantId!, actorUserId: request.user!.id, action: "PRIVACY_INCIDENT_STATUS_UPDATED", resource: "PrivacyIncident", resourceId: item.id, metadata: { status: request.body.status } } });
+      return result;
+    });
+    return reply.send(updated);
   });
 }

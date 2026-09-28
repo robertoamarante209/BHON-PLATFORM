@@ -64,5 +64,7 @@ Depois valide:
 - logs não exibem senha, cookie, URL de banco ou corpo sensível;
 - Preview e Production usam bancos e segredos separados quando houver dados reais;
 - backup e restauração do Supabase foram testados antes de dados clínicos reais.
+- a equipe registrou as preferências de contato do paciente antes de usar a Sarah para recuperação por WhatsApp;
+- solicitações de privacidade e ocorrências foram testadas por um gestor, sem colocar dados clínicos em campos de resumo.
 
 O deployment técnico não equivale, sozinho, a prontidão para dados sensíveis. Observabilidade, recuperação de senha, testes de integração multi-tenant, política LGPD e restauração testada continuam sendo gates de produção.

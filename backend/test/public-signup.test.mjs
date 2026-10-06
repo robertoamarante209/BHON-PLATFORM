@@ -54,6 +54,8 @@ test("public trial rejects browser supplied price values", async () => {
 
 test("public trial does not expose an existing signup identifier", async () => {
   const originalFindFirst = prisma.trialSignup.findFirst;
+  const originalLimit = prisma.securityRateLimit.upsert;
+  prisma.securityRateLimit.upsert = async () => ({ attempts: 1, windowStartedAt: new Date() });
   prisma.trialSignup.findFirst = async () => ({ id: "existing-signup-id" });
   try {
     const response = await app.inject({
@@ -64,5 +66,6 @@ test("public trial does not expose an existing signup identifier", async () => {
     assert.deepEqual(response.json(), { next: "EXISTING_SIGNUP" });
   } finally {
     prisma.trialSignup.findFirst = originalFindFirst;
+    prisma.securityRateLimit.upsert = originalLimit;
   }
 });

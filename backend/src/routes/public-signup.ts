@@ -4,9 +4,9 @@ import { prisma } from "../lib/prisma.js";
 import { getStripeClient } from "../lib/stripe.js";
 import { getStripeConfiguration, isCommercialSignupEnabled, resolveBhonOffer } from "../domain/billing-catalog.js";
 import { validateTrialSignup } from "../domain/trial-signup.js";
-import { SlidingWindowRateLimiter } from "../domain/security.js";
+import { checkDurableRateLimit } from "../domain/durable-rate-limit.js";
 
-const signupLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
+const signupRateLimit = { scope: "trial-signup", maximumAttempts: 5, windowMs: 15 * 60 * 1_000 } as const;
 const CHECKOUT_EXPIRY_MS = 60 * 60 * 1_000;
 const trialSignupBodySchema = {
   type: "object",
@@ -37,7 +37,7 @@ export async function publicSignupRoutes(app: FastifyInstance) {
     const parsed = validateTrialSignup(request.body || {});
     if (parsed.errors.length) return reply.code(400).send({ error: parsed.errors[0], code: "INVALID_TRIAL_SIGNUP" });
     const { value } = parsed;
-    const limiter = signupLimiter.check(`${request.ip}:${value.ownerEmailNormalized}`);
+    const limiter = await checkDurableRateLimit({ ...signupRateLimit, identifier: `${request.ip}:${value.ownerEmailNormalized}` }, prisma);
     if (!limiter.allowed) return reply.header("Retry-After", String(limiter.retryAfterSeconds)).code(429).send({ error: "Aguarde alguns minutos antes de tentar novamente.", code: "TRIAL_RATE_LIMITED" });
 
     const pending = await prisma.trialSignup.findFirst({

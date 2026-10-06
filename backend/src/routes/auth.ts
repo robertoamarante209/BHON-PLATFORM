@@ -4,13 +4,13 @@ import { prisma } from "../lib/prisma.js";
 import { verifyPassword, generateSessionToken, hashSessionToken } from "../lib/auth.js";
 import { hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../lib/middleware.js";
-import { SlidingWindowRateLimiter } from "../domain/security.js";
+import { isDurableRateLimitAllowed, recordDurableRateLimitFailure, resetDurableRateLimit } from "../domain/durable-rate-limit.js";
 import { presentSessionUser, revokeSession } from "../domain/session.js";
 import { normalizeGoogleEmail, mapGoogleUserRowToSessionUser } from "../domain/google-identity.js";
 import { createPasswordResetToken, consumePasswordResetToken } from "../domain/password-recovery.js";
 import { deliverPasswordReset, getPasswordRecoveryConfiguration } from "../lib/password-recovery-delivery.js";
 
-const loginLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
+const loginRateLimit = { scope: "login", maximumAttempts: 5, windowMs: 15 * 60 * 1_000 } as const;
 const googleClient = new OAuth2Client();
 
 async function createAuthenticatedSession(reply: any, request: any, user: any, rememberMe = true) {
@@ -115,7 +115,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const normalized = email.trim().toLowerCase();
     const limiterKey = `${request.ip}:${normalized}`;
-    const limit = loginLimiter.check(limiterKey);
+    const limit = await isDurableRateLimitAllowed({ ...loginRateLimit, identifier: limiterKey }, prisma);
     if (!limit.allowed) {
       return reply.header("Retry-After", String(limit.retryAfterSeconds)).code(429).send({
         error: "Muitas tentativas. Aguarde antes de tentar novamente.",
@@ -129,22 +129,22 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     if (!user || !user.passwordHash) {
-      loginLimiter.recordFailure(limiterKey);
+      await recordDurableRateLimitFailure({ ...loginRateLimit, identifier: limiterKey }, prisma);
       return reply.code(401).send({ error: "Credenciais inválidas.", code: "INVALID_CREDENTIALS" });
     }
 
     const isValid = await verifyPassword(password, user.passwordHash);
     if (!isValid) {
-      loginLimiter.recordFailure(limiterKey);
+      await recordDurableRateLimitFailure({ ...loginRateLimit, identifier: limiterKey }, prisma);
       return reply.code(401).send({ error: "Credenciais inválidas.", code: "INVALID_CREDENTIALS" });
     }
 
     if (user.status !== "ACTIVE") {
-      loginLimiter.recordFailure(limiterKey);
+      await recordDurableRateLimitFailure({ ...loginRateLimit, identifier: limiterKey }, prisma);
       return reply.code(403).send({ error: "Este usuário está inativo ou bloqueado no sistema.", code: "USER_INACTIVE_OR_BLOCKED" });
     }
 
-    loginLimiter.reset(limiterKey);
+    await resetDurableRateLimit({ scope: loginRateLimit.scope, identifier: limiterKey }, prisma);
     return createAuthenticatedSession(reply, request, user, rememberMe);
   });
 

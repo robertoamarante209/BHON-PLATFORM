@@ -2,10 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { OAuth2Client } from "google-auth-library";
 import { prisma } from "../lib/prisma.js";
 import { verifyPassword, generateSessionToken, hashSessionToken } from "../lib/auth.js";
+import { hashPassword } from "../lib/auth.js";
 import { requireAuth } from "../lib/middleware.js";
 import { SlidingWindowRateLimiter } from "../domain/security.js";
 import { presentSessionUser, revokeSession } from "../domain/session.js";
 import { normalizeGoogleEmail, mapGoogleUserRowToSessionUser } from "../domain/google-identity.js";
+import { createPasswordResetToken, consumePasswordResetToken } from "../domain/password-recovery.js";
+import { deliverPasswordReset, getPasswordRecoveryConfiguration } from "../lib/password-recovery-delivery.js";
 
 const loginLimiter = new SlidingWindowRateLimiter(5, 15 * 60 * 1_000);
 const googleClient = new OAuth2Client();
@@ -56,6 +59,36 @@ async function createAuthenticatedSession(reply: any, request: any, user: any, r
 }
 
 export async function authRoutes(app: FastifyInstance) {
+  app.get("/auth/password-recovery/status", async (_request, reply) => reply.send({ enabled: getPasswordRecoveryConfiguration().enabled }));
+
+  app.post("/auth/password-recovery", {
+    schema: { body: { type: "object", additionalProperties: false, required: ["email"], properties: { email: { type: "string", minLength: 3, maxLength: 320 } } } },
+  }, async (request, reply) => {
+    const email = String((request.body as { email?: string } | undefined)?.email || "").trim().toLowerCase();
+    const config = getPasswordRecoveryConfiguration();
+    if (config.enabled) {
+      const user = await prisma.user.findFirst({ where: { emailNormalized: email, deletedAt: null, status: "ACTIVE" }, select: { id: true, email: true } });
+      if (user) {
+        const reset = await createPasswordResetToken(user.id, prisma);
+        await deliverPasswordReset({ email: user.email, rawToken: reset.rawToken });
+      }
+    }
+    return reply.code(202).send({ message: "Se houver uma conta ativa com este e-mail, você receberá as instruções de recuperação." });
+  });
+
+  app.post("/auth/password-reset", {
+    schema: { body: { type: "object", additionalProperties: false, required: ["token", "password"], properties: { token: { type: "string", minLength: 20, maxLength: 200 }, password: { type: "string", minLength: 12, maxLength: 200 } } } },
+  }, async (request, reply) => {
+    const body = request.body as { token: string; password: string };
+    const reset = await consumePasswordResetToken(body.token, prisma);
+    if (!reset) return reply.code(400).send({ error: "Este link de recuperação é inválido ou expirou.", code: "PASSWORD_RESET_INVALID" });
+    await prisma.$transaction(async (transaction) => {
+      await transaction.user.update({ where: { id: reset.userId }, data: { passwordHash: await hashPassword(body.password) } });
+      await transaction.session.updateMany({ where: { userId: reset.userId, revokedAt: null }, data: { revokedAt: new Date() } });
+    });
+    return reply.send({ success: true });
+  });
+
   app.post("/auth/login", {
     schema: {
       body: {

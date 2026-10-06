@@ -65,6 +65,9 @@ export const LoginPage: React.FC = () => {
   const [introStarted, setIntroStarted] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryMessage, setRecoveryMessage] = useState('');
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
   useEffect(() => {
@@ -123,6 +126,16 @@ export const LoginPage: React.FC = () => {
     } finally { setIsSubmitting(false); }
   };
 
+  const requestPasswordRecovery = async () => {
+    if (!recoveryEmail) return;
+    setRecoveryMessage('');
+    try {
+      await fetch('/auth/password-recovery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: recoveryEmail }) });
+    } finally {
+      setRecoveryMessage('Se houver uma conta ativa com este e-mail, você receberá as instruções de recuperação.');
+    }
+  };
+
   return (
     <div className="bhon-login-shell min-h-[100dvh] overflow-hidden bg-white text-[#171725]">
       {showIntro && (
@@ -165,8 +178,13 @@ export const LoginPage: React.FC = () => {
               <button type="submit" disabled={isSubmitting} className="min-h-[48px] w-full rounded-lg bg-[#0f1115] px-6 py-3 text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#00a98b] hover:shadow-lg disabled:cursor-wait disabled:opacity-60">{isSubmitting ? 'Entrando…' : 'Entrar'}</button>
               <div className="flex items-center justify-between gap-4 pt-1 text-xs">
                 <label htmlFor="remember-access" className="flex cursor-pointer items-center gap-2 text-[#697080]"><input id="remember-access" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 rounded border-[#d8dbe4] text-[#00b894] focus:ring-[#00b894]" />Lembrar meu acesso</label>
-                <span className="font-semibold text-[#00a98b]">Esqueci minha senha</span>
+                <button type="button" onClick={() => setShowRecovery((value) => !value)} className="font-semibold text-[#197b6b] hover:underline">Esqueci minha senha</button>
               </div>
+              {showRecovery && <div className="rounded-lg border border-[#d8dbe4] bg-[#f8faf9] p-3 text-sm">
+                <label htmlFor="recovery-email" className="mb-2 block font-medium text-[#283345]">E-mail de acesso</label>
+                <div className="flex gap-2"><input id="recovery-email" type="email" value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="min-w-0 flex-1 rounded border border-[#cbd2dc] px-3 py-2" /><button type="button" onClick={requestPasswordRecovery} className="rounded bg-[#18243b] px-3 py-2 font-semibold text-white">Enviar</button></div>
+                {recoveryMessage && <p role="status" className="mt-2 text-[#43536a]">{recoveryMessage}</p>}
+              </div>}
             </form>
           </div>
         </section>

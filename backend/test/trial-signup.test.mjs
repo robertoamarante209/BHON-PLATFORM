@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const { validateTrialSignup } = await import("../src/domain/trial-signup.ts");
+const { isCommercialSignupEnabled } = await import("../src/domain/billing-catalog.ts");
 
 const valid = {
   clinicName: "Clínica Horizonte",
@@ -28,4 +29,10 @@ test("trial signup normalizes identifiers and permits only the approved billing 
   assert.equal(result.value.ownerEmailNormalized, "ana@horizonte.test");
   assert.equal(result.value.username, "ana.horizonte");
   assert.equal(validateTrialSignup({ ...valid, billingCycle: "WEEKLY" }).errors[0], "Escolha um ciclo mensal ou anual.");
+});
+
+test("public commercial signup requires an explicit legal approval", () => {
+  assert.equal(isCommercialSignupEnabled({}), false);
+  assert.equal(isCommercialSignupEnabled({ LEGAL_COMMERCIAL_APPROVED: "false" }), false);
+  assert.equal(isCommercialSignupEnabled({ LEGAL_COMMERCIAL_APPROVED: "true" }), true);
 });

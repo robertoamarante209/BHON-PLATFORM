@@ -8,7 +8,9 @@ describe('StartTrialPage', () => {
     render(<StartTrialPage />);
     expect(screen.getByRole('heading', { name: /comece com 14 dias/i })).toBeVisible();
     expect(screen.getByLabelText(/mensal.*r\$ 290/i)).toBeChecked();
+    expect(screen.getByLabelText(/anual.*r\$ 2\.900\/ano.*r\$ 241,67\/mês/i)).toBeVisible();
     expect(screen.getByLabelText(/termos de uso/i)).toBeRequired();
     expect(screen.getByLabelText(/política de privacidade/i)).toBeRequired();
+    expect(screen.getByLabelText(/crie uma senha/i)).toHaveAttribute('minlength', '12');
   });
 });

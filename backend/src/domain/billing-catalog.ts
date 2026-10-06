@@ -18,6 +18,10 @@ export function resolveBhonOffer(cycle: string): BhonOffer | null {
 
 type BillingEnvironment = Record<string, string | undefined>;
 
+export function isCommercialSignupEnabled(env: BillingEnvironment = process.env): boolean {
+  return env.LEGAL_COMMERCIAL_APPROVED === "true";
+}
+
 export function getStripeConfiguration(env: BillingEnvironment = process.env) {
   const secretKey = env.STRIPE_SECRET_KEY;
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET;

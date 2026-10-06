@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { hashPassword } from "../lib/auth.js";
 import { prisma } from "../lib/prisma.js";
 import { getStripeClient } from "../lib/stripe.js";
-import { getStripeConfiguration, resolveBhonOffer } from "../domain/billing-catalog.js";
+import { getStripeConfiguration, isCommercialSignupEnabled, resolveBhonOffer } from "../domain/billing-catalog.js";
 import { validateTrialSignup } from "../domain/trial-signup.js";
 import { SlidingWindowRateLimiter } from "../domain/security.js";
 
@@ -31,6 +31,9 @@ export async function publicSignupRoutes(app: FastifyInstance) {
   app.post<{ Body: Record<string, unknown> }>("/public/trials", {
     schema: { body: trialSignupBodySchema },
   }, async (request, reply) => {
+    if (!isCommercialSignupEnabled()) {
+      return reply.code(503).send({ error: "O cadastro comercial ainda está em preparação.", code: "COMMERCIAL_SIGNUP_UNAVAILABLE" });
+    }
     const parsed = validateTrialSignup(request.body || {});
     if (parsed.errors.length) return reply.code(400).send({ error: parsed.errors[0], code: "INVALID_TRIAL_SIGNUP" });
     const { value } = parsed;
@@ -59,6 +62,9 @@ export async function publicSignupRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Params: { id: string } }>("/public/trials/:id/checkout", async (request, reply) => {
+    if (!isCommercialSignupEnabled()) {
+      return reply.code(503).send({ error: "O checkout comercial ainda está em preparação.", code: "COMMERCIAL_SIGNUP_UNAVAILABLE" });
+    }
     const signup = await prisma.trialSignup.findFirst({ where: { id: request.params.id, expiresAt: { gt: new Date() }, status: { in: ["PENDING", "CHECKOUT_STARTED"] } } });
     if (!signup) return reply.code(404).send({ error: "Não foi possível retomar este cadastro.", code: "TRIAL_SIGNUP_NOT_AVAILABLE" });
     const offer = resolveBhonOffer(signup.billingCycle);

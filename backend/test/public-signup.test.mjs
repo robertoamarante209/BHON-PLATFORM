@@ -6,7 +6,7 @@ process.env.DIRECT_URL ||= process.env.DATABASE_URL;
 
 const { buildApp } = await import("../src/app.ts");
 const { prisma } = await import("../src/lib/prisma.ts");
-const app = await buildApp({
+const app = buildApp({
   logger: false,
   cookieSecret: "test-only-cookie-secret-with-32-characters",
   allowedOrigins: ["https://app.bhon.test"],
@@ -31,25 +31,23 @@ const validSignup = (overrides = {}) => ({
   ...overrides,
 });
 
-test("public trial rejects missing privacy consent through the signup contract", async () => {
-  const response = await app.inject({
-    method: "POST",
-    url: "/public/trials",
-    payload: validSignup({ acceptedPrivacy: false }),
-  });
+test("public trial signup remains unavailable until legal approval is explicit", async () => {
+  process.env.LEGAL_COMMERCIAL_APPROVED = "false";
+  const response = await app.inject({ method: "POST", url: "/public/trials", payload: validSignup() });
+  assert.equal(response.statusCode, 503, response.body);
+  assert.equal(response.json().code, "COMMERCIAL_SIGNUP_UNAVAILABLE");
+});
 
+test("public trial rejects missing privacy consent through the signup contract", async () => {
+  process.env.LEGAL_COMMERCIAL_APPROVED = "true";
+  const response = await app.inject({ method: "POST", url: "/public/trials", payload: validSignup({ acceptedPrivacy: false }) });
   assert.equal(response.statusCode, 400, response.body);
   assert.equal(response.json().code, "INVALID_TRIAL_SIGNUP");
   assert.equal(response.json().error, "Aceite a Política de Privacidade para continuar.");
 });
 
 test("public trial rejects browser supplied price values", async () => {
-  const response = await app.inject({
-    method: "POST",
-    url: "/public/trials",
-    payload: validSignup({ amount: 1, priceId: "price_attacker" }),
-  });
-
+  const response = await app.inject({ method: "POST", url: "/public/trials", payload: validSignup({ amount: 1, priceId: "price_attacker" }) });
   assert.equal(response.statusCode, 400, response.body);
   assert.equal(response.json().code, "VALIDATION_ERROR");
 });
@@ -59,11 +57,9 @@ test("public trial does not expose an existing signup identifier", async () => {
   prisma.trialSignup.findFirst = async () => ({ id: "existing-signup-id" });
   try {
     const response = await app.inject({
-      method: "POST",
-      url: "/public/trials",
+      method: "POST", url: "/public/trials",
       payload: validSignup({ ownerEmail: "already-started@horizonte.test", username: "ana.existing" }),
     });
-
     assert.equal(response.statusCode, 202);
     assert.deepEqual(response.json(), { next: "EXISTING_SIGNUP" });
   } finally {
